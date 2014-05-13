@@ -11,12 +11,29 @@ environments: development, testing, production, etc.
 envconsul is inspired by [envdir](http://cr.yp.to/daemontools/envdir.html)
 in its simplicity, name, and function.
 
-## Usage
+## Download & Usage
 
 Download a release from the
 [releases page](#).
+Run `envconsul` to see the usage help:
 
-Then just run `envconsul`. We run the example below against our
+```
+$ envconsul
+Usage: envconsul.exe [options] prefix child...
+
+  Sets environmental variables for the child process by reading
+  K/V from Consul's K/V store with the given prefix.
+
+Options:
+
+  -addr="127.0.0.1:8500": consul HTTP API address with port
+  -reload=false: if set, restarts the process when config changes
+
+```
+
+## Example
+
+We run the example below against our
 [NYC demo server](http://nyc1.demo.consul.io). This lets you set
 keys/values in a public place to just quickly test envconsul. Note
 that the demo server will clear the k/v store every 30 minutes.
@@ -41,6 +58,7 @@ FOO=baz
 -----
 FOO=baz
 BAR=foo
+-----
 ```
 
 The above output happened by setting keys and values within
