@@ -13,10 +13,14 @@ func main() {
 }
 
 func realMain() int {
+	var errExit bool
 	var reload bool
 	var consulAddr string
 	var consulDC string
 	flag.Usage = usage
+	flag.BoolVar(
+		&errExit, "errexit", false,
+		"exit if there is an error watching config keys")
 	flag.BoolVar(
 		&reload, "reload", false,
 		"if set, restarts the process when config changes")
@@ -36,8 +40,9 @@ func realMain() int {
 	config := WatchConfig{
 		ConsulAddr: consulAddr,
 		ConsulDC:   consulDC,
-		Prefix:     args[0],
 		Cmd:        args[1:],
+		ErrExit:    errExit,
+		Prefix:     args[0],
 		Reload:     reload,
 	}
 	result, err := watchAndExec(&config)

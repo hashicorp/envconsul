@@ -16,8 +16,9 @@ import (
 type WatchConfig struct {
 	ConsulAddr string
 	ConsulDC   string
-	Prefix     string
 	Cmd        []string
+	ErrExit    bool
+	Prefix     string
 	Reload     bool
 }
 
@@ -35,11 +36,11 @@ func watchAndExec(config *WatchConfig) (int, error) {
 
 	// Start the watcher goroutine that watches for changes in the
 	// K/V and notifies us on a channel.
-	pairCh := make(chan consulkv.KVPairs)
 	errCh := make(chan error, 1)
+	pairCh := make(chan consulkv.KVPairs)
 	quitCh := make(chan struct{})
 	defer close(quitCh)
-	go watch(client, config.Prefix, pairCh, errCh, quitCh)
+	go watch(client, config.Prefix, pairCh, errCh, quitCh, config.ErrExit)
 
 	// This channel is what is sent to when a process exits that we
 	// are running. We start it out as `nil` since we have no process.
@@ -152,7 +153,8 @@ func watch(
 	prefix string,
 	pairCh chan<- consulkv.KVPairs,
 	errCh chan<- error,
-	quitCh <-chan struct{}) {
+	quitCh <-chan struct{},
+	errExit bool) {
 	// Get the initial list of k/v pairs. We don't do a retryableList
 	// here because we want a fast fail if the initial request fails.
 	meta, pairs, err := client.List(prefix)
@@ -178,7 +180,7 @@ func watch(
 			func() (*consulkv.KVMeta, consulkv.KVPairs, error) {
 				return client.WatchList(prefix, curIndex)
 			})
-		if err != nil {
+		if err != nil && errExit {
 			errCh <- err
 			return
 		}
