@@ -15,6 +15,7 @@ func main() {
 func realMain() int {
 	var reload bool
 	var consulAddr string
+	var consulDC string
 	flag.Usage = usage
 	flag.BoolVar(
 		&reload, "reload", false,
@@ -22,6 +23,9 @@ func realMain() int {
 	flag.StringVar(
 		&consulAddr, "addr", "127.0.0.1:8500",
 		"consul HTTP API address with port")
+	flag.StringVar(
+		&consulDC, "dc", "",
+		"consul datacenter, uses local if blank")
 	flag.Parse()
 	if flag.NArg() < 2 {
 		flag.Usage()
@@ -31,7 +35,7 @@ func realMain() int {
 	args := flag.Args()
 	config := WatchConfig{
 		ConsulAddr: consulAddr,
-		ConsulDC:   "",
+		ConsulDC:   consulDC,
 		Prefix:     args[0],
 		Cmd:        args[1:],
 		Reload:     reload,
