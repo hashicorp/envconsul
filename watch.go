@@ -61,7 +61,8 @@ func watchAndExec(config *WatchConfig) (int, error) {
 
 		newEnv := make(map[string]string)
 		for _, pair := range pairs {
-			newEnv[pair.Key] = string(pair.Value)
+			k := pair.Key[len(config.Prefix)+1:]
+			newEnv[k] = string(pair.Value)
 		}
 
 		// If the environmental variables didn't actually change,
