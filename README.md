@@ -27,6 +27,8 @@ Usage: envconsul.exe [options] prefix child...
 Options:
 
   -addr="127.0.0.1:8500": consul HTTP API address with port
+  -dc="": consul datacenter, uses local if blank
+  -errexit=false: exit if there is an error watching config keys
   -reload=false: if set, restarts the process when config changes
 
 ```
