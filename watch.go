@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
+	"strings"
 	"syscall"
 	"time"
 
@@ -61,7 +62,8 @@ func watchAndExec(config *WatchConfig) (int, error) {
 
 		newEnv := make(map[string]string)
 		for _, pair := range pairs {
-			k := pair.Key[len(config.Prefix)+1:]
+			k := strings.TrimPrefix(pair.Key, config.Prefix)
+			k = strings.TrimLeft(k, "/")
 			newEnv[k] = string(pair.Value)
 		}
 
