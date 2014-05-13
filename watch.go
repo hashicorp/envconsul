@@ -120,7 +120,7 @@ func watchAndExec(config *WatchConfig) (int, error) {
 		// (if any) don't cause us to exit, and start a goroutine
 		// to wait for that process to end.
 		exitCh = make(chan int, 1)
-		go func(cmd *exec.Cmd) {
+		go func(cmd *exec.Cmd, exitCh chan<- int) {
 			err := cmd.Wait()
 			if err == nil {
 				exitCh <- 0
@@ -136,7 +136,7 @@ func watchAndExec(config *WatchConfig) (int, error) {
 			}
 
 			exitCh <- 111
-		}(cmd)
+		}(cmd, exitCh)
 	}
 
 	return 0, nil
