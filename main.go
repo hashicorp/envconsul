@@ -33,10 +33,10 @@ func realMain() int {
 		&consulDC, "dc", "",
 		"consul datacenter, uses local if blank")
 	flag.BoolVar(
-		&sanitize, "sanitize", false,
+		&sanitize, "sanitize", true,
 		"turn invalid characters in the key into underscores")
 	flag.BoolVar(
-		&upcase, "upcase", false,
+		&upcase, "upcase", true,
 		"make all environmental variable keys uppercase")
 	flag.Parse()
 	if flag.NArg() < 2 {
