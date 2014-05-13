@@ -48,7 +48,9 @@ func watchAndExec(config *WatchConfig) (int, error) {
 	pairCh := make(chan consulkv.KVPairs)
 	quitCh := make(chan struct{})
 	defer close(quitCh)
-	go watch(client, config.Prefix, pairCh, errCh, quitCh, config.ErrExit)
+	go watch(
+		client, config.Prefix, pairCh, errCh, quitCh,
+		config.ErrExit, config.Reload)
 
 	// This channel is what is sent to when a process exits that we
 	// are running. We start it out as `nil` since we have no process.
@@ -168,7 +170,8 @@ func watch(
 	pairCh chan<- consulkv.KVPairs,
 	errCh chan<- error,
 	quitCh <-chan struct{},
-	errExit bool) {
+	errExit bool,
+	watch bool) {
 	// Get the initial list of k/v pairs. We don't do a retryableList
 	// here because we want a fast fail if the initial request fails.
 	meta, pairs, err := client.List(prefix)
@@ -179,6 +182,11 @@ func watch(
 
 	// Send the initial list out right away
 	pairCh <- pairs
+
+	// If we're not watching, just return right away
+	if !watch {
+		return
+	}
 
 	// Loop forever (or until quitCh is closed) and watch the keys
 	// for changes.
