@@ -71,6 +71,9 @@ func watchAndExec(config *WatchConfig) (int, error) {
 			continue
 		}
 
+		// Replace the env so we can detect future changes
+		env = newEnv
+
 		// Configuration changed, reload the process.
 		if cmd != nil {
 			if !config.Reload {
