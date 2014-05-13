@@ -183,11 +183,6 @@ func watch(
 			return
 		}
 
-		// If nothing actually changed (request just timed out), return
-		if meta.ModifyIndex == curIndex {
-			continue
-		}
-
 		pairCh <- pairs
 		curIndex = meta.ModifyIndex
 	}
