@@ -13,8 +13,12 @@ func main() {
 }
 
 func realMain() int {
+	var reload bool
 	var consulAddr string
 	flag.Usage = usage
+	flag.BoolVar(
+		&reload, "reload", false,
+		"if set, restarts the process when config changes")
 	flag.StringVar(
 		&consulAddr, "addr", "127.0.0.1:8500",
 		"consul HTTP API address with port")
@@ -30,6 +34,7 @@ func realMain() int {
 		ConsulDC:   "",
 		Prefix:     args[0],
 		Cmd:        args[1:],
+		Reload:     reload,
 	}
 	result, err := watchAndExec(&config)
 	if err != nil {

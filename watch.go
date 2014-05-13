@@ -17,6 +17,7 @@ type WatchConfig struct {
 	ConsulDC   string
 	Prefix     string
 	Cmd        []string
+	Reload     bool
 }
 
 // Connects to Consul and watches a given K/V prefix and uses that to
@@ -70,6 +71,37 @@ func watchAndExec(config *WatchConfig) (int, error) {
 		}
 
 		// Configuration changed, reload the process.
+		if cmd != nil {
+			if !config.Reload {
+				// We don't want to reload the process... just ignore.
+				continue
+			}
+
+			// Kill the process
+			exited := false
+			if err := cmd.Process.Signal(syscall.SIGTERM); err == nil {
+				// Wait a few seconds for it to exit
+				killCh := make(chan struct{})
+				go func() {
+					defer close(killCh)
+					cmd.Process.Wait()
+				}()
+
+				select {
+				case <-killCh:
+					exited = true
+				case <-time.After(3 * time.Second):
+				}
+			}
+
+			// If we still haven't exited from a SIGKILL
+			if !exited {
+				cmd.Process.Kill()
+			}
+
+			cmd = nil
+		}
+
 		cmdEnv := make([]string, 0, len(newEnv))
 		for k, v := range newEnv {
 			cmdEnv = append(cmdEnv, fmt.Sprintf("%s=%s", k, v))
