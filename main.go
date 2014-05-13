@@ -17,6 +17,7 @@ func realMain() int {
 	var reload bool
 	var consulAddr string
 	var consulDC string
+	var upcase bool
 	flag.Usage = usage
 	flag.BoolVar(
 		&errExit, "errexit", false,
@@ -30,6 +31,9 @@ func realMain() int {
 	flag.StringVar(
 		&consulDC, "dc", "",
 		"consul datacenter, uses local if blank")
+	flag.BoolVar(
+		&upcase, "upcase", false,
+		"make all environmental variables uppercase")
 	flag.Parse()
 	if flag.NArg() < 2 {
 		flag.Usage()
@@ -44,6 +48,7 @@ func realMain() int {
 		ErrExit:    errExit,
 		Prefix:     args[0],
 		Reload:     reload,
+		Upcase:     upcase,
 	}
 	result, err := watchAndExec(&config)
 	if err != nil {

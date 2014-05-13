@@ -20,6 +20,7 @@ type WatchConfig struct {
 	ErrExit    bool
 	Prefix     string
 	Reload     bool
+	Upcase     bool
 }
 
 // Connects to Consul and watches a given K/V prefix and uses that to
@@ -65,6 +66,9 @@ func watchAndExec(config *WatchConfig) (int, error) {
 		for _, pair := range pairs {
 			k := strings.TrimPrefix(pair.Key, config.Prefix)
 			k = strings.TrimLeft(k, "/")
+			if config.Upcase {
+				k = strings.ToUpper(k)
+			}
 			newEnv[k] = string(pair.Value)
 		}
 
