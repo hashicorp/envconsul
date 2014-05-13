@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"reflect"
 	"strings"
 	"syscall"
@@ -20,8 +21,14 @@ type WatchConfig struct {
 	ErrExit    bool
 	Prefix     string
 	Reload     bool
+	Sanitize   bool
 	Upcase     bool
 }
+
+var (
+	// Regexp for invalid characters in keys
+	InvalidRegexp = regexp.MustCompile(`[^a-zA-Z0-9_]`)
+)
 
 // Connects to Consul and watches a given K/V prefix and uses that to
 // execute a child process.
@@ -66,6 +73,9 @@ func watchAndExec(config *WatchConfig) (int, error) {
 		for _, pair := range pairs {
 			k := strings.TrimPrefix(pair.Key, config.Prefix)
 			k = strings.TrimLeft(k, "/")
+			if config.Sanitize {
+				k = InvalidRegexp.ReplaceAllString(k, "_")
+			}
 			if config.Upcase {
 				k = strings.ToUpper(k)
 			}

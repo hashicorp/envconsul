@@ -18,6 +18,7 @@ Download a release from the
 Run `envconsul` to see the usage help:
 
 ```
+
 $ envconsul
 Usage: envconsul.exe [options] prefix child...
 
@@ -30,6 +31,8 @@ Options:
   -dc="": consul datacenter, uses local if blank
   -errexit=false: exit if there is an error watching config keys
   -reload=false: if set, restarts the process when config changes
+  -sanitize=false: turn invalid characters in the key into underscores
+  -upcase=false: make all environmental variable keys uppercase
 
 ```
 

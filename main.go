@@ -17,6 +17,7 @@ func realMain() int {
 	var reload bool
 	var consulAddr string
 	var consulDC string
+	var sanitize bool
 	var upcase bool
 	flag.Usage = usage
 	flag.BoolVar(
@@ -32,8 +33,11 @@ func realMain() int {
 		&consulDC, "dc", "",
 		"consul datacenter, uses local if blank")
 	flag.BoolVar(
+		&sanitize, "sanitize", false,
+		"turn invalid characters in the key into underscores")
+	flag.BoolVar(
 		&upcase, "upcase", false,
-		"make all environmental variables uppercase")
+		"make all environmental variable keys uppercase")
 	flag.Parse()
 	if flag.NArg() < 2 {
 		flag.Usage()
@@ -48,6 +52,7 @@ func realMain() int {
 		ErrExit:    errExit,
 		Prefix:     args[0],
 		Reload:     reload,
+		Sanitize:   sanitize,
 		Upcase:     upcase,
 	}
 	result, err := watchAndExec(&config)
