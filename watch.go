@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"regexp"
 	"reflect"
+	"regexp"
 	"strings"
 	"syscall"
 	"time"
@@ -125,7 +125,10 @@ func watchAndExec(config *WatchConfig) (int, error) {
 			cmd = nil
 		}
 
-		cmdEnv := make([]string, 0, len(newEnv))
+		processEnv := os.Environ()
+		cmdEnv := make(
+			[]string, len(processEnv), len(newEnv)+len(processEnv))
+		copy(cmdEnv, processEnv)
 		for k, v := range newEnv {
 			cmdEnv = append(cmdEnv, fmt.Sprintf("%s=%s", k, v))
 		}
