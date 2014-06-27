@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/armon/consul-kv"
+	"github.com/armon/consul-api"
 )
 
 // Configuration for watches.
@@ -33,11 +33,11 @@ var (
 // Connects to Consul and watches a given K/V prefix and uses that to
 // execute a child process.
 func watchAndExec(config *WatchConfig) (int, error) {
-	kvConfig := consulkv.DefaultConfig()
+	kvConfig := consulapi.DefaultConfig()
 	kvConfig.Address = config.ConsulAddr
 	kvConfig.Datacenter = config.ConsulDC
 
-	client, err := consulkv.NewClient(kvConfig)
+	client, err := consulapi.NewClient(kvConfig)
 	if err != nil {
 		return 0, err
 	}
@@ -45,7 +45,7 @@ func watchAndExec(config *WatchConfig) (int, error) {
 	// Start the watcher goroutine that watches for changes in the
 	// K/V and notifies us on a channel.
 	errCh := make(chan error, 1)
-	pairCh := make(chan consulkv.KVPairs)
+	pairCh := make(chan consulapi.KVPairs)
 	quitCh := make(chan struct{})
 	defer close(quitCh)
 	go watch(
@@ -59,7 +59,7 @@ func watchAndExec(config *WatchConfig) (int, error) {
 	var env map[string]string
 	var cmd *exec.Cmd
 	for {
-		var pairs consulkv.KVPairs
+		var pairs consulapi.KVPairs
 
 		// Wait for new pairs to come on our channel or an error
 		// to occur.
@@ -168,16 +168,16 @@ func watchAndExec(config *WatchConfig) (int, error) {
 }
 
 func watch(
-	client *consulkv.Client,
+	client *consulapi.Client,
 	prefix string,
-	pairCh chan<- consulkv.KVPairs,
+	pairCh chan<- consulapi.KVPairs,
 	errCh chan<- error,
 	quitCh <-chan struct{},
 	errExit bool,
 	watch bool) {
 	// Get the initial list of k/v pairs. We don't do a retryableList
 	// here because we want a fast fail if the initial request fails.
-	meta, pairs, err := client.List(prefix)
+	pairs, meta, err := client.KV().List(prefix, nil)
 	if err != nil {
 		errCh <- err
 		return
@@ -193,7 +193,7 @@ func watch(
 
 	// Loop forever (or until quitCh is closed) and watch the keys
 	// for changes.
-	curIndex := meta.ModifyIndex
+	curIndex := meta.LastIndex
 	for {
 		select {
 		case <-quitCh:
@@ -201,9 +201,10 @@ func watch(
 		default:
 		}
 
-		meta, pairs, err = retryableList(
-			func() (*consulkv.KVMeta, consulkv.KVPairs, error) {
-				return client.WatchList(prefix, curIndex)
+		pairs, meta, err = retryableList(
+			func() (consulapi.KVPairs, *consulapi.QueryMeta, error) {
+				opts := &consulapi.QueryOptions{WaitIndex: curIndex}
+				return client.KV().List(prefix, opts)
 			})
 		if err != nil && errExit {
 			errCh <- err
@@ -211,7 +212,7 @@ func watch(
 		}
 
 		pairCh <- pairs
-		curIndex = meta.ModifyIndex
+		curIndex = meta.LastIndex
 	}
 }
 
@@ -219,10 +220,10 @@ func watch(
 // We want to retry if there are errors because it is safe (GET request),
 // and erroring early is MUCH more costly than retrying over time and
 // delaying the configuration propagation.
-func retryableList(f func() (*consulkv.KVMeta, consulkv.KVPairs, error)) (*consulkv.KVMeta, consulkv.KVPairs, error) {
+func retryableList(f func() (consulapi.KVPairs, *consulapi.QueryMeta, error)) (consulapi.KVPairs, *consulapi.QueryMeta, error) {
 	i := 0
 	for {
-		m, p, e := f()
+		p, m, e := f()
 		if e != nil {
 			if i >= 3 {
 				return nil, nil, e
@@ -235,6 +236,6 @@ func retryableList(f func() (*consulkv.KVMeta, consulkv.KVPairs, error)) (*consu
 			time.Sleep(time.Duration(i*2) * time.Second)
 		}
 
-		return m, p, e
+		return p, m, e
 	}
 }
