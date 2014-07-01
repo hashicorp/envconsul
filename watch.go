@@ -206,9 +206,11 @@ func watch(
 				opts := &consulapi.QueryOptions{WaitIndex: curIndex}
 				return client.KV().List(prefix, opts)
 			})
-		if err != nil && errExit {
-			errCh <- err
-			return
+		if err != nil {
+			if errExit {
+				errCh <- err
+				return
+			}
 		}
 
 		pairCh <- pairs
