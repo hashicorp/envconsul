@@ -21,6 +21,7 @@ type WatchConfig struct {
 	ErrExit    bool
 	Prefix     string
 	Reload     bool
+	Timeout    time.Duration
 	Sanitize   bool
 	Upcase     bool
 }
@@ -113,7 +114,7 @@ func watchAndExec(config *WatchConfig) (int, error) {
 				select {
 				case <-killCh:
 					exited = true
-				case <-time.After(3 * time.Second):
+				case <-time.After(config.Timeout):
 				}
 			}
 
