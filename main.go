@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 func main() {
@@ -15,6 +16,7 @@ func main() {
 func realMain() int {
 	var errExit bool
 	var reload bool
+	var timeout time.Duration
 	var consulAddr string
 	var consulDC string
 	var sanitize bool
@@ -26,6 +28,9 @@ func realMain() int {
 	flag.BoolVar(
 		&reload, "reload", false,
 		"if set, restarts the process when config changes")
+	flag.DurationVar(
+		&timeout, "timeout", 3*time.Second,
+		"how long to wait after SIGTERM when reloading")
 	flag.StringVar(
 		&consulAddr, "addr", "127.0.0.1:8500",
 		"consul HTTP API address with port")
@@ -52,6 +57,7 @@ func realMain() int {
 		ErrExit:    errExit,
 		Prefix:     args[0],
 		Reload:     reload,
+		Timeout:    timeout,
 		Sanitize:   sanitize,
 		Upcase:     upcase,
 	}
