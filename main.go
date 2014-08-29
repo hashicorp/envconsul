@@ -51,7 +51,7 @@ func realMain() int {
 	}
 	if !reloadOpts[reload] {
 		fmt.Println("Invalid value for -reload. Possible values are true, false, and terminate")
-    flag.Usage()
+		flag.Usage()
 		return 111
 	}
 
