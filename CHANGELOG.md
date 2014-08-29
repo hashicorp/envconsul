@@ -1,3 +1,6 @@
+## Unreleased
+  * Do not reload command if -reload=terminate
+
 ## 0.2.0 (July 16, 2014)
 
   * Sanitize and upcase by default
