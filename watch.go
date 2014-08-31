@@ -20,7 +20,7 @@ type WatchConfig struct {
 	Cmd        []string
 	ErrExit    bool
 	Prefix     string
-	Reload     bool
+	Reload     string
 	Timeout    time.Duration
 	Sanitize   bool
 	Upcase     bool
@@ -96,7 +96,7 @@ func watchAndExec(config *WatchConfig) (int, error) {
 
 		// Configuration changed, reload the process.
 		if cmd != nil {
-			if !config.Reload {
+			if config.Reload == "false" {
 				// We don't want to reload the process... just ignore.
 				continue
 			}
@@ -124,6 +124,11 @@ func watchAndExec(config *WatchConfig) (int, error) {
 			}
 
 			cmd = nil
+
+			if config.Reload == "terminate" {
+				exitCh <- 0
+				return 0, err
+			}
 		}
 
 		processEnv := os.Environ()
@@ -175,7 +180,7 @@ func watch(
 	errCh chan<- error,
 	quitCh <-chan struct{},
 	errExit bool,
-	watch bool) {
+	watch string) {
 	// Get the initial list of k/v pairs. We don't do a retryableList
 	// here because we want a fast fail if the initial request fails.
 	pairs, meta, err := client.KV().List(prefix, nil)
@@ -188,7 +193,7 @@ func watch(
 	pairCh <- pairs
 
 	// If we're not watching, just return right away
-	if !watch {
+	if watch == "false" {
 		return
 	}
 
