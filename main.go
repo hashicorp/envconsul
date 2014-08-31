@@ -15,7 +15,7 @@ func main() {
 
 func realMain() int {
 	var errExit bool
-	var reload bool
+	var reload string
 	var timeout time.Duration
 	var consulAddr string
 	var consulDC string
@@ -25,12 +25,13 @@ func realMain() int {
 	flag.BoolVar(
 		&errExit, "errexit", false,
 		"exit if there is an error watching config keys")
-	flag.BoolVar(
-		&reload, "reload", false,
-		"if set, restarts the process when config changes")
 	flag.DurationVar(
 		&timeout, "timeout", 3*time.Second,
 		"how long to wait after SIGTERM when reloading")
+	flag.StringVar(
+		&reload, "reload", "false",
+		`if true, restarts the process when config change
+			if terminate, kills the process when config change`)
 	flag.StringVar(
 		&consulAddr, "addr", "127.0.0.1:8500",
 		"consul HTTP API address with port")
@@ -47,6 +48,16 @@ func realMain() int {
 	if flag.NArg() < 2 {
 		flag.Usage()
 		return 1
+	}
+	reloadOpts := map[string]bool{
+		"true":      true,
+		"false":     true,
+		"terminate": true,
+	}
+	if !reloadOpts[reload] {
+		fmt.Println("Invalid value for -reload. Possible values are true, false, and terminate")
+		flag.Usage()
+		return 111
 	}
 
 	args := flag.Args()
