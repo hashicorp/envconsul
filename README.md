@@ -55,7 +55,7 @@ We can also ask envconsul to watch for any configuration changes
 and restart our process:
 
 ```
-$ envconsul -addr="nyc1.demo.consul.io:80" -reload \
+$ envconsul -addr="nyc1.demo.consul.io:80" -reload=true \
   prefix /bin/sh -c "env; echo "-----"; sleep 1000"
 FOO=bar
 -----
