@@ -58,7 +58,7 @@ func TestAddFile(t* testing.T) {
 		outC <- buf.String()
 	}()
 
-	// Run the fsconsul listener in the background
+	// Run the envconsul listener in the background
 	go func() {
 
 		config := WatchConfig{
