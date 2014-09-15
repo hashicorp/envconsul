@@ -63,8 +63,8 @@ func TestAddFile(t* testing.T) {
 
 		config := WatchConfig{
 			ConsulAddr: consulapi.DefaultConfig().Address,
-			ConsulDC:   "dc1",
-			Prefix:     "gotest",
+			ConsulDC:	"dc1",
+			Prefix:		"gotest",
 			Reload:		true,
 			Cmd:		[]string{cmd},
 			Upcase:		true,
