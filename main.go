@@ -20,6 +20,7 @@ func realMain() int {
 	var timeout time.Duration
 	var consulAddr string
 	var consulDC string
+	var keystore string
 	var sanitize bool
 	var upcase bool
 	flag.Usage = usage
@@ -41,6 +42,9 @@ func realMain() int {
 	flag.StringVar(
 		&consulDC, "dc", "",
 		"consul datacenter, uses local if blank")
+	flag.StringVar(
+		&keystore, "keystore", "",
+		"directory of keys used for decryption")
 	flag.BoolVar(
 		&sanitize, "sanitize", true,
 		"turn invalid characters in the key into underscores")
@@ -63,6 +67,7 @@ func realMain() int {
 		Reload:     reload,
 		Terminate:  terminate,
 		Timeout:    timeout,
+		Keystore:   keystore,
 		Sanitize:   sanitize,
 		Upcase:     upcase,
 	}

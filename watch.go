@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/armon/consul-api"
+	"github.com/ryanbreen/gocrypt"
 )
 
 // Configuration for watches.
@@ -23,6 +24,7 @@ type WatchConfig struct {
 	Reload     bool
 	Terminate  bool
 	Timeout    time.Duration
+	Keystore   string
 	Sanitize   bool
 	Upcase     bool
 }
@@ -83,7 +85,13 @@ func watchAndExec(config *WatchConfig) (int, error) {
 			if config.Upcase {
 				k = strings.ToUpper(k)
 			}
-			newEnv[k] = string(pair.Value)
+
+			v, err := gocrypt.DecryptTags(pair.Value, config.Keystore)
+			if (err != nil) {
+				v = pair.Value
+			}
+
+			newEnv[k] = string(v)
 		}
 
 		// If the environmental variables didn't actually change,
