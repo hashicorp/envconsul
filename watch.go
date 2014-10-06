@@ -21,6 +21,7 @@ type WatchConfig struct {
 	ErrExit    bool
 	Prefix     string
 	Reload     bool
+	Restart    bool
 	Terminate  bool
 	Timeout    time.Duration
 	Sanitize   bool
@@ -67,33 +68,39 @@ func watchAndExec(config *WatchConfig) (int, error) {
 		// to occur.
 		select {
 		case exit := <-exitCh:
-			return exit, nil
+			if !config.Restart || exit == 0 {
+				return exit, nil
+			}
+			// The process already exited so cmd is invalid.
+			cmd = nil
 		case pairs = <-pairCh:
 		case err := <-errCh:
 			return 0, err
 		}
 
-		newEnv := make(map[string]string)
-		for _, pair := range pairs {
-			k := strings.TrimPrefix(pair.Key, config.Prefix)
-			k = strings.TrimLeft(k, "/")
-			if config.Sanitize {
-				k = InvalidRegexp.ReplaceAllString(k, "_")
+		if pairs != nil {
+			newEnv := make(map[string]string)
+			for _, pair := range pairs {
+				k := strings.TrimPrefix(pair.Key, config.Prefix)
+				k = strings.TrimLeft(k, "/")
+				if config.Sanitize {
+					k = InvalidRegexp.ReplaceAllString(k, "_")
+				}
+				if config.Upcase {
+					k = strings.ToUpper(k)
+				}
+				newEnv[k] = string(pair.Value)
 			}
-			if config.Upcase {
-				k = strings.ToUpper(k)
+
+			// If the environmental variables didn't actually change,
+			// then don't do anything.
+			if reflect.DeepEqual(env, newEnv) {
+				continue
 			}
-			newEnv[k] = string(pair.Value)
-		}
 
-		// If the environmental variables didn't actually change,
-		// then don't do anything.
-		if reflect.DeepEqual(env, newEnv) {
-			continue
+			// Replace the env so we can detect future changes
+			env = newEnv
 		}
-
-		// Replace the env so we can detect future changes
-		env = newEnv
 
 		// Configuration changed, reload the process.
 		if cmd != nil {
@@ -135,9 +142,9 @@ func watchAndExec(config *WatchConfig) (int, error) {
 
 		processEnv := os.Environ()
 		cmdEnv := make(
-			[]string, len(processEnv), len(newEnv)+len(processEnv))
+			[]string, len(processEnv), len(env)+len(processEnv))
 		copy(cmdEnv, processEnv)
-		for k, v := range newEnv {
+		for k, v := range env {
 			cmdEnv = append(cmdEnv, fmt.Sprintf("%s=%s", k, v))
 		}
 		cmd = exec.Command(config.Cmd[0], config.Cmd[1:]...)
