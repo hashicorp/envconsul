@@ -233,10 +233,10 @@ func watch(
 func retryableList(f func() (consulapi.KVPairs, *consulapi.QueryMeta, error)) (consulapi.KVPairs, *consulapi.QueryMeta, error) {
 	i := 0
 	for {
-		p, m, e := f()
-		if e != nil {
+		p, m, err := f()
+		if err != nil {
 			if i >= 3 {
-				return nil, nil, e
+				return nil, nil, err
 			}
 
 			i++
@@ -244,8 +244,8 @@ func retryableList(f func() (consulapi.KVPairs, *consulapi.QueryMeta, error)) (c
 			// Reasonably arbitrary sleep to just try again... It is
 			// a GET request so this is safe.
 			time.Sleep(time.Duration(i*2) * time.Second)
+		} else {
+			return p, m, nil
 		}
-
-		return p, m, e
 	}
 }
