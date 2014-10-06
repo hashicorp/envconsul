@@ -16,6 +16,7 @@ func main() {
 func realMain() int {
 	var errExit bool
 	var reload bool
+	var restart bool
 	var terminate bool
 	var timeout time.Duration
 	var consulAddr string
@@ -32,6 +33,9 @@ func realMain() int {
 	flag.BoolVar(
 		&reload, "reload", false,
 		"if true, restarts the process when config change")
+	flag.BoolVar(
+		&restart, "restart", false,
+		"if true, restarts the process when it exits with an exit code other than 0")
 	flag.BoolVar(
 		&terminate, "terminate", false,
 		"if true and reload is used, the application is terminated without restarting")
@@ -61,6 +65,7 @@ func realMain() int {
 		ErrExit:    errExit,
 		Prefix:     args[0],
 		Reload:     reload,
+		Restart:    restart,
 		Terminate:  terminate,
 		Timeout:    timeout,
 		Sanitize:   sanitize,
