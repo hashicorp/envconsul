@@ -221,8 +221,14 @@ func watch(
 			}
 		}
 
-		pairCh <- pairs
-		curIndex = meta.LastIndex
+		if meta == nil {
+			// This happens when the connection to the consul agent dies.  Build in a retry by looping after a delay.
+			fmt.Println("Error communicating with consul agent.")
+			time.Sleep(time.Duration(5) * time.Second)
+		} else {
+			pairCh <- pairs
+			curIndex = meta.LastIndex
+		}
 	}
 }
 
