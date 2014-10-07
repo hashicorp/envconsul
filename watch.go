@@ -219,6 +219,7 @@ func watch(
 				errCh <- err
 				return
 			}
+			continue
 		}
 
 		pairCh <- pairs
