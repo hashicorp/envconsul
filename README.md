@@ -39,7 +39,7 @@ Options:
 ## Example
 
 We run the example below against our
-[NYC demo server](http://nyc1.demo.consul.io). This lets you set
+[NYC demo server](http://nyc3.demo.consul.io). This lets you set
 keys/values in a public place to just quickly test envconsul. Note
 that the demo server will clear the k/v store every 30 minutes.
 
@@ -47,7 +47,7 @@ After setting the `prefix/FOO` key to "bar" on the demo server,
 we can see it work:
 
 ```
-$ envconsul -addr="nyc1.demo.consul.io:80" prefix env
+$ envconsul -addr="nyc3.demo.consul.io:80" prefix env
 FOO=bar
 ```
 
@@ -55,7 +55,7 @@ We can also ask envconsul to watch for any configuration changes
 and restart our process:
 
 ```
-$ envconsul -addr="nyc1.demo.consul.io:80" -reload=true \
+$ envconsul -addr="nyc3.demo.consul.io:80" -reload=true \
   prefix /bin/sh -c "env; echo "-----"; sleep 1000"
 FOO=bar
 -----
