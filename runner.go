@@ -90,10 +90,7 @@ func (r *Runner) Receive(data interface{}) {
 
 // Wait for the child process to finish (if one exists).
 func (r *Runner) Wait() int {
-	select {
-	case exitCode := <-r.ExitCh:
-		return exitCode
-	}
+	return <-r.ExitCh
 }
 
 // Run executes and manages the child process with the correct environment. The
