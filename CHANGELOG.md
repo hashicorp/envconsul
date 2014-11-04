@@ -1,4 +1,4 @@
-ENVConsul Changelog
+envconsul Changelog
 ===================
 
 ## vUnreleased

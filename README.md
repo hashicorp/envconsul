@@ -1,15 +1,15 @@
-ENVConsul
+envconsul
 =========
 
-ENVConsul provides a convienent way to populate values from [Consul][] into an child process environment using the `envconsul` daemon.
+envconsul provides a convienent way to populate values from [Consul][] into an child process environment using the `envconsul` daemon.
 
 The daemon `envconsul` allows applications to be configured with environmental variables, without having knowledge about the existence of Consul. This makes it especially easy to configure applications throughout all your environments: development, testing, production, etc.
 
-ENVConsul is inspired by [envdir][] in its simplicity, name, and function.
+envconsul is inspired by [envdir][] in its simplicity, name, and function.
 
 Installation
 ------------
-You can download a released `envconsul` artifact from [the ENVConsul release page][Releases] on GitHub. If you wish to compile from source, you will need to have buildtools and [Go][] installed:
+You can download a released `envconsul` artifact from [the envconsul release page][Releases] on GitHub. If you wish to compile from source, you will need to have buildtools and [Go][] installed:
 
 ```shell
 $ git clone https://github.com/hashicorp/envconsul.git
@@ -56,7 +56,7 @@ $ envconsul \
 ```
 
 ### Configuration File
-The ENVConsul configuration file is written in [HashiCorp Configuration Language (HCL)][HCL]. By proxy, this means the ENVConsul configuration file is JSON-compatible. For more information, please see the [HCL specification][HCL].
+The envconsul configuration file is written in [HashiCorp Configuration Language (HCL)][HCL]. By proxy, this means the envconsul configuration file is JSON-compatible. For more information, please see the [HCL specification][HCL].
 
 The Configuration file syntax interface supports all of the options detailed above.
 
@@ -82,7 +82,7 @@ $ envconsul \
 ```
 
 ### Env
-This example is a great way to see `envconsul` in action. In practice, it is unlikely to be a useful use of ENVConsul though:
+This example is a great way to see `envconsul` in action. In practice, it is unlikely to be a useful use of envconsul though:
 
 ```shell
 $ envconsul \
@@ -93,7 +93,7 @@ ADDRESS=1.2.3.4
 PORT=55
 ```
 
-We can also ask ENVConsul to poll for configuration changes and automatically restar the process:
+We can also ask envconsul to poll for configuration changes and automatically restar the process:
 
 ```
 $ envconsul \
@@ -111,7 +111,7 @@ MAXCONNS=50
 
 Contributing
 ------------
-To hack on ENVConsul, you will need a modern [Go][] environment. To compile the `envconsul` binary and run the test suite, simply execute:
+To hack on envconsul, you will need a modern [Go][] environment. To compile the `envconsul` binary and run the test suite, simply execute:
 
 ```shell
 $ make
@@ -131,13 +131,13 @@ Or to run a specific test in the suite:
 go test ./... -run SomeTestFunction_name
 ```
 
-Submit Pull Requests and Issues to the ENVConsul project on GitHub.
+Submit Pull Requests and Issues to the envconsul project on GitHub.
 
 
 
 [Consul]: http://consul.io/ "Service discovery and configuration made easy"
 [envdir]: http://cr.yp.to/daemontools/envdir.html "envdir"
-[Releases]: https://github.com/hashicorp/envconsul/releases "ENVConsul releases page"
+[Releases]: https://github.com/hashicorp/envconsul/releases "envconsul releases page"
 [HCL]: https://github.com/hashicorp/hcl "HashiCorp Configuration Language (HCL)"
 [Go]: http://golang.org "Go the language"
 [Consul ACLs]: http://www.consul.io/docs/internals/acl.html "Consul ACLs"
