@@ -64,9 +64,9 @@ func (cli *CLI) Run(args []string) int {
 		"the path to a config file on disk")
 	flags.DurationVar(&config.Timeout, "timeout", 0,
 		"the time to wait for a process to restart")
-	flags.BoolVar(&config.Sanitize, "sanitize", false,
+	flags.BoolVar(&config.Sanitize, "sanitize", true,
 		"remove bad characters from values")
-	flags.BoolVar(&config.Upcase, "upcase", false,
+	flags.BoolVar(&config.Upcase, "upcase", true,
 		"convert all environment keys to uppercase")
 	flags.BoolVar(&once, "once", false,
 		"do not run as a daemon")
