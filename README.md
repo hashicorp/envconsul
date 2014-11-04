@@ -28,11 +28,11 @@ Usage
 | `consul`    | _(required)_ | The location of the Consul instance to query (may be an IP address or FQDN) with port. |
 | `token`     | | The [Consul API token][Consul ACLs]. |
 | `config`    | | The path to a configuration file on disk, relative to the current working directory. Values specified on the CLI take precedence over values specified in the configuration file |
-| `wait`      | | The `minimum(:maximum)` to wait before rendering a new template to disk and triggering a command, separated by a colon (`:`). If the optional maximum value is omitted, it is assumed to be 4x the required minimum value. |
+| `wait`      | | The `minimum(:maximum)` to wait before triggering a reload, separated by a colon (`:`). If the optional maximum value is omitted, it is assumed to be 4x the required minimum value. |
 | `timeout`   | | The duration to wait for SIGTERM to finish before sending SIGKILL |
 | `sanitize`  | | Replace invalid characters in keys to underscores |
 | `upcase`    | | Convert all environment variable keys to uppercase |
-| `once`      | | Run Consul Template once and exit (as opposed to the default behavior of daemon). |
+| `once`      | | Run envconsul once and exit (as opposed to the default behavior of daemon). |
 
 ### Command Line
 The CLI interface supports all of the options detailed above.
