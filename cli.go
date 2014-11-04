@@ -286,10 +286,10 @@ Options:
 
   -consul=<address>    Sets the address of the Consul instance
   -token=<token>       Sets the Consul API token
+  -config=<path>       Sets the path to a configuration file on disk
   -wait=<duration>     Sets the 'minumum(:maximum)' amount of time to wait
                        before writing the environment (and triggering a command)
   -timeout=<time>      Sets the duration to wait for SIGTERM during a reload
-  -config=<path>       Sets the path to a configuration file on disk
 
   -sanitize            Replace invalid characters in keys to underscores
   -upcase              Convert all environment variable keys to uppercase
