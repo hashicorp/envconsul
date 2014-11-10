@@ -1,0 +1,13 @@
+{
+    "github": {
+        "repo": "zvelo-nsqd"
+    },
+    "pivotal_tracker": {
+        "project": {
+            "id": 1198000
+        }
+    },
+    "hipchat": {
+        "room": "928727"
+    }
+}
