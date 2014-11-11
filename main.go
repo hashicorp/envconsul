@@ -38,6 +38,21 @@ func init() {
 			EnvVar: "ENVETCD_KEY_FILE",
 			Usage:  "tls client key file",
 		},
+		cli.StringFlag{
+			Name:   "hostname",
+			EnvVar: "HOSTNAME",
+			Usage:  "computer hostname for host specific configuration",
+		},
+		cli.StringFlag{
+			Name:   "system",
+			EnvVar: "ENVETCD_SYSTEM",
+			Usage:  "system name for system specific configuration",
+		},
+		cli.StringFlag{
+			Name:   "service",
+			EnvVar: "ENVETCD_SERVICE",
+			Usage:  "service name for service specific configuration",
+		},
 		cli.BoolFlag{
 			Name:   "no-sanitize",
 			EnvVar: "ENVETCD_NO_SANITIZE",

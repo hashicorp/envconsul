@@ -25,13 +25,13 @@ const (
 // status from the command.
 func run(c *cli.Context) {
 	args := c.Args()
-	if len(args) < 2 {
-		err := fmt.Errorf("cli: missing required arguments prefix and command")
+	if len(args) < 1 {
+		err := fmt.Errorf("cli: missing command")
 		cli.ShowAppHelp(c)
 		handleError(err, exitCodeParseFlagsError)
 	}
 
-	prefix, command := args[0], args[1:]
+	command := args[0:]
 
 	runner := newRunner(c, command)
 
@@ -40,9 +40,7 @@ func run(c *cli.Context) {
 		handleError(err, exitCodeEtcdError)
 	}
 
-	if runner.data, err = getKeyPairs(client, prefix); err != nil {
-		handleError(err, exitCodeEtcdError)
-	}
+	runner.data = getKeyPairs(c, client)
 
 	if err := runner.run(); err != nil {
 		handleError(err, exitCodeRunnerError)

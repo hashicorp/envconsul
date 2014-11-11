@@ -42,9 +42,7 @@ func newRunner(c *cli.Context, command []string) *runner {
 // current enviornment is also copied into the child process environment.
 func (r *runner) run() error {
 	env := make(map[string]string)
-	for _, pair := range r.data {
-		key := pair.Key
-
+	for key, value := range r.data {
 		if !r.context.Bool("no-sanitize") {
 			key = invalidRegexp.ReplaceAllString(key, "_")
 		}
@@ -53,12 +51,11 @@ func (r *runner) run() error {
 			key = strings.ToUpper(key)
 		}
 
-		env[key] = string(pair.Value)
+		env[key] = value
 	}
 
 	// Create a new environment
-	//processEnv := os.Environ()
-	processEnv := []string{} // TODO(jrubin) uncomment previous line and delete this one
+	processEnv := os.Environ()
 	cmdEnv := make([]string, len(processEnv), len(env)+len(processEnv))
 	copy(cmdEnv, processEnv)
 	for k, v := range env {

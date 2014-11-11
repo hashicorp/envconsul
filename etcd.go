@@ -1,27 +1,38 @@
 package main
 
 import (
+	"bytes"
+	"log"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
+	"text/template"
 
 	"github.com/codegangsta/cli"
 	"github.com/coreos/etcd/pkg/transport"
 	"github.com/coreos/go-etcd/etcd"
 )
 
-// KeyPair is a simple Key-Value pair
-type KeyPair struct {
-	Path  string
-	Key   string
-	Value string
+// order of precedence:
+// global < system < service < host
+
+var etcdKeyTemplates = [...]string{
+	"/config/global",
+	"{{if .System}}/config/system/{{.System}}{{end}}",
+	"{{if .Service}}/config/service/{{.Service}}{{end}}",
+	"{{if .Hostname}}/config/host/{{.Hostname}}{{end}}",
+}
+
+type etcdKeyData struct {
+	System, Service, Hostname string
 }
 
 // KeyPairs is a slice of KeyPair pointers
-type KeyPairs []*KeyPair
+type KeyPairs map[string]string
 
 func getEndpoints(c *cli.Context) ([]string, error) {
-	eps := c.StringSlice("peers")
+	eps := c.GlobalStringSlice("peers")
 	for i, ep := range eps {
 		u, err := url.Parse(ep)
 		if err != nil {
@@ -39,9 +50,9 @@ func getEndpoints(c *cli.Context) ([]string, error) {
 
 func getTransport(c *cli.Context) (*http.Transport, error) {
 	tls := transport.TLSInfo{
-		CAFile:   c.String("ca-file"),
-		CertFile: c.String("cert-file"),
-		KeyFile:  c.String("key-file"),
+		CAFile:   c.GlobalString("ca-file"),
+		CertFile: c.GlobalString("cert-file"),
+		KeyFile:  c.GlobalString("key-file"),
 	}
 	return transport.NewTransport(tls)
 
@@ -64,40 +75,55 @@ func getClient(c *cli.Context) (*etcd.Client, error) {
 	return client, nil
 }
 
-func getKeyPairs(client *etcd.Client, prefix string) (KeyPairs, error) {
+func getKeyPairs(c *cli.Context, client *etcd.Client) KeyPairs {
 	const noSort = false
 	const recursive = true
 
-	resp, err := client.Get(prefix, noSort, recursive)
-	if err != nil {
-		return nil, err
+	tmplData := etcdKeyData{
+		System:   c.GlobalString("system"),
+		Service:  c.GlobalString("service"),
+		Hostname: c.GlobalString("hostname"),
 	}
 
-	var keyPairs []*KeyPair
+	keyPairs := make(KeyPairs)
 
-	buildKeyPairs(prefix, keyPairs, resp.Node)
+	for i, tmpl := range etcdKeyTemplates {
+		t := template.Must(template.New("etcdKey" + strconv.Itoa(i)).Parse(tmpl))
+		var buf bytes.Buffer
+		err := t.Execute(&buf, tmplData)
+		if err != nil {
+			log.Println("error executing template:", err)
+			continue
+		}
 
-	// log.Println("keyPairs", keyPairs)
+		if buf.Len() == 0 {
+			continue
+		}
 
-	return keyPairs, nil
+		dir := buf.String()
+		resp, err := client.Get(dir, noSort, recursive)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+
+		addKeyPair(keyPairs, dir, resp.Node)
+	}
+
+	return keyPairs
 }
 
-func buildKeyPairs(prefix string, keyPairs []*KeyPair, node *etcd.Node) {
-	//log.Printf("[DEBUG] (%s) on node %s", d.Display(), node.Key)
+func addKeyPair(keyPairs KeyPairs, dir string, node *etcd.Node) {
 	if node.Dir {
 		for _, child := range node.Nodes {
-			buildKeyPairs(prefix, keyPairs, child)
+			addKeyPair(keyPairs, dir, child)
 		}
 
 		return
 	}
 
-	key := strings.TrimPrefix(node.Key, prefix)
+	key := strings.TrimPrefix(node.Key, dir)
 	key = strings.TrimLeft(key, "/")
 
-	keyPairs = append(keyPairs, &KeyPair{
-		Path:  node.Key,
-		Key:   key,
-		Value: node.Value,
-	})
+	keyPairs[key] = node.Value
 }
