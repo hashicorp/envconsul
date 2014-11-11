@@ -6,8 +6,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/hashicorp/consul-template/test"
 )
 
 func TestServiceDependencyFetch(t *testing.T) {

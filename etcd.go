@@ -54,7 +54,7 @@ func getTransport(config *Config) (*http.Transport, error) {
 
 }
 
-func (cli *CLI) getClient(config *Config) (*etcd.Client, error) {
+func (c *cli) getClient(config *Config) (*etcd.Client, error) {
 	endpoints, err := getEndpoints(config)
 	if err != nil {
 		return nil, err

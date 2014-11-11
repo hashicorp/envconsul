@@ -1,40 +1,53 @@
-NAME = `cat ./main.go | grep "Name = " | cut -d" " -f4 | sed 's/[^"]*"\([^"]*\).*/\1/'`
-VERSION = `cat ./main.go | grep "Version = " | cut -d" " -f4 | sed 's/[^"]*"\([^"]*\).*/\1/'`
-DEPS = $(go list -f '{{range .TestImports}}{{.}} {{end}}' ./...)
+alldirs=$(shell find . \( -path ./Godeps -o -path ./.git \) -prune -o -type d -print)
+GODIRS=$(foreach dir, $(alldirs), $(if $(wildcard $(dir)/*.go),$(dir)))
+GOFILES=$(foreach dir, $(alldirs), $(wildcard $(dir)/*.go))
 
-all: deps build
+TEST_TAGS=test
+BUILD_TAGS=
 
-deps:
-	go get -d -v ./...
-	echo $(DEPS) | xargs -n1 go get -d
+ifeq ("$(WERCKER)", "true")
+TEST_TAGS  += wercker
+BUILD_TAGS += wercker production
+endif
 
-build:
-	@mkdir -p bin/
-	go build -o bin/$(NAME)
+EXECUTABLE ?= envetcd
+ETCD_HOST ?= 127.0.0.1
+ETCD_PORT ?= 4001
+ETCD_PEER_PORT ?= 7001
 
-test: deps
-	go list ./... | xargs -n1 go test -timeout=3s
+all: build
 
-xcompile: deps test
-	@rm -rf build/
-	@mkdir -p build
-	gox \
-		-os="darwin" \
-		-os="dragonfly" \
-		-os="freebsd" \
-		-os="linux" \
-		-os="netbsd" \
-		-os="openbsd" \
-		-os="solaris" \
-		-os="windows" \
-		-output="build/{{.Dir}}_$(VERSION)_{{.OS}}_{{.Arch}}/$(NAME)"
+lint:
+	golint ./...
+	go vet ./...
 
-package: xcompile
-	$(eval FILES := $(shell ls build))
-	@mkdir -p build/tgz
-	for f in $(FILES); do \
-		(cd build && tar -zcvf tgz/$$f.tar.gz $$f); \
-		echo $$f; \
+test:
+	godep go test -tags "$(TEST_TAGS)" -v ./...
+
+coverage:
+	@echo "mode: set" > acc.out
+	@for dir in $(GODIRS); do \
+		cmd="godep go test -tags '$(TEST_TAGS)' -v -coverprofile=profile.out $$dir"; \
+		eval $$cmd; \
+		if test $$? -ne 0; then \
+			exit 1; \
+		fi; \
+		if test -f profile.out; then \
+			cat profile.out | grep -v "mode: set" >> acc.out; \
+		fi; \
 	done
+	@rm -f ./profile.out
 
-.PHONY: all deps build test xcompile package
+build: $(EXECUTABLE)
+
+$(EXECUTABLE): $(GOFILES)
+	godep go build -tags "$(BUILD_TAGS)" -v -o $(EXECUTABLE)
+
+clean:
+	@rm -f ./$(EXECUTABLE)
+
+save:
+	godep save ./...
+
+etcd:
+	@etcd -data-dir .cache/etcd -name $(EXECUTABLE) -addr=$(ETCD_HOST):$(ETCD_PORT) -peer-addr=$(ETCD_HOST):$(ETCD_PEER_PORT)

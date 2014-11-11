@@ -5,11 +5,11 @@ import (
 )
 
 const (
-	Name    = "envetcd"
-	Version = "0.1.0"
+	name    = "envetcd"
+	version = "0.1.0"
 )
 
 func main() {
-	cli := &CLI{outStream: os.Stdout, errStream: os.Stderr}
-	os.Exit(cli.Run(os.Args))
+	c := &cli{outStream: os.Stdout, errStream: os.Stderr}
+	os.Exit(c.Run(os.Args))
 }

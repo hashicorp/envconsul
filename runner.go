@@ -16,8 +16,8 @@ import (
 // Regexp for invalid characters in keys
 var InvalidRegexp = regexp.MustCompile(`[^a-zA-Z0-9_]`)
 
-type Runner struct {
-	// Prefix is the KeyPrefixDependency associated with this Runner.
+type runner struct {
+	// Prefix is the KeyPrefixDependency associated with this runner.
 	Prefix *util.KeyPrefixDependency
 
 	// Command is the slice of the command string and any arguments.
@@ -36,7 +36,7 @@ type Runner struct {
 	// env is the last compiled environment.
 	env map[string]string
 
-	// cmd is the last known instance of the running command for this Runner.
+	// cmd is the last known instance of the running command for this runner.
 	cmd *exec.Cmd
 
 	// outStream and errStream are the io.Writer streams where the runner will
@@ -45,9 +45,7 @@ type Runner struct {
 	outStream, errStream io.Writer
 }
 
-// NewRunner creates a new runner object from the given keyPrefix, config, and
-// command string. Any errors that occur are returned.
-func NewRunner(s string, config *Config, command []string) (*Runner, error) {
+func newRunner(s string, config *Config, command []string) (*runner, error) {
 	if s == "" {
 		return nil, fmt.Errorf("runner: missing prefix")
 	}
@@ -65,7 +63,7 @@ func NewRunner(s string, config *Config, command []string) (*Runner, error) {
 		return nil, err
 	}
 
-	runner := &Runner{
+	run := &runner{
 		Prefix:    prefix,
 		Command:   command,
 		config:    config,
@@ -73,28 +71,28 @@ func NewRunner(s string, config *Config, command []string) (*Runner, error) {
 		errStream: os.Stderr,
 	}
 
-	return runner, nil
+	return run, nil
 }
 
-// Dependencies returns the list of dependencies for this Runner. At this time,
+// Dependencies returns the list of dependencies for this runner. At this time,
 // this function will always return a slice with exactly one element.
-func (r *Runner) Dependencies() []util.Dependency {
+func (r *runner) Dependencies() []util.Dependency {
 	return []util.Dependency{r.Prefix}
 }
 
 // Receive accepts data from etcd and maps that data to the prefix.
-func (r *Runner) Receive(data interface{}) {
+func (r *runner) Receive(data interface{}) {
 	r.data = data.([]*util.KeyPair)
 }
 
 // Wait for the child process to finish (if one exists).
-func (r *Runner) Wait() int {
+func (r *runner) Wait() int {
 	return <-r.ExitCh
 }
 
 // Run executes and manages the child process with the correct environment. The
 // current enviornment is also copied into the child process environment.
-func (r *Runner) Run() error {
+func (r *runner) Run() error {
 	env := make(map[string]string)
 	for _, pair := range r.data {
 		key := pair.Key
@@ -149,7 +147,7 @@ func (r *Runner) Run() error {
 	go func(cmd *exec.Cmd, exitCh chan<- int) {
 		err := cmd.Wait()
 		if err == nil {
-			exitCh <- ExitCodeOK
+			exitCh <- exitCodeOK
 			return
 		}
 
@@ -161,15 +159,15 @@ func (r *Runner) Run() error {
 			}
 		}
 
-		exitCh <- ExitCodeError
+		exitCh <- exitCodeError
 	}(cmd, r.ExitCh)
 
 	return nil
 }
 
-// Restart the current process in the Runner by sending a SIGTERM. It is
-// assumed that the process is set on the Runner!
-func (r *Runner) restartProcess() {
+// Restart the current process in the runner by sending a SIGTERM. It is
+// assumed that the process is set on the runner!
+func (r *runner) restartProcess() {
 	// Kill the process
 	exited := false
 

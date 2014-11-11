@@ -13,16 +13,16 @@ import (
 // Sub-systems may check this unique error to determine the cause of an error
 // without parsing the output or help text.
 const (
-	ExitCodeOK int = 0
+	exitCodeOK int = 0
 
 	// Errors start at 10
-	ExitCodeError = 10 + iota
-	ExitCodeParseFlagsError
-	ExitCodeRunnerError
-	ExitCodeWatcherError
+	exitCodeError = 10 + iota
+	exitCodeParseFlagsError
+	exitCodeRunnerError
+	exitCodeWatcherError
 )
 
-type CLI struct {
+type cli struct {
 	// outSteam and errStream are the standard out and standard error streams to
 	// write messages from the CLI.
 	outStream, errStream io.Writer
@@ -30,15 +30,15 @@ type CLI struct {
 
 // Run accepts a slice of arguments and returns an int representing the exit
 // status from the command.
-func (cli *CLI) Run(args []string) int {
-	var version bool
+func (c *cli) Run(args []string) int {
+	var ver bool
 	var config = new(Config)
 
 	// Parse the flags and options
-	flags := flag.NewFlagSet(Name, flag.ContinueOnError)
-	flags.SetOutput(cli.errStream)
+	flags := flag.NewFlagSet(name, flag.ContinueOnError)
+	flags.SetOutput(c.errStream)
 	flags.Usage = func() {
-		fmt.Fprintf(cli.errStream, usage, Name)
+		fmt.Fprintf(c.errStream, usage, name)
 	}
 	flags.StringVar(&config.Etcd, "etcd", "", "address of the etcd instance")
 	flags.StringVar(&config.CAFile, "ca-file", "", "certificate authority file")
@@ -46,42 +46,42 @@ func (cli *CLI) Run(args []string) int {
 	flags.StringVar(&config.KeyFile, "key-file", "", "tls client key file")
 	flags.BoolVar(&config.Sanitize, "sanitize", true, "remove bad characters from values")
 	flags.BoolVar(&config.Upcase, "upcase", true, "convert all environment keys to uppercase")
-	flags.BoolVar(&version, "version", false, "display the version")
+	flags.BoolVar(&ver, "version", false, "display the version")
 
 	// If there was a parser error, stop
 	if err := flags.Parse(args[1:]); err != nil {
-		return cli.handleError(err, ExitCodeParseFlagsError)
+		return c.handleError(err, exitCodeParseFlagsError)
 	}
 
 	// If the version was requested, return an "error" containing the version
 	// information. This might sound weird, but most *nix applications actually
 	// print their version on stderr anyway.
-	if version {
-		fmt.Fprintf(cli.errStream, "%s v%s\n", Name, Version)
-		return ExitCodeOK
+	if ver {
+		fmt.Fprintf(c.errStream, "%s v%s\n", name, version)
+		return exitCodeOK
 	}
 
 	args = flags.Args()
 	if len(args) < 2 {
 		err := fmt.Errorf("cli: missing required arguments prefix and command")
-		return cli.handleError(err, ExitCodeParseFlagsError)
+		return c.handleError(err, exitCodeParseFlagsError)
 	}
 
 	prefix, command := args[0], args[1:]
 
-	runner, err := NewRunner(prefix, config, command)
+	runner, err := newRunner(prefix, config, command)
 	if err != nil {
-		return cli.handleError(err, ExitCodeRunnerError)
+		return c.handleError(err, exitCodeRunnerError)
 	}
 
-	client, err := cli.getClient(config)
+	client, err := c.getClient(config)
 	if err != nil {
-		return cli.handleError(err, ExitCodeError)
+		return c.handleError(err, exitCodeError)
 	}
 
 	watcher, err := util.NewWatcher(client, runner.Dependencies())
 	if err != nil {
-		return cli.handleError(err, ExitCodeWatcherError)
+		return c.handleError(err, exitCodeWatcherError)
 	}
 
 	go watcher.Watch()
@@ -93,29 +93,29 @@ func (cli *CLI) Run(args []string) int {
 			runner.Receive(data.Data)
 
 			if err := runner.Run(); err != nil {
-				return cli.handleError(err, ExitCodeRunnerError)
+				return c.handleError(err, exitCodeRunnerError)
 			}
 		case err := <-watcher.ErrCh:
 			log.Printf("[INFO] (cli) watcher got error")
-			return cli.handleError(err, ExitCodeError)
+			return c.handleError(err, exitCodeError)
 		case <-watcher.FinishCh:
 			return runner.Wait()
 		case exitCode := <-runner.ExitCh:
 			log.Printf("[INFO] (cli) subprocess exited")
 
-			if exitCode == ExitCodeOK {
-				return ExitCodeOK
+			if exitCode == exitCodeOK {
+				return exitCodeOK
 			}
 
 			err := fmt.Errorf("unexpected exit from subprocess (%d)", exitCode)
-			return cli.handleError(err, exitCode)
+			return c.handleError(err, exitCode)
 		}
 	}
 }
 
 // handleError outputs the given error's Error() to the errStream and returns
 // the given exit status.
-func (cli *CLI) handleError(err error, status int) int {
+func (c *cli) handleError(err error, status int) int {
 	log.Printf("[ERR] %s", err.Error())
 	return status
 }
