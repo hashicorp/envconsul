@@ -6,6 +6,16 @@
 	],
 	"Deps": [
 		{
+			"ImportPath": "github.com/codegangsta/cli",
+			"Comment": "1.2.0-26-gf7ebb76",
+			"Rev": "f7ebb761e83e21225d1d8954fde853bf8edd46c4"
+		},
+		{
+			"ImportPath": "github.com/coreos/etcd/pkg/transport",
+			"Comment": "v0.5.0-alpha.2-29-gb87243d",
+			"Rev": "b87243d827d1cdc67877faa4970f71bb8619c075"
+		},
+		{
 			"ImportPath": "github.com/coreos/go-etcd/etcd",
 			"Comment": "v0.2.0-rc1-127-g6fe04d5",
 			"Rev": "6fe04d580dfb71c9e34cbce2f4df9eefd1e1241e"
