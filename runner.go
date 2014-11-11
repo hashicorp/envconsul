@@ -10,6 +10,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/codegangsta/cli"
 	"github.com/zvelo/envetcd/util"
 )
 
@@ -27,8 +28,8 @@ type runner struct {
 	// the child processes.
 	ExitCh chan int
 
-	// config is the internal config struct.
-	config *Config
+	// context is the cli context.
+	context *cli.Context
 
 	// data is the latest representation of the data from etcd.
 	data []*util.KeyPair
@@ -45,13 +46,13 @@ type runner struct {
 	outStream, errStream io.Writer
 }
 
-func newRunner(s string, config *Config, command []string) (*runner, error) {
+func newRunner(s string, c *cli.Context, command []string) (*runner, error) {
 	if s == "" {
 		return nil, fmt.Errorf("runner: missing prefix")
 	}
 
-	if config == nil {
-		return nil, fmt.Errorf("runner: missing config")
+	if c == nil {
+		return nil, fmt.Errorf("runner: missing context")
 	}
 
 	if len(command) == 0 {
@@ -66,7 +67,7 @@ func newRunner(s string, config *Config, command []string) (*runner, error) {
 	run := &runner{
 		Prefix:    prefix,
 		Command:   command,
-		config:    config,
+		context:   c,
 		outStream: os.Stdout,
 		errStream: os.Stderr,
 	}
@@ -97,11 +98,11 @@ func (r *runner) Run() error {
 	for _, pair := range r.data {
 		key := pair.Key
 
-		if r.config.Sanitize {
+		if r.context.Bool("sanitize") {
 			key = InvalidRegexp.ReplaceAllString(key, "_")
 		}
 
-		if r.config.Upcase {
+		if r.context.Bool("upcase") {
 			key = strings.ToUpper(key)
 		}
 

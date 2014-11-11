@@ -1,11 +1,11 @@
 package main
 
 import (
-	"flag"
 	"fmt"
-	"io"
 	"log"
+	"os"
 
+	"github.com/codegangsta/cli"
 	"github.com/zvelo/envetcd/util"
 )
 
@@ -22,66 +22,72 @@ const (
 	exitCodeWatcherError
 )
 
-type cli struct {
-	// outSteam and errStream are the standard out and standard error streams to
-	// write messages from the CLI.
-	outStream, errStream io.Writer
+func init() {
+	app.Commands = append(app.Commands, cli.Command{
+		Name:  "run",
+		Usage: "run a command with environment variables set from etcd",
+		Flags: []cli.Flag{
+			cli.StringSliceFlag{
+				Name:   "peers, C",
+				EnvVar: "ENVETCD_PEERS",
+				Value:  &cli.StringSlice{"127.0.0.1:4001"},
+				Usage:  "a comma-delimited list of machine addresses in the cluster (default: \"127.0.0.1:4001\")",
+			},
+			cli.StringFlag{
+				Name:   "ca-file",
+				EnvVar: "ENVETCD_CA_FILE",
+				Usage:  "certificate authority file",
+			},
+			cli.StringFlag{
+				Name:   "cert-file",
+				EnvVar: "ENVETCD_CERT_FILE",
+				Usage:  "tls client certificate file",
+			},
+			cli.StringFlag{
+				Name:   "key-file",
+				EnvVar: "ENVETCD_KEY_FILE",
+				Usage:  "tls client key file",
+			},
+			cli.BoolTFlag{
+				Name:   "sanitize",
+				EnvVar: "ENVETCD_SANITIZE",
+				Usage:  "remove bad characters from values",
+			},
+			cli.BoolFlag{
+				Name:   "upcase",
+				EnvVar: "ENVETCD_UPCASE",
+				Usage:  "convert all environment keys to uppercase",
+			},
+		},
+		Action: run,
+	})
 }
 
 // Run accepts a slice of arguments and returns an int representing the exit
 // status from the command.
-func (c *cli) Run(args []string) int {
-	var ver bool
-	var config = new(Config)
-
-	// Parse the flags and options
-	flags := flag.NewFlagSet(name, flag.ContinueOnError)
-	flags.SetOutput(c.errStream)
-	flags.Usage = func() {
-		fmt.Fprintf(c.errStream, usage, name)
-	}
-	flags.StringVar(&config.Etcd, "etcd", "", "address of the etcd instance")
-	flags.StringVar(&config.CAFile, "ca-file", "", "certificate authority file")
-	flags.StringVar(&config.CertFile, "cert-file", "", "tls client certificate file")
-	flags.StringVar(&config.KeyFile, "key-file", "", "tls client key file")
-	flags.BoolVar(&config.Sanitize, "sanitize", true, "remove bad characters from values")
-	flags.BoolVar(&config.Upcase, "upcase", true, "convert all environment keys to uppercase")
-	flags.BoolVar(&ver, "version", false, "display the version")
-
-	// If there was a parser error, stop
-	if err := flags.Parse(args[1:]); err != nil {
-		return c.handleError(err, exitCodeParseFlagsError)
-	}
-
-	// If the version was requested, return an "error" containing the version
-	// information. This might sound weird, but most *nix applications actually
-	// print their version on stderr anyway.
-	if ver {
-		fmt.Fprintf(c.errStream, "%s v%s\n", name, version)
-		return exitCodeOK
-	}
-
-	args = flags.Args()
+func run(c *cli.Context) {
+	args := c.Args()
 	if len(args) < 2 {
 		err := fmt.Errorf("cli: missing required arguments prefix and command")
-		return c.handleError(err, exitCodeParseFlagsError)
+		cli.ShowCommandHelp(c, "run")
+		handleError(err, exitCodeParseFlagsError)
 	}
 
 	prefix, command := args[0], args[1:]
 
-	runner, err := newRunner(prefix, config, command)
+	runner, err := newRunner(prefix, c, command)
 	if err != nil {
-		return c.handleError(err, exitCodeRunnerError)
+		handleError(err, exitCodeRunnerError)
 	}
 
-	client, err := c.getClient(config)
+	client, err := getClient(c)
 	if err != nil {
-		return c.handleError(err, exitCodeError)
+		handleError(err, exitCodeError)
 	}
 
 	watcher, err := util.NewWatcher(client, runner.Dependencies())
 	if err != nil {
-		return c.handleError(err, exitCodeWatcherError)
+		handleError(err, exitCodeWatcherError)
 	}
 
 	go watcher.Watch()
@@ -93,41 +99,29 @@ func (c *cli) Run(args []string) int {
 			runner.Receive(data.Data)
 
 			if err := runner.Run(); err != nil {
-				return c.handleError(err, exitCodeRunnerError)
+				handleError(err, exitCodeRunnerError)
 			}
 		case err := <-watcher.ErrCh:
 			log.Printf("[INFO] (cli) watcher got error")
-			return c.handleError(err, exitCodeError)
+			handleError(err, exitCodeError)
 		case <-watcher.FinishCh:
-			return runner.Wait()
+			os.Exit(runner.Wait())
 		case exitCode := <-runner.ExitCh:
 			log.Printf("[INFO] (cli) subprocess exited")
 
 			if exitCode == exitCodeOK {
-				return exitCodeOK
+				os.Exit(exitCodeOK)
 			}
 
 			err := fmt.Errorf("unexpected exit from subprocess (%d)", exitCode)
-			return c.handleError(err, exitCode)
+			handleError(err, exitCode)
 		}
 	}
 }
 
 // handleError outputs the given error's Error() to the errStream and returns
 // the given exit status.
-func (c *cli) handleError(err error, status int) int {
+func handleError(err error, status int) {
 	log.Printf("[ERR] %s", err.Error())
-	return status
+	os.Exit(status)
 }
-
-const usage = `Usage: %s [options]
-
-  Sets environment variables from etcd
-
-Options:
-
-  -etcd=<address>      Sets the address of the etcd instance (default: "127.0.0.1:4001")
-  -sanitize            Replace invalid characters in keys to underscores
-  -upcase              Convert all environment variable keys to uppercase
-  -version             Print the version of this daemon
-`

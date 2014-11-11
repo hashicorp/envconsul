@@ -2,14 +2,22 @@ package main
 
 import (
 	"os"
+
+	"github.com/codegangsta/cli"
 )
 
-const (
-	name    = "envetcd"
-	version = "0.1.0"
+var (
+	app = cli.NewApp()
 )
+
+func init() {
+	app.Name = "envetcd"
+	app.Author = "Joshua Rubin"
+	app.Email = "jrubin@zvelo.com"
+	app.Version = "0.1.0"
+	app.Usage = "set environment variables from etcd"
+}
 
 func main() {
-	c := &cli{outStream: os.Stdout, errStream: os.Stderr}
-	os.Exit(c.Run(os.Args))
+	app.Run(os.Args)
 }
