@@ -11,7 +11,7 @@ import (
 func TestRun_printsErrors(t *testing.T) {
 	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
 	cli := &CLI{outStream: outStream, errStream: errStream}
-	args := strings.Split("envconsul -bacon delicious", " ")
+	args := strings.Split("envetcd -bacon delicious", " ")
 
 	status := cli.Run(args)
 	if status == ExitCodeOK {
@@ -27,14 +27,14 @@ func TestRun_printsErrors(t *testing.T) {
 func TestRun__versionFlag(t *testing.T) {
 	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
 	cli := &CLI{outStream: outStream, errStream: errStream}
-	args := strings.Split("envconsul -version", " ")
+	args := strings.Split("envetcd -version", " ")
 
 	status := cli.Run(args)
 	if status != ExitCodeOK {
 		t.Errorf("expected %s to eq %s", status, ExitCodeOK)
 	}
 
-	expected := fmt.Sprintf("envconsul v%s", Version)
+	expected := fmt.Sprintf("envetcd v%s", Version)
 	if !strings.Contains(errStream.String(), expected) {
 		t.Errorf("expected %q to eq %q", errStream.String(), expected)
 	}
@@ -43,7 +43,7 @@ func TestRun__versionFlag(t *testing.T) {
 func TestRun_parseError(t *testing.T) {
 	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
 	cli := &CLI{outStream: outStream, errStream: errStream}
-	args := strings.Split("envconsul -bacon delicious", " ")
+	args := strings.Split("envetcd -bacon delicious", " ")
 
 	status := cli.Run(args)
 	if status != ExitCodeParseFlagsError {
@@ -59,7 +59,7 @@ func TestRun_parseError(t *testing.T) {
 func TestRun_waitFlagError(t *testing.T) {
 	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
 	cli := &CLI{outStream: outStream, errStream: errStream}
-	args := strings.Split("envconsul -wait=watermelon:bacon", " ")
+	args := strings.Split("envetcd -wait=watermelon:bacon", " ")
 
 	status := cli.Run(args)
 	if status != ExitCodeParseWaitError {
@@ -76,7 +76,7 @@ func TestRun_onceFlag(t *testing.T) {
 	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
 	cli := &CLI{outStream: outStream, errStream: errStream}
 
-	command := "envconsul -consul demo.consul.io -once global/time sh -c ':'"
+	command := "envetcd -etcd demo.consul.io -once global/time sh -c ':'"
 	args := strings.Split(command, " ")
 
 	ch := make(chan int, 1)

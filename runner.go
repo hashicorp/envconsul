@@ -9,9 +9,8 @@ import (
 	"regexp"
 	"strings"
 	"syscall"
-	"time"
 
-	"github.com/hashicorp/consul-template/util"
+	"github.com/zvelo/envetcd/util"
 )
 
 // Regexp for invalid characters in keys
@@ -31,7 +30,7 @@ type Runner struct {
 	// config is the internal config struct.
 	config *Config
 
-	// data is the latest representation of the data from Consul.
+	// data is the latest representation of the data from etcd.
 	data []*util.KeyPair
 
 	// env is the last compiled environment.
@@ -83,7 +82,7 @@ func (r *Runner) Dependencies() []util.Dependency {
 	return []util.Dependency{r.Prefix}
 }
 
-// Receive accepts data from Consul and maps that data to the prefix.
+// Receive accepts data from etcd and maps that data to the prefix.
 func (r *Runner) Receive(data interface{}) {
 	r.data = data.([]*util.KeyPair)
 }
@@ -185,7 +184,6 @@ func (r *Runner) restartProcess() {
 		select {
 		case <-killCh:
 			exited = true
-		case <-time.After(r.config.Timeout):
 		}
 	}
 
