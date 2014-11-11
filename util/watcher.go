@@ -51,8 +51,6 @@ func NewWatcher(client *etcd.Client, dependencies []Dependency) (*Watcher, error
 }
 
 func (w *Watcher) Watch() {
-	log.Printf("[DEBUG] (watcher) starting watch")
-
 	views := make([]*WatchData, 0, len(w.dependencies))
 	for _, dependency := range w.dependencies {
 		view, err := NewWatchData(dependency)
@@ -72,10 +70,7 @@ func (w *Watcher) Watch() {
 		}(view)
 	}
 
-	log.Printf("[DEBUG] (watcher) all pollers have started, waiting for finish")
 	w.waitGroup.Wait()
-
-	log.Printf("[DEBUG] (watcher) closing finish channel")
 	close(w.FinishCh)
 }
 
@@ -114,8 +109,6 @@ func NewWatchData(dependency Dependency) (*WatchData, error) {
 }
 
 func (wd *WatchData) poll(w *Watcher) {
-	log.Printf("[DEBUG] (%s) starting poll", wd.Display())
-
 	data, _, err := wd.Dependency.Fetch(w.client)
 	if err != nil {
 		log.Printf("[ERR] (%s) %s", wd.Display(), err.Error())
@@ -124,8 +117,6 @@ func (wd *WatchData) poll(w *Watcher) {
 		wd.poll(w)
 		return
 	}
-
-	log.Printf("[DEBUG] (%s) writing data to channel", wd.Display())
 
 	// If we got this far, there is new data!
 	wd.Data = data

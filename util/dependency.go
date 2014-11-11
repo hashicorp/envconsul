@@ -30,8 +30,6 @@ type KeyPrefixDependency struct {
 // Fetch queries the etcd API defined by the given client and returns a slice
 // of KeyPair objects
 func (d *KeyPrefixDependency) Fetch(client *etcd.Client) (interface{}, *etcd.Response, error) {
-	log.Printf("[DEBUG] (%s) querying etcd", d.Display())
-
 	const noSort = false
 	const recursive = true
 

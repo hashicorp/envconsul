@@ -69,19 +69,16 @@ func (cli *CLI) Run(args []string) int {
 
 	prefix, command := args[0], args[1:]
 
-	log.Printf("[DEBUG] (cli) creating Runner")
 	runner, err := NewRunner(prefix, config, command)
 	if err != nil {
 		return cli.handleError(err, ExitCodeRunnerError)
 	}
 
-	log.Printf("[DEBUG] (cli) creating etcd API client")
 	client, err := cli.getClient(config)
 	if err != nil {
 		return cli.handleError(err, ExitCodeError)
 	}
 
-	log.Printf("[DEBUG] (cli) creating Watcher")
 	watcher, err := util.NewWatcher(client, runner.Dependencies())
 	if err != nil {
 		return cli.handleError(err, ExitCodeWatcherError)
@@ -90,16 +87,11 @@ func (cli *CLI) Run(args []string) int {
 	go watcher.Watch()
 
 	for {
-		log.Printf("[DEBUG] (cli) looping for data")
-
 		select {
 		case data := <-watcher.DataCh:
-			log.Printf("[INFO] (cli) received %s from Watcher", data.Display())
-
 			// Tell the Runner about the data
 			runner.Receive(data.Data)
 
-			log.Printf("[INFO] (cli) invoking Runner")
 			if err := runner.Run(); err != nil {
 				return cli.handleError(err, ExitCodeRunnerError)
 			}
@@ -107,7 +99,6 @@ func (cli *CLI) Run(args []string) int {
 			log.Printf("[INFO] (cli) watcher got error")
 			return cli.handleError(err, ExitCodeError)
 		case <-watcher.FinishCh:
-			log.Printf("[INFO] (cli) received finished signal")
 			return runner.Wait()
 		case exitCode := <-runner.ExitCh:
 			log.Printf("[INFO] (cli) subprocess exited")
