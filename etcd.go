@@ -18,14 +18,14 @@ import (
 // global < system < service < host
 
 var etcdKeyTemplates = [...]string{
-	"/config/global",
-	"{{if .System}}/config/system/{{.System}}{{end}}",
-	"{{if .Service}}/config/service/{{.Service}}{{end}}",
-	"{{if .Hostname}}/config/host/{{.Hostname}}{{end}}",
+	"{{.Prefix}}/global",
+	"{{if .System}}{{.Prefix}}/system/{{.System}}{{end}}",
+	"{{if .Service}}{{.Prefix}}/service/{{.Service}}{{end}}",
+	"{{if .Hostname}}{{.Prefix}}/host/{{.Hostname}}{{end}}",
 }
 
 type etcdKeyData struct {
-	System, Service, Hostname string
+	Prefix, System, Service, Hostname string
 }
 
 // KeyPairs is a slice of KeyPair pointers
@@ -80,6 +80,7 @@ func getKeyPairs(c *cli.Context, client *etcd.Client) KeyPairs {
 	const recursive = true
 
 	tmplData := etcdKeyData{
+		Prefix:   c.GlobalString("prefix"),
 		System:   c.GlobalString("system"),
 		Service:  c.GlobalString("service"),
 		Hostname: c.GlobalString("hostname"),

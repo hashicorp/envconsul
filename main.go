@@ -53,6 +53,12 @@ func init() {
 			EnvVar: "ENVETCD_SERVICE",
 			Usage:  "service name for service specific configuration",
 		},
+		cli.StringFlag{
+			Name:   "prefix",
+			EnvVar: "ENVETCD_PREFIX",
+			Value:  "/config",
+			Usage:  "etcd prefix for all keys",
+		},
 		cli.BoolFlag{
 			Name:   "no-sanitize",
 			EnvVar: "ENVETCD_NO_SANITIZE",
