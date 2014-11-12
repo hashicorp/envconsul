@@ -93,7 +93,7 @@ ADDRESS=1.2.3.4
 PORT=55
 ```
 
-We can also ask envconsul to poll for configuration changes and automatically restar the process:
+We can also ask envconsul to poll for configuration changes and automatically restart the process:
 
 ```
 $ envconsul \
