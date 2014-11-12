@@ -22,8 +22,9 @@ type runner struct {
 	// the child processes.
 	exitCh chan int
 
-	// context is the cli context.
-	context *cli.Context
+	sanitize bool
+	upcase   bool
+	cleanEnv bool
 
 	// data is the latest representation of the data from etcd.
 	data KeyPairs
@@ -31,8 +32,10 @@ type runner struct {
 
 func newRunner(c *cli.Context, command []string) *runner {
 	run := &runner{
-		command: command,
-		context: c,
+		command:  command,
+		sanitize: !c.Bool("no-sanitize"),
+		upcase:   !c.Bool("no-upcase"),
+		cleanEnv: c.Bool("clean-env"),
 	}
 
 	return run
@@ -43,11 +46,11 @@ func newRunner(c *cli.Context, command []string) *runner {
 func (r *runner) run() error {
 	env := make(map[string]string)
 	for key, value := range r.data {
-		if !r.context.Bool("no-sanitize") {
+		if r.sanitize {
 			key = invalidRegexp.ReplaceAllString(key, "_")
 		}
 
-		if !r.context.Bool("no-upcase") {
+		if r.upcase {
 			key = strings.ToUpper(key)
 		}
 
@@ -56,7 +59,7 @@ func (r *runner) run() error {
 
 	// Create a new environment
 	processEnv := os.Environ()
-	if r.context.Bool("clean-env") {
+	if r.cleanEnv {
 		processEnv = []string{}
 	}
 
