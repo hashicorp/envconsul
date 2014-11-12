@@ -59,6 +59,17 @@ func init() {
 			Value:  "/config",
 			Usage:  "etcd prefix for all keys",
 		},
+		cli.StringFlag{
+			Name:   "log-level, l",
+			EnvVar: "ENVETCD_LOG_LEVEL",
+			Value:  "WARN",
+			Usage:  "set log level (DEBUG, INFO, WARN, ERR)",
+		},
+		cli.BoolFlag{
+			Name:   "no-sync",
+			EnvVar: "ENVETCD_NO_SYNC",
+			Usage:  "don't synchronize cluster information before sending request",
+		},
 		cli.BoolFlag{
 			Name:   "clean-env, c",
 			EnvVar: "ENVETCD_CLEAN_ENV",
