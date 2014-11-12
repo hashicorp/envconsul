@@ -123,9 +123,9 @@ func addKeyPair(keyPairs KeyPairs, dir string, node *etcd.Node) {
 		return
 	}
 
-	key := strings.TrimPrefix(node.Key, dir)
-	key = strings.TrimLeft(key, "/")
-	key = strings.Replace(key, "/", "_", -1)
+	key := strings.TrimPrefix(node.Key, dir) // strip the prefix directory from the key
+	key = strings.TrimLeft(key, "/")         // strip any leading slashes
+	key = strings.Replace(key, "/", "_", -1) // convert any remaining slashes to underscores (for any nested keys)
 
 	keyPairs[key] = node.Value
 }
