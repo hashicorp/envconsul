@@ -19,6 +19,15 @@
 			"ImportPath": "github.com/coreos/go-etcd/etcd",
 			"Comment": "v0.2.0-rc1-127-g6fe04d5",
 			"Rev": "6fe04d580dfb71c9e34cbce2f4df9eefd1e1241e"
+		},
+		{
+			"ImportPath": "github.com/jtolds/gls",
+			"Rev": "f1ac7f4f24f50328e6bc838ca4437d1612a0243c"
+		},
+		{
+			"ImportPath": "github.com/smartystreets/goconvey/convey",
+			"Comment": "1.5.0-337-g46ed257",
+			"Rev": "46ed257da550caea1f91f8d60b8c6cfadb3a73b7"
 		}
 	]
 }
