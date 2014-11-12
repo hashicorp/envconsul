@@ -1,29 +1,21 @@
 package main
 
 import (
-	"bytes"
-	"fmt"
 	"strings"
 	"testing"
-	"time"
+
+	. "github.com/smartystreets/goconvey/convey"
 )
 
-func TestRun_printsErrors(t *testing.T) {
-	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
-	cli := &CLI{outStream: outStream, errStream: errStream}
-	args := strings.Split("envetcd -bacon delicious", " ")
-
-	status := cli.Run(args)
-	if status == ExitCodeOK {
-		t.Fatal("expected not OK exit code")
-	}
-
-	expected := "flag provided but not defined: -bacon"
-	if !strings.Contains(errStream.String(), expected) {
-		t.Errorf("expected %q to eq %q", errStream.String(), expected)
-	}
+func TestCLI(t *testing.T) {
+	Convey("Invalid flags should cause an error", t, func() {
+		err := app.Run(strings.Split("envetcd -bacon delicious", " "))
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "flag provided but not defined: -bacon")
+	})
 }
 
+/*
 func TestRun__versionFlag(t *testing.T) {
 	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
 	cli := &CLI{outStream: outStream, errStream: errStream}
@@ -95,3 +87,4 @@ func TestRun_onceFlag(t *testing.T) {
 		t.Errorf("expected data, but nothing was returned")
 	}
 }
+*/

@@ -47,7 +47,7 @@ func (r *runner) run() error {
 			key = invalidRegexp.ReplaceAllString(key, "_")
 		}
 
-		if r.context.Bool("upcase") {
+		if !r.context.Bool("no-upcase") {
 			key = strings.ToUpper(key)
 		}
 

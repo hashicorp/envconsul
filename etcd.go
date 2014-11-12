@@ -125,6 +125,7 @@ func addKeyPair(keyPairs KeyPairs, dir string, node *etcd.Node) {
 
 	key := strings.TrimPrefix(node.Key, dir)
 	key = strings.TrimLeft(key, "/")
+	key = strings.Replace(key, "/", "_", -1)
 
 	keyPairs[key] = node.Value
 }

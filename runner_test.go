@@ -1,11 +1,26 @@
 package main
 
 import (
-	"strings"
 	"testing"
-	"time"
+
+	. "github.com/smartystreets/goconvey/convey"
 )
 
+func TestRunner(t *testing.T) {
+	Convey("Given some integer with a starting value", t, func() {
+		x := 1
+
+		Convey("When the integer is incremented", func() {
+			x++
+
+			Convey("The value should be greater by one", func() {
+				So(x, ShouldEqual, 2)
+			})
+		})
+	})
+}
+
+/*
 func TestNewRunner_noPrefix(t *testing.T) {
 	_, err := NewRunner("", nil, nil)
 	if err == nil {
@@ -207,3 +222,4 @@ func TestRunner_runExitCh(t *testing.T) {
 	// 	t.Fatal("expected process to exit on ExitCh")
 	// }
 }
+*/

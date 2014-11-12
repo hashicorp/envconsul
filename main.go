@@ -70,9 +70,9 @@ func init() {
 			Usage:  "don't remove bad characters from environment keys",
 		},
 		cli.BoolFlag{
-			Name:   "upcase",
-			EnvVar: "ENVETCD_UPCASE",
-			Usage:  "convert all environment keys to uppercase",
+			Name:   "no-upcase, u",
+			EnvVar: "ENVETCD_NO_UPCASE",
+			Usage:  "don't convert all environment keys to uppercase",
 		},
 	}
 	app.Action = run
