@@ -1,90 +1,55 @@
 package main
 
 import (
+	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-func TestCLI(t *testing.T) {
-	Convey("Invalid flags should cause an error", t, func() {
-		err := app.Run(strings.Split("envetcd -bacon delicious", " "))
-		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "flag provided but not defined: -bacon")
-	})
-}
+func capture(args string) (string, error) {
+	stdout := os.Stdout
 
-/*
-func TestRun__versionFlag(t *testing.T) {
-	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
-	cli := &CLI{outStream: outStream, errStream: errStream}
-	args := strings.Split("envetcd -version", " ")
-
-	status := cli.Run(args)
-	if status != ExitCodeOK {
-		t.Errorf("expected %s to eq %s", status, ExitCodeOK)
+	r, w, err := os.Pipe()
+	if err != nil {
+		return "", err
 	}
 
-	expected := fmt.Sprintf("envetcd v%s", Version)
-	if !strings.Contains(errStream.String(), expected) {
-		t.Errorf("expected %q to eq %q", errStream.String(), expected)
-	}
-}
-
-func TestRun_parseError(t *testing.T) {
-	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
-	cli := &CLI{outStream: outStream, errStream: errStream}
-	args := strings.Split("envetcd -bacon delicious", " ")
-
-	status := cli.Run(args)
-	if status != ExitCodeParseFlagsError {
-		t.Errorf("expected %s to eq %s", status, ExitCodeParseFlagsError)
-	}
-
-	expected := "flag provided but not defined: -bacon"
-	if !strings.Contains(errStream.String(), expected) {
-		t.Fatalf("expected %q to contain %q", errStream.String(), expected)
-	}
-}
-
-func TestRun_waitFlagError(t *testing.T) {
-	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
-	cli := &CLI{outStream: outStream, errStream: errStream}
-	args := strings.Split("envetcd -wait=watermelon:bacon", " ")
-
-	status := cli.Run(args)
-	if status != ExitCodeParseWaitError {
-		t.Errorf("expected %s to eq %s", status, ExitCodeParseWaitError)
-	}
-
-	expected := "time: invalid duration watermelon"
-	if !strings.Contains(errStream.String(), expected) {
-		t.Fatalf("expected %q to contain %q", errStream.String(), expected)
-	}
-}
-
-func TestRun_onceFlag(t *testing.T) {
-	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
-	cli := &CLI{outStream: outStream, errStream: errStream}
-
-	command := "envetcd -etcd demo.consul.io -once global/time sh -c ':'"
-	args := strings.Split(command, " ")
-
-	ch := make(chan int, 1)
-
-	go func() {
-		ch <- cli.Run(args)
+	defer func() {
+		w.Close()
+		os.Stdout = stdout
 	}()
 
-	select {
-	case status := <-ch:
-		if status != ExitCodeOK {
-			t.Errorf("expected %d to eq %d", status, ExitCodeOK)
-			t.Errorf("stderr: %s", errStream.String())
-		}
-	case <-time.After(5 * time.Second):
-		t.Errorf("expected data, but nothing was returned")
+	os.Stdout = w
+	err = app.Run(strings.Split(args, " "))
+	if err != nil {
+		return "", err
 	}
+
+	w.Close()
+	output, err := ioutil.ReadAll(r)
+	if err != nil {
+		return "", err
+	}
+
+	return strings.TrimSpace(string(output)), nil
 }
-*/
+
+func TestCLI(t *testing.T) {
+	Convey("Command should execute as expected", t, func() {
+
+		Convey("Invalid flags should cause an error", func() {
+			_, err := capture("envetcd -shmaltz delicious")
+			So(err, ShouldNotBeNil)
+			So(err.Error(), ShouldEqual, "flag provided but not defined: -shmaltz")
+		})
+
+		Convey("Version should be printed", func() {
+			output, err := capture("envetcd --version")
+			So(err, ShouldBeNil)
+			So(output, ShouldEqual, "envetcd version "+app.Version)
+		})
+	})
+}
