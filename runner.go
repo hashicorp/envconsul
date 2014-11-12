@@ -56,6 +56,10 @@ func (r *runner) run() error {
 
 	// Create a new environment
 	processEnv := os.Environ()
+	if r.context.Bool("clean-env") {
+		processEnv = []string{}
+	}
+
 	cmdEnv := make([]string, len(processEnv), len(env)+len(processEnv))
 	copy(cmdEnv, processEnv)
 	for k, v := range env {

@@ -60,6 +60,11 @@ func init() {
 			Usage:  "etcd prefix for all keys",
 		},
 		cli.BoolFlag{
+			Name:   "clean-env, c",
+			EnvVar: "ENVETCD_CLEAN_ENV",
+			Usage:  "don't inherit any environment variables other than those pulled from etcd",
+		},
+		cli.BoolFlag{
 			Name:   "no-sanitize",
 			EnvVar: "ENVETCD_NO_SANITIZE",
 			Usage:  "don't remove bad characters from environment keys",
