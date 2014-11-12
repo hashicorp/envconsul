@@ -1,28 +1,49 @@
 box: wercker/golang
+
 # Build definition
 build:
-  # The steps that will be executed on build
-  steps:
-    # Sets the go workspace and places you package
-    # at the right place in the workspace tree
-    - setup-go-workspace
+    steps:
+        # Sets the go workspace and places you package
+        # at the right place in the workspace tree
+        - setup-go-workspace
 
-    # Gets the dependencies
-    - script:
-        name: go get
-        code: |
-          cd $WERCKER_SOURCE_DIR
-          go version
-          go get -t ./...
+        # Build the project
+        - script:
+            name: go build
+            code: make build
 
-    # Build the project
-    - script:
-        name: go build
-        code: |
-          go build ./...
+        # Test the project
+        - script:
+            name: go test
+            code: make coveralls
 
-    # Test the project
-    - script:
-        name: go test
-        code: |
-          go test ./...
+        - script:
+            name: build distribution
+            code: |
+                make dist
+                export ENVETCD_VERSION=$(./envetcd -v | awk '{print $3}')
+                mv envetcd-$ENVETCD_VERSION.tgz $WERCKER_OUTPUT_DIR
+
+    after-steps:
+      - hipchat-notify:
+          token: $HIPCHAT_TOKEN
+          room-id: $HIPCHAT_ROOM_ID
+
+deploy:
+    steps:
+      - script:
+          name: get version from rake
+          code: export ENVETCD_VERSION=$(./envetcd -v | awk '{print $3}')
+      - github-create-release:
+          token: $GITHUB_TOKEN
+          tag: v$ENVETCD_VERSION
+          title: envetcd v$ENVETCD_VERSION
+      - github-upload-asset:
+          token: $GITHUB_TOKEN
+          file: envetcd-$ENVETCD_VERSION.tgz
+          filename: envetcd-$ENVETCD_VERSION-linux-amd64.tgz
+
+    after-steps:
+      - hipchat-notify:
+          token: $HIPCHAT_TOKEN
+          room-id: $HIPCHAT_ROOM_ID

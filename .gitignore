@@ -1,1 +1,6 @@
 /envetcd
+/.acc.out
+/.dep-stamp
+/.coveralls-stamp
+/.coveralls-dep-stamp
+/envetcd-*.tgz
