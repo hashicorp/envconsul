@@ -1,7 +1,7 @@
 envetcd
 =========
 
-[![wercker status](https://app.wercker.com/status/7af57352c44ae04c4d6546ecf86a6deb/s "wercker status")](https://app.wercker.com/project/bykey/7af57352c44ae04c4d6546ecf86a6deb) [![Coverage Status](https://coveralls.io/repos/zvelo/envetcd/badge.png)](https://coveralls.io/r/zvelo/envetcd)
+[![wercker status](https://app.wercker.com/status/7af57352c44ae04c4d6546ecf86a6deb/s "wercker status")](https://app.wercker.com/project/bykey/7af57352c44ae04c4d6546ecf86a6deb) [![Coverage Status](https://img.shields.io/coveralls/zvelo/envetcd.svg)](https://coveralls.io/r/zvelo/envetcd)
 
 envetcd provides a convienent way to populate values from [etcd][] into a child process environment using the `envetcd` daemon.
 
