@@ -30,6 +30,7 @@ func initLogger(c *cli.Context) {
 	}
 
 	log.SetOutput(filter)
+	log.Printf("[INFO] log level set to %s", filter.MinLevel)
 }
 
 // Run accepts a slice of arguments and returns an int representing the exit

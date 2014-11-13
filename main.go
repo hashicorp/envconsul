@@ -14,7 +14,7 @@ func init() {
 	app.Name = "envetcd"
 	app.Author = "Joshua Rubin"
 	app.Email = "jrubin@zvelo.com"
-	app.Version = "0.1.0"
+	app.Version = "0.0.3"
 	app.Usage = "set environment variables from etcd"
 	app.Flags = []cli.Flag{
 		cli.StringSliceFlag{
@@ -81,7 +81,7 @@ func init() {
 			Usage:  "don't remove bad characters from environment keys",
 		},
 		cli.BoolFlag{
-			Name:   "no-upcase, u",
+			Name:   "no-upcase",
 			EnvVar: "ENVETCD_NO_UPCASE",
 			Usage:  "don't convert all environment keys to uppercase",
 		},
