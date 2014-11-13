@@ -25,6 +25,10 @@
 			"Rev": "23b0af5510a2d1442103ef83ffcf53eb82f3debc"
 		},
 		{
+			"ImportPath": "github.com/jtolds/gls",
+			"Rev": "f1ac7f4f24f50328e6bc838ca4437d1612a0243c"
+		},
+		{
 			"ImportPath": "github.com/smartystreets/goconvey/convey",
 			"Comment": "1.5.0-337-g46ed257",
 			"Rev": "46ed257da550caea1f91f8d60b8c6cfadb3a73b7"
