@@ -71,7 +71,8 @@ clean:
 		./.acc.out \
 		./.dep-stamp \
 		./.coveralls-stamp \
-		./.coveralls-dep-stamp
+		./.coveralls-dep-stamp \
+		./$(EXECUTABLE)-*.tgz
 
 save: .dep-stamp
 	godep save ./...
