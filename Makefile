@@ -87,7 +87,7 @@ save: .dep-stamp
 .coveralls-dep-stamp:
 	# these are needed for coverage testing
 	go get -v github.com/axw/gocov/gocov
-	go get -v github.com/mattn/goveralls
+	go get -v github.com/joshuarubin/goveralls
 	@touch .coveralls-dep-stamp
 
 etcd:
