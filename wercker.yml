@@ -21,8 +21,8 @@ build:
             name: build distribution
             code: |
                 make dist
-                export ENVETCD_VERSION=$(./envetcd -v | awk '{print $3}')
-                mv envetcd-$ENVETCD_VERSION.tgz $WERCKER_OUTPUT_DIR
+                mv $EXECUTABLE-*.tgz $WERCKER_OUTPUT_DIR
+                mv $EXECUTABLE $WERCKER_OUTPUT_DIR
 
     after-steps:
       - hipchat-notify:
@@ -32,16 +32,16 @@ build:
 deploy:
     steps:
       - script:
-          name: get version from rake
-          code: export ENVETCD_VERSION=$(./envetcd -v | awk '{print $3}')
+          name: get version
+          code: export EXECUTABLE_VERSION=$(./$EXECUTABLE -v | awk '{print $3}')
       - github-create-release:
           token: $GITHUB_TOKEN
-          tag: v$ENVETCD_VERSION
-          title: envetcd v$ENVETCD_VERSION
+          tag: v$EXECUTABLE_VERSION
+          title: $EXECUTABLE v$EXECUTABLE_VERSION
       - github-upload-asset:
           token: $GITHUB_TOKEN
-          file: envetcd-$ENVETCD_VERSION.tgz
-          filename: envetcd-$ENVETCD_VERSION-linux-amd64.tgz
+          file: $EXECUTABLE-$EXECUTABLE_VERSION.tgz
+          filename: $EXECUTABLE-$EXECUTABLE_VERSION-linux-amd64.tgz
 
     after-steps:
       - hipchat-notify:
