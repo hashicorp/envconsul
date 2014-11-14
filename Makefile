@@ -43,7 +43,7 @@ coverage: .acc.out
 coveralls: .coveralls-stamp
 
 .coveralls-stamp: .coveralls-dep-stamp .acc.out
-	@if [ "$(WERCKER)" = "true" ]; then \
+	@if [ -n "$(WERCKER_GIT_BRANCH)" ]; then \
 		export GIT_BRANCH=$$WERCKER_GIT_BRANCH; \
 	fi
 	@if [ -n "$(COVERALLS_REPO_TOKEN)" ]; then \
