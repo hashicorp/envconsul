@@ -92,27 +92,27 @@ func (cli *CLI) Run(args []string) int {
 	// TODO: remove in v0.4.0 (deprecated)
 	if address != "" {
 		fmt.Fprintf(cli.errStream,
-			"DEPRECATED: the -addr flag is deprecated, please use -consul instead")
+			"DEPRECATED: the -addr flag is deprecated, please use -consul instead\n")
 		config.Consul = address
 	}
 
 	if datacenter != "" {
 		fmt.Fprintf(cli.errStream,
-			"DEPRECATED: the -dc flag is deprecated, please use the @dc syntax instead")
+			"DEPRECATED: the -dc flag is deprecated, please use the @dc syntax instead\n")
 	}
 
 	if errExit {
-		fmt.Fprintf(cli.errStream, "DEPRECATED: the -errexit flag is deprecated")
+		fmt.Fprintf(cli.errStream, "DEPRECATED: the -errexit flag is deprecated\n")
 	}
 
 	if terminate {
 		fmt.Fprintf(cli.errStream,
-			"DEPRECATED: the -terminate flag is deprecated, use -once instead")
+			"DEPRECATED: the -terminate flag is deprecated, use -once instead\n")
 	}
 
 	if reload {
 		fmt.Fprintf(cli.errStream,
-			"DEPRECATED: the -reload flag is deprecated, use -once instead")
+			"DEPRECATED: the -reload flag is deprecated, use -once instead\n")
 	}
 
 	// If the version was requested, return an "error" containing the version
