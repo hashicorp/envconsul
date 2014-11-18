@@ -5,14 +5,15 @@ After=default.target
 WantedBy=default.target
 
 [Service]
+User=core
 Type=forking
-ExecStartPre=/bin/bash -c "TMPFILE_ENVETCD=$(mktemp -t $SERVICE)"
-ExecStartPre=/bin/bash -c "echo 'TEMP FILE: $TMPFILE_ENVETCD'"
-ExecStartPre=/bin/bash -c "exec /envetcd \
-	--no-uppercase \
-	--service redis \
-	-c env > $TMPFILE_ENVETCD; "
-ExecStart=/bin/bash -c "exec /usr/bin/docker images "
+ExecStartPre=/bin/bash -c "TMPFILE_ENVETCD=$(mktemp -t service.XXXXXXXXXX); \
+    echo $$TMPFILE_ENVETCD; \
+    exec /envetcd --service redis -c env>$TMPFILE_ENVETCD"
+
+ExecStart=/bin/bash -c "echo '====>'; \
+    echo $$TMPFILE_ENVETCD; \
+    exec /usr/bin/docker images"
 #ExecStart=/bin/bash -c "exec /usr/bin/docker run \
-#	--env-file=$TMPFILE_ENVETCD "
-#ExecStartPost=/bin/bash -c "exec rm -f $TMPFILE_ENVETCD"
+#    --env-file=$TMPFILE_ENVETCD "
+ExecStartPost=/bin/bash -c "rm -f $$TMPFILE_ENVETCD"
