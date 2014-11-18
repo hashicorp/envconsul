@@ -6,8 +6,9 @@ WantedBy=default.target
 
 [Service]
 Type=forking
-ExecStartPre=/bin/bash -c "TMPFILE_ENVETCD=$(mktemp -t $SERVICE); echo 'TEMP FILE: $TMPFILE_ENVETCD'; \
-	exec /envetcd \
+ExecStartPre=/bin/bash -c "TMPFILE_ENVETCD=$(mktemp -t $SERVICE)"
+ExecStartPre=/bin/bash -c "echo 'TEMP FILE: $TMPFILE_ENVETCD'"
+ExecStartPre=/bin/bash -c "exec /envetcd \
 	--no-uppercase \
 	--service redis \
 	-c env > $TMPFILE_ENVETCD; "
