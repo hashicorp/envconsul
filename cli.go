@@ -247,8 +247,6 @@ func (cli *CLI) Run(args []string) int {
 			}
 		}
 	}
-
-	return ExitCodeOK
 }
 
 // handleError outputs the given error's Error() to the errStream and returns
