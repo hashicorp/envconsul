@@ -1,5 +1,20 @@
-Dockerfile
-=========
+Option 1: sysmtemd
+==================
+Run `envetcd` to get etcd config of the service using systemd as illustrated below.
+
+```
+ExecStart=/bin/bash -c "TMPFILE_ENVETCD=$(mktemp -t service.XXXXXXXXXX); \
+    exec /envetcd --service redis -o $TMPFILE_ENVETCD -c env; \
+    exec /usr/bin/docker run \
+    --env-file=$TMPFILE_ENVETCD \ 
+    --name redis \
+    zvelo/zvelo-redis; 
+    rm -rf $TMPFILE_ENVETCD; "
+```
+
+
+Option 2: Dockerfile
+====================
 The Dockerfile was created to embed `envetcd` in each docker container and run it directly in order to wrap the Go executable for the services. 
 
 Installation
