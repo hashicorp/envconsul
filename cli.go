@@ -48,7 +48,10 @@ func run(c *cli.Context) {
 	command := args[0:]
 
 	log.Printf("[DEBUG] (cli) creating Runner")
-	runner := newRunner(c, command)
+	runner, err := newRunner(c, command)
+	if err != nil {
+		handleError(err, exitCodeParseFlagsError)
+	}
 
 	log.Printf("[DEBUG] (cli) creating etcd API client")
 	etcdConfig := newEtcdConfig(c)
