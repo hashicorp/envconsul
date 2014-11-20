@@ -10,14 +10,8 @@ Type=oneshot
 ExecStartPre=/bin/bash -c "echo Starting..."
 ExecStart=/bin/bash -c "TMPFILE_ENVETCD=$(mktemp -t service.XXXXXXXXXX); \
     echo $$TMPFILE_ENVETCD; \
-    exec /envetcd --service redis -c env>$TMPFILE_ENVETCD && \
-    exec /usr/bin/docker images; "
-#ExecStart=/bin/bash -c "echo '====>'; \
-#    echo $$TMPFILE_ENVETCD; \
-#    exec /usr/bin/docker images; \
-#    exec /usr/bin/rm -f $TMPFILE_ENVETCD ;"
-#    exec /usr/bin/docker run \
-#        --env-file=$TMPFILE_ENVETCD; \ "
-ExecStartPost=/bin/bash -c "echo "==> $$TMPFILE_ENVETCD""
-ExecStartPost=/bin/bash -c "exec /usr/bin/rm -f $TMPFILE_ENVETCD"
+    /envetcd --service redis --output $TMPFILE_ENVETCD -c env; \
+    /usr/bin/docker images; \
+    echo "Removing temporary file; \
+    /usr/bin/rm -f $TMPFILE_ENVETCD ;"
 ExecStartPost=/bin/bash -c "echo DONE"
