@@ -1,0 +1,5 @@
+2014-11-18  Joshua Rubin <jrubin@zvelo.com>
+
+  * Start feature "Update envetcd with output file option"
+  https://www.pivotaltracker.com/story/show/82979704
+  https://github.com/zvelo/envetcd/pull/2

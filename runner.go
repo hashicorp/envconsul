@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"regexp"
@@ -28,17 +30,30 @@ type runner struct {
 
 	// data is the latest representation of the data from etcd.
 	data KeyPairs
+
+	outFile   *os.File
+	outStream io.Writer
 }
 
-func newRunner(c *cli.Context, command []string) *runner {
+func newRunner(c *cli.Context, command []string) (*runner, error) {
 	run := &runner{
-		command:  command,
-		sanitize: !c.Bool("no-sanitize"),
-		upcase:   !c.Bool("no-upcase"),
-		cleanEnv: c.Bool("clean-env"),
+		command:   command,
+		sanitize:  !c.Bool("no-sanitize"),
+		upcase:    !c.Bool("no-upcase"),
+		cleanEnv:  c.Bool("clean-env"),
+		outStream: os.Stdout,
 	}
 
-	return run
+	if output := c.String("output"); len(output) > 0 {
+		outFile, err := os.Create(output)
+		if err != nil {
+			return nil, err
+		}
+		run.outFile = outFile
+		run.outStream = bufio.NewWriter(outFile)
+	}
+
+	return run, nil
 }
 
 // Run executes and manages the child process with the correct environment. The
@@ -70,7 +85,7 @@ func (r *runner) run() error {
 	}
 
 	cmd := exec.Command(r.command[0], r.command[1:]...)
-	cmd.Stdout = os.Stdout
+	cmd.Stdout = r.outStream
 	cmd.Stderr = os.Stderr
 	cmd.Env = cmdEnv
 	err := cmd.Start()
@@ -82,8 +97,22 @@ func (r *runner) run() error {
 	// (if any) don't cause us to exit, and start a goroutine
 	// to wait for that process to end.
 	r.exitCh = make(chan int, 1)
-	go func(cmd *exec.Cmd, exitCh chan<- int) {
+	go func(cmd *exec.Cmd, exitCh chan<- int, outFile *os.File) {
 		err := cmd.Wait()
+
+		if outFile != nil {
+			writer, ok := cmd.Stdout.(*bufio.Writer)
+			if ok {
+				writer.Flush()
+
+			}
+
+			if err := outFile.Close(); err != nil {
+				exitCh <- exitCodeError
+				return
+			}
+		}
+
 		if err == nil {
 			exitCh <- exitCodeOK
 			return
@@ -98,7 +127,7 @@ func (r *runner) run() error {
 		}
 
 		exitCh <- exitCodeError
-	}(cmd, r.exitCh)
+	}(cmd, r.exitCh, r.outFile)
 
 	return nil
 }

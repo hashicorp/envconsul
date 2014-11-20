@@ -65,6 +65,11 @@ func init() {
 			Value:  "WARN",
 			Usage:  "set log level (DEBUG, INFO, WARN, ERR)",
 		},
+		cli.StringFlag{
+			Name:   "output, o",
+			EnvVar: "ENVETCD_OUTPUT",
+			Usage:  "write stdout from the command to this file",
+		},
 		cli.BoolFlag{
 			Name:   "no-sync",
 			EnvVar: "ENVETCD_NO_SYNC",
