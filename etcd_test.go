@@ -24,6 +24,21 @@ func TestEtcd(t *testing.T) {
 			So(etcdConf.Key.Service, ShouldEqual, "redis")
 			So(etcdConf.Peers, ShouldContain, "http://127.0.0.1:4001")
 
+			Convey("getEndpoints should return an array of end points", func() {
+				endPoints, err := getEndpoints(etcdConf)
+				So(err, ShouldBeNil)
+				So(endPoints, ShouldContain, "http://127.0.0.1:4001")
+			})
+
+			Convey("getTransport should return an http transport object", func() {
+				transObj, err := getTransport(etcdConf)
+				So(err, ShouldBeNil)
+				So(transObj.Proxy, ShouldBeNil)
+				So(transObj.DisableKeepAlives, ShouldBeFalse)
+				So(transObj.TLSHandshakeTimeout, ShouldEqual, 10000000000)
+				So(transObj.MaxIdleConnsPerHost, ShouldBeZeroValue)
+			})
+
 			Convey("getClient should return an etcd client based on a given config", func() {
 				So(err, ShouldBeNil)
 				So(etcdClient, ShouldNotBeEmpty)
