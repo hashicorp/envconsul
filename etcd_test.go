@@ -46,7 +46,6 @@ func TestEtcd(t *testing.T) {
 
 				Convey("getKeyPairs returns keypairs", func() {
 					keyPairs := getKeyPairs(etcdConf, etcdClient)
-					So(keyPairs["system_nsq_service_zvelo-nsq_PortA"], ShouldEqual, "1111")
 					So(keyPairs["service_zvelo-nsqd_PortA"], ShouldEqual, "4150")
 					So(keyPairs["service_zvelo-nsqd_PortB"], ShouldEqual, "4151")
 					So(keyPairs["service_zvelo-nsqd_LookupAddress"], ShouldEqual, "172.17.8.101")
