@@ -1,6 +1,8 @@
+sudo: false
+
 language: go
 
 go:
   - 1.3
 
-script: make test
+script: make ci

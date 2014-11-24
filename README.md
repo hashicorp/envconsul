@@ -1,6 +1,12 @@
 envconsul
 =========
 
+[![Latest Version](http://img.shields.io/github/release/hashicorp/envconsul.svg?style=flat-square)][release]
+[![Build Status](http://img.shields.io/travis/hashicorp/envconsul.svg?style=flat-square)][travis]
+
+[release]: https://github.com/hashicorp/envconsul/releases
+[travis]: http://travis-ci.org/hashicorp/envconsul
+
 envconsul provides a convenient way to populate values from [Consul][] into an child process environment using the `envconsul` daemon.
 
 The daemon `envconsul` allows applications to be configured with environmental variables, without having knowledge about the existence of Consul. This makes it especially easy to configure applications throughout all your environments: development, testing, production, etc.
