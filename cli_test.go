@@ -41,7 +41,6 @@ func capture(args string) (string, error) {
 
 func flagSet(name string, flags []cli.Flag) *flag.FlagSet {
 	set := flag.NewFlagSet(name, flag.ContinueOnError)
-
 	for _, f := range flags {
 		f.Apply(set)
 	}
@@ -50,6 +49,8 @@ func flagSet(name string, flags []cli.Flag) *flag.FlagSet {
 
 func TestCLI(t *testing.T) {
 	Convey("Command should execute as expected", t, func() {
+		set := flagSet(appTest.Name, appTest.Flags)
+		ctx := cli.NewContext(appTest, set, set)
 
 		Convey("Invalid flags should cause an error", func() {
 			_, err := capture("envetcd -shmaltz delicious")
@@ -62,6 +63,12 @@ func TestCLI(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(output, ShouldEqual, "envetcd version "+app.Version)
 		})
+		Convey("Initlogger should be printed", func() {
+			initLogger(ctx)
+			//os.Args = []string{"./envetcd", "no-upcase=true", "no-sync=true", "-o", "ooooo", "--system", "nsq", "-c", "env"}
+			//fmt.Println(appTest.Run(os.Args))
+		})
+
 	})
 }
 
