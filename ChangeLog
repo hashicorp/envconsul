@@ -1,8 +1,16 @@
+<<<<<<< HEAD
 2014-11-20  Karl Dominguez <kdominguez@zvelo.com>
 
   * Start feature "Write unit tests for testing variable overriding"
   https://www.pivotaltracker.com/story/show/82827566
   https://github.com/zvelo/envetcd/pull/3
+=======
+2014-11-22  Karl Dominguez <kdominguez@zvelo.com>
+
+  * Start feature "Improve test coverage to an appropriate level"
+  https://www.pivotaltracker.com/story/show/82827582
+  https://github.com/zvelo/envetcd/pull/4
+>>>>>>> feature/82827582_karldominguez_improve_test_coverage_to_an_appropriate_level
 
 2014-11-18  Joshua Rubin <jrubin@zvelo.com>
 
