@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"github.com/codegangsta/cli"
+	"github.com/coreos/go-etcd/etcd"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
@@ -20,8 +22,8 @@ func TestEtcd(t *testing.T) {
 			So(etcdConf.Key.Prefix, ShouldEqual, "/config")
 			So(etcdConf.Key.Hostname, ShouldEqual, "env")
 			So(etcdConf.Sync, ShouldBeTrue)
-			So(etcdConf.Key.System, ShouldEqual, "nsq")
-			So(etcdConf.Key.Service, ShouldEqual, "redis")
+			So(etcdConf.Key.System, ShouldEqual, "systemtest")
+			So(etcdConf.Key.Service, ShouldEqual, "servicetest")
 			So(etcdConf.Peers, ShouldContain, "http://127.0.0.1:4001")
 
 			Convey("getEndpoints should return an array of end points", func() {
@@ -52,6 +54,52 @@ func TestEtcd(t *testing.T) {
 					So(keyPairs["service_zvelo-nsqd_LookupAddress"], ShouldEqual, "172.17.8.101")
 					So(keyPairs["port"], ShouldEqual, "1234")
 					*/
+				})
+				Convey("Testing override keys", func() {
+					etcdClient := etcd.NewClient([]string{"http://127.0.0.1:4001"})
+
+					etcdClient.Delete("/config/global/systemtest", true)
+					etcdClient.Delete("/config/system/systemtest", true)
+					etcdClient.Delete("/config/service/systemtest", true)
+
+					Convey("Setting /config/global testkey only", func() {
+						etcdClient.Set("/config/global/systemtest/testKey", "globaltestVal", 0)
+						keyPairs := getKeyPairs(etcdConf, etcdClient)
+						_, isExisting := keyPairs["system_testsystem_testkey"]
+						So(isExisting, ShouldBeTrue)
+						So(keyPairs["system_testsystem_testkey"], ShouldEqual, "testGlobalVal")
+
+						Convey("Setting /config/global/testKey", func() {
+							etcdClient.Set("/config/global/testKey", "testGlobalVal2", 0)
+							keyPairs := getKeyPairs(etcdConf, etcdClient)
+
+							_, isExisting := keyPairs["testKey"]
+							So(isExisting, ShouldBeTrue)
+							So(keyPairs["system_testsystem_testkey"], ShouldEqual, "testGlobalVal")
+							So(keyPairs["testKey"], ShouldEqual, "testGlobalVal2")
+
+							Convey("Setting /config/system/systemtest/testKey should override the global testKey", func() {
+								etcdClient.Set("/config/system/systemtest/testKey", "testsystemVal", 0)
+								keyPairs := getKeyPairs(etcdConf, etcdClient)
+								_, isExisting := keyPairs["testKey"]
+								So(isExisting, ShouldBeTrue)
+								So(keyPairs["system_testsystem_testkey"], ShouldEqual, "testGlobalVal")
+								So(keyPairs["testKey"], ShouldEqual, "testsystemVal")
+
+							})
+						})
+
+						Convey("Setting /config/service/systemtest/testserviceKey should not be in the keypair", func() {
+							etcdClient.Set("/config/service/systemtest/testserviceKey", "testserviceVal", 0)
+							keyPairs := getKeyPairs(etcdConf, etcdClient)
+							fmt.Println(keyPairs)
+							_, isExisting := keyPairs["testserviceKey"]
+							So(isExisting, ShouldBeFalse)
+
+							So(keyPairs["system_testsystem_testkey"], ShouldEqual, "testGlobalVal")
+							So(keyPairs["testserviceKey"], ShouldBeEmpty)
+						})
+					})
 
 				})
 			})

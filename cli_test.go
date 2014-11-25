@@ -117,13 +117,13 @@ func init() {
 		cli.StringFlag{
 			Name:   "system",
 			EnvVar: "ENVETCD_SYSTEM",
-			Value:  "nsq",
+			Value:  "systemtest",
 			Usage:  "system name for system specific configuration",
 		},
 		cli.StringFlag{
 			Name:   "service",
 			EnvVar: "ENVETCD_SERVICE",
-			Value:  "redis",
+			Value:  "servicetest",
 			Usage:  "service name for service specific configuration",
 		},
 		cli.StringFlag{
