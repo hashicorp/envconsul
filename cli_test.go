@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"github.com/codegangsta/cli"
 	"io/ioutil"
 	"os"
@@ -78,10 +79,13 @@ var (
 
 //Set up a new test app with some predetermined values
 func init() {
+	etcdhost := os.Getenv("WERCKER_ETCD_HOST")
+	etcdport := os.Getenv("WERCKER_ETCD_PORT")
 	os.Setenv("ENVETCD_CLEAN_ENV", "true")
 	os.Setenv("ENVETCD_NO_SANITIZE", "true")
 	os.Setenv("ENVETCD_NO_UPCASE", "true")
 
+	os.Setenv("ENVETCD_NO_UPCASE", fmt.Sprintf("%s:%s", etcdhost, etcdport))
 	appTest.Name = "testApp"
 	appTest.Author = "Karl Dominguez"
 	appTest.Email = "kdominguez@zvelo.com"
@@ -90,7 +94,7 @@ func init() {
 	appTest.Flags = []cli.Flag{
 		cli.StringSliceFlag{
 			Name:   "peers, C",
-			EnvVar: "WERCKER_ETCD_HOST",
+			EnvVar: "ENVETCD_PEERS",
 			Value:  &cli.StringSlice{"127.0.0.1:4001"},
 			Usage:  "a comma-delimited list of machine addresses in the cluster (default: \"127.0.0.1:4001\")",
 		},

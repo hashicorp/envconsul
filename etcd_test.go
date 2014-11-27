@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/codegangsta/cli"
 	"github.com/coreos/go-etcd/etcd"
-	"os"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
@@ -13,8 +12,6 @@ import (
 // TODO(jrubin) test recursive keys
 func TestEtcd(t *testing.T) {
 	Convey("When getting keys from etcd", t, func() {
-		val := os.Getenv("WERCKER_ETCD_HOST")
-		fmt.Println("ETCD IP", val)
 		set := flagSet(appTest.Name, appTest.Flags)
 		ctx := cli.NewContext(appTest, set, set)
 
