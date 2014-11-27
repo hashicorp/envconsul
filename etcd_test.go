@@ -26,6 +26,8 @@ func TestEtcd(t *testing.T) {
 		etcdPeer.Set("/config/global/systemtest/testKey", "globaltestVal", 0)
 		etcdPeer.Set("/config/host/env", "", 0)
 
+		fmt.Println(werckerPeer)
+
 		Convey("newEtcdConfig should return an etcd config", func() {
 			So(etcdConf.Key.Prefix, ShouldEqual, "/config")
 			So(etcdConf.Key.Hostname, ShouldEqual, "env")

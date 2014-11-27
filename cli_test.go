@@ -106,7 +106,7 @@ func init() {
 		cli.StringSliceFlag{
 			Name:   "peers, C",
 			EnvVar: "ENVETCD_PEERS",
-			Value:  &cli.StringSlice{"127.0.0.1:4001", werckerPeer},
+			Value:  &cli.StringSlice{werckerPeer},
 			Usage:  "a comma-delimited list of machine addresses in the cluster (default: \"127.0.0.1:4001\")",
 		},
 		cli.StringFlag{
