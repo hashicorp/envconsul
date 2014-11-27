@@ -116,6 +116,20 @@ func TestEtcd(t *testing.T) {
 		etcdPeer.Set("/config/global/systemtest/testKey", "globaltestVal", 0)
 		etcdPeer.Set("/config/host/env", "", 0)
 
+		resp, err := etcdPeer.Get("/config/", false, true)
+		if err != nil {
+			fmt.Println(err)
+		}
+		fmt.Println("resp.Node", resp.Node.Nodes[2].Nodes[0].Nodes[0])
+
+		for i := 0; i < len(resp.Node.Nodes); i++ {
+			for j := 0; j < len(resp.Node.Nodes[i].Nodes); j++ {
+				etcdKey := resp.Node.Nodes[i].Nodes[j].Key
+				envValue := resp.Node.Nodes[i].Nodes[j].Value
+				fmt.Println("ETCD RESPONSE", etcdKey, envValue)
+			}
+		}
+
 		Convey("newEtcdConfig should return an etcd config", func() {
 			So(etcdConf.Key.Prefix, ShouldEqual, "/config")
 			So(etcdConf.Key.Hostname, ShouldEqual, "env")
@@ -153,44 +167,48 @@ func TestEtcd(t *testing.T) {
 					Convey("Setting /config/global testkey only", func() {
 						etcdPeer.Set("/config/global/systemtest/testKey", "globaltestVal", 0)
 						keyPairs := getKeyPairs(etcdConf, etcdPeer)
+
 						_, isExisting := keyPairs["systemtest_testKey"]
 						So(isExisting, ShouldBeTrue)
 						So(keyPairs["systemtest_testKey"], ShouldEqual, "globaltestVal")
-
-						Convey("Setting /config/global/testKey", func() {
-							etcdPeer.Set("/config/global/testKey", "testGlobalVal2", 0)
-							keyPairs := getKeyPairs(etcdConf, etcdClient)
-
-							_, isExisting := keyPairs["testKey"]
-							So(isExisting, ShouldBeTrue)
-							So(keyPairs["systemtest_testKey"], ShouldEqual, "globaltestVal")
-							So(keyPairs["testKey"], ShouldEqual, "testGlobalVal2")
-
-							Convey("Setting /config/system/systemtest/testKey should override the global testKey", func() {
-								etcdPeer.Set("/config/system/systemtest/testKey", "testsystemVal", 0)
-								keyPairs := getKeyPairs(etcdConf, etcdClient)
-								fmt.Println("keyPairs", keyPairs)
-
-								_, isExisting := keyPairs["testKey"]
-								So(isExisting, ShouldBeTrue)
-								So(keyPairs["systemtest_testKey"], ShouldEqual, "globaltestVal")
-								So(keyPairs["testKey"], ShouldEqual, "testsystemVal")
-
-							})
-						})
-
-						Convey("Setting /config/service/systemtest/testserviceKey should not be in the keypair", func() {
-							etcdPeer.Set("/config/service/systemtest/testserviceKey", "testserviceVal", 0)
-							keyPairs := getKeyPairs(etcdConf, etcdClient)
-							fmt.Println(keyPairs)
-							_, isExisting := keyPairs["testserviceKey"]
-							So(isExisting, ShouldBeFalse)
-
-							So(keyPairs["systemtest_testKey"], ShouldEqual, "globaltestVal")
-							So(keyPairs["testserviceKey"], ShouldBeEmpty)
-							etcdPeer.Delete("/config", true)
-						})
+						fmt.Println("keyPairs", keyPairs)
 					})
+
+					Convey("Setting /config/global/testKey", func() {
+						etcdPeer.Set("/config/global/systemtest/testKey", "globaltestVal", 0)
+						etcdPeer.Set("/config/global/testKey", "testGlobalVal2", 0)
+						keyPairs := getKeyPairs(etcdConf, etcdClient)
+
+						_, isExisting := keyPairs["testKey"]
+						So(isExisting, ShouldBeTrue)
+						So(keyPairs["systemtest_testKey"], ShouldEqual, "globaltestVal")
+						So(keyPairs["testKey"], ShouldEqual, "testGlobalVal2")
+						fmt.Println("keyPairs", keyPairs)
+					})
+					Convey("Setting /config/system/systemtest/testKey should override the global testKey", func() {
+						etcdPeer.Set("/config/global/systemtest/testKey", "globaltestVal", 0)
+						etcdPeer.Set("/config/global/testKey", "testGlobalVal2", 0)
+						etcdPeer.Set("/config/system/systemtest/testKey", "testsystemVal", 0)
+						keyPairs := getKeyPairs(etcdConf, etcdClient)
+						_, isExisting := keyPairs["testKey"]
+						So(isExisting, ShouldBeTrue)
+						So(keyPairs["systemtest_testKey"], ShouldEqual, "globaltestVal")
+						So(keyPairs["testKey"], ShouldEqual, "testsystemVal")
+						fmt.Println("keyPairs", keyPairs)
+					})
+				})
+
+				Convey("Setting /config/service/systemtest/testserviceKey should not be in the keypair", func() {
+					etcdPeer.Set("/config/service/systemtest/testserviceKey", "testserviceVal", 0)
+					keyPairs := getKeyPairs(etcdConf, etcdClient)
+
+					_, isExisting := keyPairs["testserviceKey"]
+					So(isExisting, ShouldBeFalse)
+					So(keyPairs["systemtest_testKey"], ShouldEqual, "globaltestVal")
+					So(keyPairs["testserviceKey"], ShouldBeEmpty)
+					fmt.Println(keyPairs)
+
+					etcdPeer.Delete("/config", true)
 				})
 			})
 		})
