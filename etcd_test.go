@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"github.com/codegangsta/cli"
 	"github.com/coreos/go-etcd/etcd"
+	"log"
+	"os/exec"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
@@ -18,6 +20,13 @@ func TestEtcd(t *testing.T) {
 		etcdConf := newEtcdConfig(ctx)
 		etcdClient, err := getClient(etcdConf)
 
+		cmd := exec.Command("env")
+		out, err := cmd.Output()
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Printf("Container ENV: %s\n", out)
+
 		etcdAddress := fmt.Sprintf("%s%s", "http://", werckerPeer)
 		etcdPeer := etcd.NewClient([]string{etcdAddress})
 		etcdPeer.Delete("/config", true)
@@ -26,7 +35,7 @@ func TestEtcd(t *testing.T) {
 		etcdPeer.Set("/config/global/systemtest/testKey", "globaltestVal", 0)
 		etcdPeer.Set("/config/host/env", "", 0)
 
-		fmt.Println(werckerPeer)
+		fmt.Println("ETCD PEER ADDRESS", werckerAdd())
 
 		Convey("newEtcdConfig should return an etcd config", func() {
 			So(etcdConf.Key.Prefix, ShouldEqual, "/config")
@@ -59,11 +68,6 @@ func TestEtcd(t *testing.T) {
 				Convey("getKeyPairs returns keypairs", func() {
 					keyPairs := getKeyPairs(etcdConf, etcdClient)
 					So(keyPairs, ShouldNotBeEmpty)
-					/*So(keyPairs["service_zvelo-nsqd_PortA"], ShouldEqual, "4150")
-					So(keyPairs["service_zvelo-nsqd_PortB"], ShouldEqual, "4151")
-					So(keyPairs["service_zvelo-nsqd_LookupAddress"], ShouldEqual, "172.17.8.101")
-					So(keyPairs["port"], ShouldEqual, "1234")
-					*/
 				})
 				Convey("Testing override keys", func() {
 
