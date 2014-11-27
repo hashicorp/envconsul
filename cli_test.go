@@ -79,7 +79,7 @@ var (
 )
 
 func werckerAdd() string {
-	etcdhost := os.Getenv("WERCKER_ETCD_HOST")
+	etcdhost := os.Getenv("ZVELO_ETCD_HOST")
 	if etcdhost == "" {
 		etcdhost = "127.0.0.1"
 	}
