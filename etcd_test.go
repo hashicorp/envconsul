@@ -56,7 +56,8 @@ func TestEtcd(t *testing.T) {
 					*/
 				})
 				Convey("Testing override keys", func() {
-					etcdClient := etcd.NewClient([]string{"http://127.0.0.1:4001"})
+					etcdAddress := fmt.Sprintf("%s%s", "http://", werckerPeer)
+					etcdClient := etcd.NewClient([]string{etcdAddress})
 
 					etcdClient.Delete("/config/global/systemtest", true)
 					etcdClient.Delete("/config/system/systemtest", true)
