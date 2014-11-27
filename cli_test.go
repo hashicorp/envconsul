@@ -81,6 +81,7 @@ func init() {
 	os.Setenv("ENVETCD_CLEAN_ENV", "true")
 	os.Setenv("ENVETCD_NO_SANITIZE", "true")
 	os.Setenv("ENVETCD_NO_UPCASE", "true")
+
 	appTest.Name = "testApp"
 	appTest.Author = "Karl Dominguez"
 	appTest.Email = "kdominguez@zvelo.com"
@@ -89,7 +90,7 @@ func init() {
 	appTest.Flags = []cli.Flag{
 		cli.StringSliceFlag{
 			Name:   "peers, C",
-			EnvVar: "ENVETCD_PEERS",
+			EnvVar: "WERCKER_ETCD_HOST",
 			Value:  &cli.StringSlice{"127.0.0.1:4001"},
 			Usage:  "a comma-delimited list of machine addresses in the cluster (default: \"127.0.0.1:4001\")",
 		},
