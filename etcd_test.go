@@ -21,7 +21,6 @@ func TestEtcd(t *testing.T) {
 
 		os.Setenv("ENVETCD_NO_SANITIZE", "true")
 		os.Setenv("ENVETCD_NO_UPCASE", "true")
-		//os.Setenv("ZVELO_ETCD_HOST", "127.0.0.1")
 
 		appTest.Name = "testApp"
 		appTest.Author = "Karl Dominguez"
@@ -129,12 +128,11 @@ func TestEtcd(t *testing.T) {
 			So(etcdConf.Sync, ShouldBeTrue)
 			So(etcdConf.Key.System, ShouldEqual, "systemtest")
 			So(etcdConf.Key.Service, ShouldEqual, "servicetest")
-			//So(etcdConf.Peers, ShouldContain, "http://127.0.0.1:4001")
 
 			Convey("getEndpoints should return an array of end points", func() {
 				endPoints, err := getEndpoints(etcdConf)
 				So(err, ShouldBeNil)
-				So(endPoints, ShouldContain, "http://127.0.0.1:4001")
+				So(endPoints, ShouldNotBeEmpty)
 			})
 
 			Convey("getTransport should return an http transport object", func() {
