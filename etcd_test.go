@@ -107,7 +107,6 @@ func TestEtcd(t *testing.T) {
 		ctx := cli.NewContext(appTest, set, set)
 
 		etcdConf := newEtcdConfig(ctx)
-		etcdClient, err := getClient(etcdConf)
 
 		etcdAddress := fmt.Sprintf("%s%s", "http://", werckerPeer)
 		etcdPeer := etcd.NewClient([]string{etcdAddress})
@@ -115,20 +114,6 @@ func TestEtcd(t *testing.T) {
 		etcdPeer.SetDir("/config/service/servicetest", 0)
 		etcdPeer.Set("/config/global/systemtest/testKey", "globaltestVal", 0)
 		etcdPeer.Set("/config/host/env", "", 0)
-
-		resp, err := etcdPeer.Get("/config/", false, true)
-		if err != nil {
-			fmt.Println(err)
-		}
-		fmt.Println("resp.Node", resp.Node.Nodes[2].Nodes[0].Nodes[0])
-
-		for i := 0; i < len(resp.Node.Nodes); i++ {
-			for j := 0; j < len(resp.Node.Nodes[i].Nodes); j++ {
-				etcdKey := resp.Node.Nodes[i].Nodes[j].Key
-				envValue := resp.Node.Nodes[i].Nodes[j].Value
-				fmt.Println("ETCD RESPONSE", etcdKey, envValue)
-			}
-		}
 
 		Convey("newEtcdConfig should return an etcd config", func() {
 			So(etcdConf.Key.Prefix, ShouldEqual, "/config")
@@ -153,14 +138,22 @@ func TestEtcd(t *testing.T) {
 			})
 
 			Convey("getClient should return an etcd client based on a given config", func() {
+				etcdClient, err := getClient(etcdConf)
 				So(err, ShouldBeNil)
 				So(etcdClient, ShouldNotBeEmpty)
 				So(etcdClient.CheckRetry, ShouldBeNil)
 
 				Convey("getKeyPairs returns keypairs", func() {
+					resp, err := etcdPeer.Get("/config/", false, true)
+					if err != nil {
+						fmt.Println(err)
+					}
+					printLs(resp)
+
 					keyPairs := getKeyPairs(etcdConf, etcdClient)
 					fmt.Println("keyPairs", keyPairs)
 					So(keyPairs, ShouldNotBeEmpty)
+
 				})
 				Convey("Testing override keys", func() {
 
@@ -172,6 +165,7 @@ func TestEtcd(t *testing.T) {
 						So(isExisting, ShouldBeTrue)
 						So(keyPairs["systemtest_testKey"], ShouldEqual, "globaltestVal")
 						fmt.Println("keyPairs", keyPairs)
+
 					})
 
 					Convey("Setting /config/global/testKey", func() {
@@ -187,10 +181,18 @@ func TestEtcd(t *testing.T) {
 					})
 					Convey("Setting /config/system/systemtest/testKey should override the global testKey", func() {
 						etcdPeer.Set("/config/global/systemtest/testKey", "globaltestVal", 0)
+						etcdPeer.Set("/config/global/systemtest/2/testKey", "globaltestVal", 0)
 						etcdPeer.Set("/config/global/testKey", "testGlobalVal2", 0)
 						etcdPeer.Set("/config/system/systemtest/testKey", "testsystemVal", 0)
 						keyPairs := getKeyPairs(etcdConf, etcdClient)
 						_, isExisting := keyPairs["testKey"]
+
+						resp2, err := etcdPeer.Get("/config/", false, true)
+						if err != nil {
+							fmt.Println(err)
+						}
+						printLs(resp2)
+
 						So(isExisting, ShouldBeTrue)
 						So(keyPairs["systemtest_testKey"], ShouldEqual, "globaltestVal")
 						So(keyPairs["testKey"], ShouldEqual, "testsystemVal")
@@ -213,4 +215,25 @@ func TestEtcd(t *testing.T) {
 			})
 		})
 	})
+}
+
+func printLs(resp *etcd.Response) {
+	if !resp.Node.Dir {
+		fmt.Println(resp.Node.Key)
+	}
+	for _, node := range resp.Node.Nodes {
+		rPrint(node)
+	}
+}
+
+// rPrint recursively prints out the nodes in the node structure.
+func rPrint(n *etcd.Node) {
+
+	if n.Dir {
+		fmt.Println(n.Key)
+	}
+
+	for _, node := range n.Nodes {
+		rPrint(node)
+	}
 }
