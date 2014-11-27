@@ -14,11 +14,6 @@ import (
 func TestEtcd(t *testing.T) {
 	Convey("When getting keys from etcd", t, func() {
 
-		weh := os.Getenv("WERCKER_ETCD_HOST")
-		fmt.Println("WERCKER_ETCD_HOST", weh)
-		zeh := os.Getenv("ZVELO_ETCD_HOST")
-		fmt.Println("ZVELO_ETCD_HOST", zeh)
-
 		os.Setenv("ENVETCD_NO_SANITIZE", "true")
 		os.Setenv("ENVETCD_NO_UPCASE", "true")
 
@@ -116,7 +111,6 @@ func TestEtcd(t *testing.T) {
 
 		etcdAddress := fmt.Sprintf("%s%s", "http://", werckerPeer)
 		etcdPeer := etcd.NewClient([]string{etcdAddress})
-		etcdPeer.Delete("/config", true)
 		etcdPeer.SetDir("/config/system/systemtest", 0)
 		etcdPeer.SetDir("/config/service/servicetest", 0)
 		etcdPeer.Set("/config/global/systemtest/testKey", "globaltestVal", 0)
@@ -151,6 +145,7 @@ func TestEtcd(t *testing.T) {
 
 				Convey("getKeyPairs returns keypairs", func() {
 					keyPairs := getKeyPairs(etcdConf, etcdClient)
+					fmt.Println("keyPairs", keyPairs)
 					So(keyPairs, ShouldNotBeEmpty)
 				})
 				Convey("Testing override keys", func() {
@@ -193,6 +188,7 @@ func TestEtcd(t *testing.T) {
 
 							So(keyPairs["systemtest_testKey"], ShouldEqual, "globaltestVal")
 							So(keyPairs["testserviceKey"], ShouldBeEmpty)
+							etcdPeer.Delete("/config", true)
 						})
 					})
 				})
