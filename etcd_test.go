@@ -4,8 +4,7 @@ import (
 	"fmt"
 	"github.com/codegangsta/cli"
 	"github.com/coreos/go-etcd/etcd"
-	"log"
-	"os/exec"
+	"os"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
@@ -14,18 +13,107 @@ import (
 // TODO(jrubin) test recursive keys
 func TestEtcd(t *testing.T) {
 	Convey("When getting keys from etcd", t, func() {
+
+		weh := os.Getenv("WERCKER_ETCD_HOST")
+		fmt.Println("WERCKER_ETCD_HOST", weh)
+		zeh := os.Getenv("ZVELO_ETCD_HOST")
+		fmt.Println("ZVELO_ETCD_HOST", zeh)
+
+		os.Setenv("ENVETCD_NO_SANITIZE", "true")
+		os.Setenv("ENVETCD_NO_UPCASE", "true")
+		//os.Setenv("ZVELO_ETCD_HOST", "127.0.0.1")
+
+		appTest.Name = "testApp"
+		appTest.Author = "Karl Dominguez"
+		appTest.Email = "kdominguez@zvelo.com"
+		appTest.Version = "0.0.4"
+		appTest.Usage = "get environment variables from etcd"
+		appTest.Flags = []cli.Flag{
+			cli.StringSliceFlag{
+				Name:   "peers, C",
+				EnvVar: "ENVETCD_PEERS",
+				Value:  &cli.StringSlice{werckerAdd()},
+				Usage:  "a comma-delimited list of machine addresses in the cluster (default: \"127.0.0.1:4001\")",
+			},
+			cli.StringFlag{
+				Name:   "ca-file",
+				EnvVar: "ENVETCD_CA_FILE",
+				Usage:  "certificate authority file",
+			},
+			cli.StringFlag{
+				Name:   "cert-file",
+				EnvVar: "ENVETCD_CERT_FILE",
+				Usage:  "tls client certificate file",
+			},
+			cli.StringFlag{
+				Name:   "key-file",
+				EnvVar: "ENVETCD_KEY_FILE",
+				Usage:  "tls client key file",
+			},
+			cli.StringFlag{
+				Name:   "hostname",
+				EnvVar: "HOSTNAME",
+				Value:  "env",
+				Usage:  "computer hostname for host specific configuration",
+			},
+			cli.StringFlag{
+				Name:   "system",
+				EnvVar: "ENVETCD_SYSTEM",
+				Value:  "systemtest",
+				Usage:  "system name for system specific configuration",
+			},
+			cli.StringFlag{
+				Name:   "service",
+				EnvVar: "ENVETCD_SERVICE",
+				Value:  "servicetest",
+				Usage:  "service name for service specific configuration",
+			},
+			cli.StringFlag{
+				Name:   "prefix",
+				EnvVar: "ENVETCD_PREFIX",
+				Value:  "/config",
+				Usage:  "etcd prefix for all keys",
+			},
+			cli.StringFlag{
+				Name:   "log-level, l",
+				EnvVar: "ENVETCD_LOG_LEVEL",
+				Value:  "DEBUG",
+				Usage:  "set log level (DEBUG, INFO, WARN, ERR)",
+			},
+			cli.StringFlag{
+				Name:   "output, o",
+				Value:  "testOut.txt",
+				EnvVar: "ENVETCD_OUTPUT",
+				Usage:  "write stdout from the command to this file",
+			},
+			cli.BoolFlag{
+				Name:   "no-sync",
+				EnvVar: "ENVETCD_NO_SYNC",
+				Usage:  "don't synchronize cluster information before sending request",
+			},
+			cli.BoolFlag{
+				Name:   "clean-env, c",
+				EnvVar: "ENVETCD_CLEAN_ENV",
+				Usage:  "don't inherit any environment variables other than those pulled from etcd",
+			},
+			cli.BoolFlag{
+				Name:   "no-sanitize",
+				EnvVar: "ENVETCD_NO_SANITIZE",
+				Usage:  "don't remove bad characters from environment keys",
+			},
+			cli.BoolFlag{
+				Name:   "no-upcase",
+				EnvVar: "ENVETCD_NO_UPCASE",
+				Usage:  "don't convert all environment keys to uppercase",
+			},
+		}
+		appTest.Action = run
+
 		set := flagSet(appTest.Name, appTest.Flags)
 		ctx := cli.NewContext(appTest, set, set)
 
 		etcdConf := newEtcdConfig(ctx)
 		etcdClient, err := getClient(etcdConf)
-
-		cmd := exec.Command("env")
-		out, err := cmd.Output()
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Printf("Container ENV: %s\n", out)
 
 		etcdAddress := fmt.Sprintf("%s%s", "http://", werckerPeer)
 		etcdPeer := etcd.NewClient([]string{etcdAddress})
@@ -35,15 +123,13 @@ func TestEtcd(t *testing.T) {
 		etcdPeer.Set("/config/global/systemtest/testKey", "globaltestVal", 0)
 		etcdPeer.Set("/config/host/env", "", 0)
 
-		fmt.Println("ETCD PEER ADDRESS", werckerAdd())
-
 		Convey("newEtcdConfig should return an etcd config", func() {
 			So(etcdConf.Key.Prefix, ShouldEqual, "/config")
 			So(etcdConf.Key.Hostname, ShouldEqual, "env")
 			So(etcdConf.Sync, ShouldBeTrue)
 			So(etcdConf.Key.System, ShouldEqual, "systemtest")
 			So(etcdConf.Key.Service, ShouldEqual, "servicetest")
-			So(etcdConf.Peers, ShouldContain, "http://127.0.0.1:4001")
+			//So(etcdConf.Peers, ShouldContain, "http://127.0.0.1:4001")
 
 			Convey("getEndpoints should return an array of end points", func() {
 				endPoints, err := getEndpoints(etcdConf)
