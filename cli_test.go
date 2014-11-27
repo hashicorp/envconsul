@@ -74,18 +74,29 @@ func TestCLI(t *testing.T) {
 }
 
 var (
-	appTest = cli.NewApp()
+	appTest     = cli.NewApp()
+	werckerPeer = werckerAdd()
 )
+
+func werckerAdd() string {
+	etcdhost := os.Getenv("WERCKER_ETCD_HOST")
+	if etcdhost == "" {
+		etcdhost = "127.0.0.1"
+	}
+	etcdport := os.Getenv("WERCKER_ETCD_PORT")
+	if etcdport == "" {
+		etcdport = "4001"
+	}
+	return fmt.Sprintf("%s:%s", etcdhost, etcdport)
+}
 
 //Set up a new test app with some predetermined values
 func init() {
-	etcdhost := os.Getenv("WERCKER_ETCD_HOST")
-	etcdport := os.Getenv("WERCKER_ETCD_PORT")
+
 	os.Setenv("ENVETCD_CLEAN_ENV", "true")
 	os.Setenv("ENVETCD_NO_SANITIZE", "true")
 	os.Setenv("ENVETCD_NO_UPCASE", "true")
 
-	os.Setenv("ENVETCD_NO_UPCASE", fmt.Sprintf("%s:%s", etcdhost, etcdport))
 	appTest.Name = "testApp"
 	appTest.Author = "Karl Dominguez"
 	appTest.Email = "kdominguez@zvelo.com"
@@ -95,7 +106,7 @@ func init() {
 		cli.StringSliceFlag{
 			Name:   "peers, C",
 			EnvVar: "ENVETCD_PEERS",
-			Value:  &cli.StringSlice{"127.0.0.1:4001"},
+			Value:  &cli.StringSlice{"127.0.0.1:4001", werckerPeer},
 			Usage:  "a comma-delimited list of machine addresses in the cluster (default: \"127.0.0.1:4001\")",
 		},
 		cli.StringFlag{
