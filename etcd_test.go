@@ -144,14 +144,7 @@ func TestEtcd(t *testing.T) {
 				So(etcdClient.CheckRetry, ShouldBeNil)
 
 				Convey("getKeyPairs returns keypairs", func() {
-					resp, err := etcdPeer.Get("/config/", false, true)
-					if err != nil {
-						fmt.Println(err)
-					}
-					printLs(resp)
-
-					keyPairs := getKeyPairs(etcdConf, etcdClient)
-					fmt.Println("keyPairs", keyPairs)
+					keyPairs := getKeyPairs(etcdConf, etcdPeer)
 					So(keyPairs, ShouldNotBeEmpty)
 
 				})
@@ -164,52 +157,47 @@ func TestEtcd(t *testing.T) {
 						_, isExisting := keyPairs["systemtest_testKey"]
 						So(isExisting, ShouldBeTrue)
 						So(keyPairs["systemtest_testKey"], ShouldEqual, "globaltestVal")
-						fmt.Println("keyPairs", keyPairs)
 
 					})
 
 					Convey("Setting /config/global/testKey", func() {
 						etcdPeer.Set("/config/global/systemtest/testKey", "globaltestVal", 0)
 						etcdPeer.Set("/config/global/testKey", "testGlobalVal2", 0)
-						keyPairs := getKeyPairs(etcdConf, etcdClient)
+						keyPairs := getKeyPairs(etcdConf, etcdPeer)
 
 						_, isExisting := keyPairs["testKey"]
 						So(isExisting, ShouldBeTrue)
 						So(keyPairs["systemtest_testKey"], ShouldEqual, "globaltestVal")
 						So(keyPairs["testKey"], ShouldEqual, "testGlobalVal2")
-						fmt.Println("keyPairs", keyPairs)
 					})
 					Convey("Setting /config/system/systemtest/testKey should override the global testKey", func() {
 						etcdPeer.Set("/config/global/systemtest/testKey", "globaltestVal", 0)
-						etcdPeer.Set("/config/global/systemtest/2/testKey", "globaltestVal", 0)
 						etcdPeer.Set("/config/global/testKey", "testGlobalVal2", 0)
 						etcdPeer.Set("/config/system/systemtest/testKey", "testsystemVal", 0)
-						keyPairs := getKeyPairs(etcdConf, etcdClient)
+						keyPairs := getKeyPairs(etcdConf, etcdPeer)
 						_, isExisting := keyPairs["testKey"]
-
-						resp2, err := etcdPeer.Get("/config/", false, true)
-						if err != nil {
-							fmt.Println(err)
-						}
-						printLs(resp2)
 
 						So(isExisting, ShouldBeTrue)
 						So(keyPairs["systemtest_testKey"], ShouldEqual, "globaltestVal")
 						So(keyPairs["testKey"], ShouldEqual, "testsystemVal")
-						fmt.Println("keyPairs", keyPairs)
 					})
 				})
 
 				Convey("Setting /config/service/systemtest/testserviceKey should not be in the keypair", func() {
 					etcdPeer.Set("/config/service/systemtest/testserviceKey", "testserviceVal", 0)
-					keyPairs := getKeyPairs(etcdConf, etcdClient)
+					keyPairs := getKeyPairs(etcdConf, etcdPeer)
 
 					_, isExisting := keyPairs["testserviceKey"]
 					So(isExisting, ShouldBeFalse)
 					So(keyPairs["systemtest_testKey"], ShouldEqual, "globaltestVal")
 					So(keyPairs["testserviceKey"], ShouldBeEmpty)
-					fmt.Println(keyPairs)
 
+					fmt.Println("Current Directories")
+					resp2, err := etcdPeer.Get("/config/", false, true)
+					if err != nil {
+						fmt.Println(err)
+					}
+					printLs(resp2)
 					etcdPeer.Delete("/config", true)
 				})
 			})
