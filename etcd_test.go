@@ -192,13 +192,59 @@ func TestEtcd(t *testing.T) {
 					So(keyPairs["systemtest_testKey"], ShouldEqual, "globaltestVal")
 					So(keyPairs["testserviceKey"], ShouldBeEmpty)
 
-					fmt.Println("Current Directories")
+					fmt.Println("\nCurrent Directories\n")
 					resp2, err := etcdPeer.Get("/config/", false, true)
 					if err != nil {
 						fmt.Println(err)
 					}
 					printLs(resp2)
 					etcdPeer.Delete("/config", true)
+				})
+
+				Convey("Testing nested keys", func() {
+					Convey("Adding key-value pairs in systemtest root /config/system/systemtest/", func() {
+						etcdPeer.Set("/config/system/systemtest/nestkey1", "nestval1", 0)
+						etcdPeer.Set("/config/system/systemtest/nestkey2", "nestval2", 0)
+						keyPairs := getKeyPairs(etcdConf, etcdPeer)
+
+						_, isExisting := keyPairs["nestkey1"]
+						So(isExisting, ShouldBeTrue)
+						So(keyPairs["nestkey1"], ShouldEqual, "nestval1")
+
+						_, isExisting = keyPairs["nestkey2"]
+						So(isExisting, ShouldBeTrue)
+						So(keyPairs["nestkey2"], ShouldEqual, "nestval2")
+
+						Convey("Adding key-value pairs in systemtest first nest directory /config/system/systemtest/nest1/", func() {
+							etcdPeer.Set("/config/system/systemtest/nest1/nest1key1", "nest1val1", 0)
+							etcdPeer.Set("/config/system/systemtest/nest1/nest1key2", "nest1val2", 0)
+							keyPairs = getKeyPairs(etcdConf, etcdPeer)
+
+							_, isExisting = keyPairs["nest1_nest1key1"]
+							So(isExisting, ShouldBeTrue)
+							So(keyPairs["nest1_nest1key1"], ShouldEqual, "nest1val1")
+
+							_, isExisting = keyPairs["nest1_nest1key2"]
+							So(isExisting, ShouldBeTrue)
+							So(keyPairs["nest1_nest1key2"], ShouldEqual, "nest1val2")
+
+							Convey("Adding key-value pairs in systemtest second nest directory /config/system/systemtest/nest1/nest2", func() {
+								etcdPeer.Set("/config/system/systemtest/nest1/nest2/nest2key1", "nest2val1", 0)
+								etcdPeer.Set("/config/system/systemtest/nest1/nest2/nest2key2", "nest2val2", 0)
+								keyPairs = getKeyPairs(etcdConf, etcdPeer)
+
+								_, isExisting = keyPairs["nest1_nest2_nest2key1"]
+								So(isExisting, ShouldBeTrue)
+								So(keyPairs["nest1_nest2_nest2key1"], ShouldEqual, "nest2val1")
+
+								_, isExisting = keyPairs["nest1_nest2_nest2key1"]
+								So(isExisting, ShouldBeTrue)
+								So(keyPairs["nest1_nest2_nest2key2"], ShouldEqual, "nest2val2")
+
+								etcdPeer.Delete("/config", true)
+							})
+						})
+					})
 				})
 			})
 		})
