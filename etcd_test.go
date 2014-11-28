@@ -218,6 +218,8 @@ func TestEtcd(t *testing.T) {
 						Convey("Adding key-value pairs in systemtest first nest directory /config/system/systemtest/nest1/", func() {
 							etcdPeer.Set("/config/system/systemtest/nest1/nest1key1", "nest1val1", 0)
 							etcdPeer.Set("/config/system/systemtest/nest1/nest1key2", "nest1val2", 0)
+							etcdPeer.Set("/config/system/systemtest/nest2/nest2key1", "nest2val1", 0)
+							etcdPeer.Set("/config/system/systemtest/nest2/nest2key2", "nest2val2", 0)
 							keyPairs = getKeyPairs(etcdConf, etcdPeer)
 
 							_, isExisting = keyPairs["nest1_nest1key1"]
@@ -227,6 +229,14 @@ func TestEtcd(t *testing.T) {
 							_, isExisting = keyPairs["nest1_nest1key2"]
 							So(isExisting, ShouldBeTrue)
 							So(keyPairs["nest1_nest1key2"], ShouldEqual, "nest1val2")
+
+							_, isExisting = keyPairs["nest2_nest2key1"]
+							So(isExisting, ShouldBeTrue)
+							So(keyPairs["nest2_nest2key1"], ShouldEqual, "nest2val1")
+
+							_, isExisting = keyPairs["nest1_nest1key2"]
+							So(isExisting, ShouldBeTrue)
+							So(keyPairs["nest2_nest2key2"], ShouldEqual, "nest2val2")
 
 							Convey("Adding key-value pairs in systemtest second nest directory /config/system/systemtest/nest1/nest2", func() {
 								etcdPeer.Set("/config/system/systemtest/nest1/nest2/nest2key1", "nest2val1", 0)
@@ -241,6 +251,12 @@ func TestEtcd(t *testing.T) {
 								So(isExisting, ShouldBeTrue)
 								So(keyPairs["nest1_nest2_nest2key2"], ShouldEqual, "nest2val2")
 
+								fmt.Println("\nCurrent Directories\n")
+								resp2, err := etcdPeer.Get("/config/", false, true)
+								if err != nil {
+									fmt.Println(err)
+								}
+								printLs(resp2)
 								etcdPeer.Delete("/config", true)
 							})
 						})
