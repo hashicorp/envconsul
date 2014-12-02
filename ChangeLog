@@ -1,3 +1,9 @@
+2014-11-28  Karl Dominguez <kdominguez@zvelo.com>
+
+  * Start feature "Write unit tests for testing nested directory settings in etcd"
+  https://www.pivotaltracker.com/story/show/82827552
+  https://github.com/zvelo/envetcd/pull/5
+
 2014-11-22  Karl Dominguez <kdominguez@zvelo.com>
 
   * Start feature "Improve test coverage to an appropriate level"
