@@ -1,6 +1,9 @@
 package main
 
 import (
+	"flag"
+	"fmt"
+	"github.com/codegangsta/cli"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -37,8 +40,18 @@ func capture(args string) (string, error) {
 	return strings.TrimSpace(string(output)), nil
 }
 
+func flagSet(name string, flags []cli.Flag) *flag.FlagSet {
+	set := flag.NewFlagSet(name, flag.ContinueOnError)
+	for _, f := range flags {
+		f.Apply(set)
+	}
+	return set
+}
+
 func TestCLI(t *testing.T) {
 	Convey("Command should execute as expected", t, func() {
+		set := flagSet(appTest.Name, appTest.Flags)
+		ctx := cli.NewContext(appTest, set, set)
 
 		Convey("Invalid flags should cause an error", func() {
 			_, err := capture("envetcd -shmaltz delicious")
@@ -51,5 +64,34 @@ func TestCLI(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(output, ShouldEqual, "envetcd version "+app.Version)
 		})
+		Convey("Initlogger should be printed", func() {
+			initLogger(ctx)
+			//os.Args = []string{"./envetcd", "no-upcase=true", "no-sync=true", "-o", "ooooo", "--system", "nsq", "-c", "env"}
+			//fmt.Println(appTest.Run(os.Args))
+		})
+
 	})
+}
+
+var (
+	appTest     = cli.NewApp()
+	werckerPeer = werckerAdd()
+)
+
+func werckerAdd() string {
+
+	etcdhost := os.Getenv("ZVELO_ETCD_HOST")
+	if etcdhost == "" {
+		etcdhost = "127.0.0.1"
+	}
+	etcdport := os.Getenv("WERCKER_ETCD_PORT")
+	if etcdport == "" {
+		etcdport = "4001"
+	}
+	return fmt.Sprintf("%s:%s", etcdhost, etcdport)
+}
+
+//Set up a new test app with some predetermined values
+func init() {
+
 }

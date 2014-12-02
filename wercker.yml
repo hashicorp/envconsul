@@ -1,5 +1,7 @@
 box: wercker/golang
-
+services:
+  - zvelo/etcd@0.0.1
+  
 # Build definition
 build:
     steps:
@@ -47,3 +49,4 @@ deploy:
       - hipchat-notify:
           token: $HIPCHAT_TOKEN
           room-id: $HIPCHAT_ROOM_ID
+
