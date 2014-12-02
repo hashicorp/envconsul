@@ -1,0 +1,18 @@
+[Unit]
+After=default.target
+
+[Install]
+WantedBy=default.target
+
+[Service]
+User=core
+EnvironmentFile=/etc/environment
+ExecStartPre=/bin/bash -c "echo Starting..."
+ExecStart=/bin/bash -c "TMPFILE_ENVETCD=$(mktemp -t service.XXXXXXXXXX); \
+  echo Temporary File $$TMPFILE_ENVETCD; \
+  /envetcd --service redis --output $TMPFILE_ENVETCD -c env; \
+  exec /usr/bin/docker run \
+    --rm -t \
+    --name redis-server \
+    zvelo/zvelo-redis; "
+ExecStartPost=/bin/bash -c "echo DONE"
