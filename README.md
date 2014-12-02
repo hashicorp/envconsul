@@ -105,7 +105,7 @@ If you want to run the tests:
 ```shell
 $ make test
 ```
-The etcd server default address is `127.0.0.1`. To override, create the environment variable ZVELO_ETCD_HOST={etcd address}
+The etcd server default address is `127.0.0.1`. To override, create the environment variable `ZVELO_ETCD_HOST={etcd address}`
 
 Or to run a specific test in the suite:
 
