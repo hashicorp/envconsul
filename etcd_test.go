@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/codegangsta/cli"
-	"github.com/coreos/go-etcd/etcd"
 	"os"
 	"testing"
+
+	"github.com/codegangsta/cli"
+	"github.com/coreos/go-etcd/etcd"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -20,7 +21,7 @@ func TestEtcd(t *testing.T) {
 		appTest.Name = "testApp"
 		appTest.Author = "Karl Dominguez"
 		appTest.Email = "kdominguez@zvelo.com"
-		appTest.Version = "0.0.4"
+		appTest.Version = "0.0.5"
 		appTest.Usage = "get environment variables from etcd"
 		appTest.Flags = []cli.Flag{
 			cli.StringSliceFlag{

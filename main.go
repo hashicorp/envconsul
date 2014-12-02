@@ -14,7 +14,7 @@ func init() {
 	app.Name = "envetcd"
 	app.Author = "Joshua Rubin"
 	app.Email = "jrubin@zvelo.com"
-	app.Version = "0.0.4"
+	app.Version = "0.0.5"
 	app.Usage = "set environment variables from etcd"
 	app.Flags = []cli.Flag{
 		cli.StringSliceFlag{
