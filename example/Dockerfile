@@ -1,5 +1,5 @@
 #modify base image for each service
-FROM ubuntu:14.04 	
+FROM ubuntu:14.04
 
 # Add envetcd into Docker Image at /envetcd/
 
