@@ -120,6 +120,8 @@ func getKeyPairs(c *etcdConfig, client *etcd.Client) KeyPairs {
 
 	keyPairs := make(KeyPairs)
 
+	// For each etcd directory key template
+	// fetch from etcd and add to keypairs
 	for i, tmpl := range etcdKeyTemplates {
 		t := template.Must(template.New("etcdKey" + strconv.Itoa(i)).Parse(tmpl))
 		var buf bytes.Buffer
@@ -147,6 +149,21 @@ func getKeyPairs(c *etcdConfig, client *etcd.Client) KeyPairs {
 		log.Printf("[DEBUG] etcd returned %d key pairs", len(keyPairs)-oldLen)
 	}
 
+	// Expose --service --system and --hostname command variables to the child process' emvironment,
+	// ignoring if these are not set in etcd (or set in etcd. Command line arguments take precedence.)
+	if "" != c.Key.Service {
+		log.Printf("[DEBUG] cli: --service %v", c.Key.Service)
+		keyPairs["ENVETCD_SERVICE"] = c.Key.Service
+	}
+	if "" != c.Key.System {
+		log.Printf("[DEBUG] cli: --system %v", c.Key.System)
+		keyPairs["ENVETCD_SYSTEM"] = c.Key.System
+	}
+	if "" != c.Key.Hostname {
+		log.Printf("[DEBUG] cli: --hostname %v", c.Key.Hostname)
+		keyPairs["ENVETCD_HOSTNAME"] = c.Key.Hostname
+	}
+
 	return keyPairs
 }
 
@@ -155,13 +172,15 @@ func addKeyPair(keyPairs KeyPairs, dir string, node *etcd.Node) {
 		for _, child := range node.Nodes {
 			addKeyPair(keyPairs, dir, child)
 		}
-
 		return
 	}
 
 	key := strings.TrimPrefix(node.Key, dir) // strip the prefix directory from the key
+	if key == "" {
+		log.Printf("[WARN] (etcd) Key empty for value %v (missing a subdirectory?). Skipping this key.", node.Value)
+		return
+	}
 	key = strings.TrimLeft(key, "/")         // strip any leading slashes
 	key = strings.Replace(key, "/", "_", -1) // convert any remaining slashes to underscores (for any nested keys)
-
 	keyPairs[key] = node.Value
 }
