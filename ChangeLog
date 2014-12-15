@@ -1,3 +1,8 @@
+2014-12-15  Luke Kingland <lkingland@zvelo.com>
+
+  * Start feature "envetcd should provide a few more variables by default"
+  https://www.pivotaltracker.com/story/show/84605868
+
 2014-11-28  Karl Dominguez <kdominguez@zvelo.com>
 
   * Start feature "Write unit tests for testing nested directory settings in etcd"
