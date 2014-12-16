@@ -114,6 +114,7 @@ func getClient(c *etcdConfig) (*etcd.Client, error) {
 	return client, nil
 }
 
+// getKeyPairs takes a given config and client, and returns all key pairs
 func getKeyPairs(c *etcdConfig, client *etcd.Client) KeyPairs {
 	const noSort = false
 	const recursive = true

@@ -21,7 +21,7 @@ func TestEtcd(t *testing.T) {
 		appTest.Name = "testApp"
 		appTest.Author = "Karl Dominguez"
 		appTest.Email = "kdominguez@zvelo.com"
-		appTest.Version = "0.0.5"
+		appTest.Version = version
 		appTest.Usage = "get environment variables from etcd"
 		appTest.Flags = []cli.Flag{
 			cli.StringSliceFlag{
@@ -104,9 +104,12 @@ func TestEtcd(t *testing.T) {
 		}
 		appTest.Action = run
 
+		// Craete the new cli contet with test flags
 		set := flagSet(appTest.Name, appTest.Flags)
 		ctx := cli.NewContext(appTest, set, set)
 
+		// get config (keydata, TLS, and peers etc) from context by mapping flags into
+		// a useful config struct.
 		etcdConf := newEtcdConfig(ctx)
 
 		etcdAddress := fmt.Sprintf("%s%s", "http://", werckerPeer)
