@@ -192,7 +192,7 @@ func (cli *CLI) Run(args []string) int {
 
 		select {
 		case data := <-watcher.DataCh:
-			log.Printf("[INFO] (cli) received %s from Watcher", data.Display())
+			log.Printf("[INFO] (cli) received %s from Watcher", data.Dependency.Display())
 
 			// Tell the Runner about the data
 			runner.Receive(data.Data)
