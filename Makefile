@@ -8,10 +8,6 @@ deps:
 	go get -d -v ./...
 	echo $(DEPS) | xargs -n1 go get -d
 
-updatedeps:
-	go get -u -v ./...
-	echo $(DEPS) | xargs -n1 go get -d
-
 build:
 	@mkdir -p bin/
 	go build -o bin/$(NAME)
@@ -40,7 +36,5 @@ package: xcompile
 		(cd $(shell pwd)/build && tar -zcvf tgz/$$f.tar.gz $$f); \
 		echo $$f; \
 	done
-
-ci: updatedeps build test
 
 .PHONY: all deps updatedeps build test xcompile package ci
