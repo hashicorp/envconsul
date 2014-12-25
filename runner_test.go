@@ -8,8 +8,7 @@ import (
 	"testing"
 	"time"
 
-	// "github.com/hashicorp/consul-template/test"
-	"github.com/hashicorp/consul-template/util"
+	"github.com/hashicorp/consul-template/dependency"
 )
 
 func TestNewRunner_noPrefix(t *testing.T) {
@@ -62,7 +61,7 @@ func TestNewRunner_parseKeyPrefixError(t *testing.T) {
 
 func TestNewRunner_parsesRunner(t *testing.T) {
 	config, command := &Config{}, []string{"env"}
-	prefix, err := util.ParseKeyPrefixDependency("foo/bar")
+	prefix, err := dependency.ParseStoreKeyPrefix("foo/bar")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +85,7 @@ func TestNewRunner_parsesRunner(t *testing.T) {
 }
 
 func TestRunner_dependencies(t *testing.T) {
-	prefix, err := util.ParseKeyPrefixDependency("foo/bar")
+	prefix, err := dependency.ParseStoreKeyPrefix("foo/bar")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +95,7 @@ func TestRunner_dependencies(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected := []util.Dependency{prefix}
+	expected := []dependency.Dependency{prefix}
 	if !reflect.DeepEqual(runner.Dependencies(), expected) {
 		t.Errorf("expected \n%#v\n to include \n%#v\n", runner, expected)
 	}
@@ -108,7 +107,7 @@ func TestRunner_receiveSetsData(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pair := []*util.KeyPair{&util.KeyPair{Path: "foo/bar"}}
+	pair := []*dependency.KeyPair{&dependency.KeyPair{Path: "foo/bar"}}
 	runner.Receive(pair)
 
 	if !reflect.DeepEqual(runner.data, pair) {
@@ -140,8 +139,8 @@ func TestRunner_runSanitize(t *testing.T) {
 
 	runner.outStream, runner.errStream = outStream, errStream
 
-	pair := []*util.KeyPair{
-		&util.KeyPair{
+	pair := []*dependency.KeyPair{
+		&dependency.KeyPair{
 			Path:  "foo/bar",
 			Key:   "b*a*r",
 			Value: "baz",
@@ -167,8 +166,8 @@ func TestRunner_runUpcase(t *testing.T) {
 
 	runner.outStream, runner.errStream = outStream, errStream
 
-	pair := []*util.KeyPair{
-		&util.KeyPair{
+	pair := []*dependency.KeyPair{
+		&dependency.KeyPair{
 			Path:  "foo/bar",
 			Key:   "bar",
 			Value: "baz",
@@ -194,8 +193,8 @@ func TestRunner_runExitCh(t *testing.T) {
 
 	runner.outStream, runner.errStream = outStream, errStream
 
-	pair := []*util.KeyPair{
-		&util.KeyPair{
+	pair := []*dependency.KeyPair{
+		&dependency.KeyPair{
 			Path:  "foo/bar",
 			Key:   "bar",
 			Value: "baz",

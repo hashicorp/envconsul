@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/hashicorp/consul-template/util"
+	"github.com/hashicorp/consul-template/dependency"
 )
 
 // Regexp for invalid characters in keys
@@ -19,7 +19,7 @@ var InvalidRegexp = regexp.MustCompile(`[^a-zA-Z0-9_]`)
 
 type Runner struct {
 	// Prefix is the KeyPrefixDependency associated with this Runner.
-	Prefix *util.KeyPrefixDependency
+	Prefix *dependency.StoreKeyPrefix
 
 	// Command is the slice of the command string and any arguments.
 	Command []string
@@ -32,7 +32,7 @@ type Runner struct {
 	config *Config
 
 	// data is the latest representation of the data from Consul.
-	data []*util.KeyPair
+	data []*dependency.KeyPair
 
 	// env is the last compiled environment.
 	env map[string]string
@@ -61,7 +61,7 @@ func NewRunner(s string, config *Config, command []string) (*Runner, error) {
 		return nil, fmt.Errorf("runner: missing command")
 	}
 
-	prefix, err := util.ParseKeyPrefixDependency(s)
+	prefix, err := dependency.ParseStoreKeyPrefix(s)
 	if err != nil {
 		return nil, err
 	}
@@ -79,13 +79,13 @@ func NewRunner(s string, config *Config, command []string) (*Runner, error) {
 
 // Dependencies returns the list of dependencies for this Runner. At this time,
 // this function will always return a slice with exactly one element.
-func (r *Runner) Dependencies() []util.Dependency {
-	return []util.Dependency{r.Prefix}
+func (r *Runner) Dependencies() []dependency.Dependency {
+	return []dependency.Dependency{r.Prefix}
 }
 
 // Receive accepts data from Consul and maps that data to the prefix.
 func (r *Runner) Receive(data interface{}) {
-	r.data = data.([]*util.KeyPair)
+	r.data = data.([]*dependency.KeyPair)
 }
 
 // Wait for the child process to finish (if one exists).

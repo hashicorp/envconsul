@@ -10,7 +10,7 @@ import (
 	"time"
 
 	api "github.com/armon/consul-api"
-	"github.com/hashicorp/consul-template/util"
+	"github.com/hashicorp/consul-template/watch"
 	"github.com/hashicorp/logutils"
 )
 
@@ -127,7 +127,7 @@ func (cli *CLI) Run(args []string) int {
 	// Parse the raw wait value into a Wait object
 	if config.WaitRaw != "" {
 		log.Printf("[DEBUG] (cli) detected -wait, parsing")
-		wait, err := util.ParseWait(config.WaitRaw)
+		wait, err := watch.ParseWait(config.WaitRaw)
 		if err != nil {
 			return cli.handleError(err, ExitCodeParseWaitError)
 		}
@@ -178,7 +178,7 @@ func (cli *CLI) Run(args []string) int {
 	}
 
 	log.Printf("[DEBUG] (cli) creating Watcher")
-	watcher, err := util.NewWatcher(client, runner.Dependencies())
+	watcher, err := watch.NewWatcher(client, runner.Dependencies())
 	if err != nil {
 		return cli.handleError(err, ExitCodeWatcherError)
 	}
@@ -192,7 +192,7 @@ func (cli *CLI) Run(args []string) int {
 
 		select {
 		case data := <-watcher.DataCh:
-			log.Printf("[INFO] (cli) received %s from Watcher", data.Display())
+			log.Printf("[INFO] (cli) received %s from Watcher", data.Dependency.Display())
 
 			// Tell the Runner about the data
 			runner.Receive(data.Data)
