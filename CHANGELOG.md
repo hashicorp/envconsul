@@ -1,6 +1,12 @@
 envconsul Changelog
 ===================
 
+## vx.y.z (unreleased)
+
+IMPROVEMENTS:
+
+  * Allow `envconsul` to run when Consul is unavailable (GH-28)
+
 ## v0.3.0 (November 4, 2014)
 
 FEATURES:
