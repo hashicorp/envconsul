@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/zvelo/envetcd",
-	"GoVersion": "go1.3.3",
+	"GoVersion": "go1.4",
 	"Packages": [
 		"./..."
 	],
@@ -11,6 +11,11 @@
 			"Rev": "f7ebb761e83e21225d1d8954fde853bf8edd46c4"
 		},
 		{
+			"ImportPath": "github.com/codegangsta/negroni",
+			"Comment": "v0.1-55-g1dd3ab0",
+			"Rev": "1dd3ab0ff59e13f5b73dcbf70703710aebe50d2f"
+		},
+		{
 			"ImportPath": "github.com/coreos/etcd/pkg/transport",
 			"Comment": "v0.5.0-alpha.2-29-gb87243d",
 			"Rev": "b87243d827d1cdc67877faa4970f71bb8619c075"
@@ -19,6 +24,10 @@
 			"ImportPath": "github.com/coreos/go-etcd/etcd",
 			"Comment": "v0.2.0-rc1-127-g6fe04d5",
 			"Rev": "6fe04d580dfb71c9e34cbce2f4df9eefd1e1241e"
+		},
+		{
+			"ImportPath": "github.com/gogo/protobuf/proto",
+			"Rev": "d59ce9ecb817e6fbca932115f03520207f5a8a07"
 		},
 		{
 			"ImportPath": "github.com/hashicorp/logutils",
@@ -32,6 +41,14 @@
 			"ImportPath": "github.com/smartystreets/goconvey/convey",
 			"Comment": "1.5.0-337-g46ed257",
 			"Rev": "46ed257da550caea1f91f8d60b8c6cfadb3a73b7"
+		},
+		{
+			"ImportPath": "github.com/unrolled/render",
+			"Rev": "bdfac4a8df10cc9dc03ee14ba2f655137fd70378"
+		},
+		{
+			"ImportPath": "github.com/zvelo/zvelo-services/util",
+			"Rev": "cb9bbe4dd4d1cdc96455789b57f91a4ff8514217"
 		}
 	]
 }
