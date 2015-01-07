@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	api "github.com/armon/consul-api"
 	"github.com/hashicorp/consul-template/watch"
+	"github.com/hashicorp/consul/api"
 	"github.com/hashicorp/logutils"
 )
 
