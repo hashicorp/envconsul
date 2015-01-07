@@ -3,10 +3,11 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 
 	"github.com/codegangsta/cli"
-	"github.com/hashicorp/logutils"
+	"github.com/zvelo/zvelo-services/util"
 )
 
 // Exit codes are int values that represent an exit code for a particular error.
@@ -22,50 +23,83 @@ const (
 	exitCodeEtcdError
 )
 
-func initLogger(c *cli.Context) {
-	filter := &logutils.LevelFilter{
-		Levels:   []logutils.LogLevel{"DEBUG", "INFO", "WARN", "ERR"},
-		MinLevel: logutils.LogLevel(c.GlobalString("log-level")),
-		Writer:   os.Stderr,
-	}
+func massagePeers() error {
+	for i, ep := range config.Peers {
+		u, err := url.Parse(ep)
+		if err != nil {
+			return err
+		}
 
-	log.SetOutput(filter)
-	log.Printf("[INFO] log level set to %s", filter.MinLevel)
+		if u.Scheme == "" {
+			u.Scheme = "http"
+		}
+
+		config.Peers[i] = u.String()
+	}
+	return nil
+}
+
+func genConfig(c *cli.Context) {
+	config.Peers = c.GlobalStringSlice("peers")
+	config.Hostname = c.GlobalString("hostname")
+	config.System = c.GlobalString("system")
+	config.Service = c.GlobalString("service")
+	config.Prefix = c.GlobalString("prefix")
+	config.Output = c.String("output")
+	config.Sync = !c.GlobalBool("no-sync")
+	config.CleanEnv = c.GlobalBool("clean-env")
+	config.Sanitize = !c.GlobalBool("no-sanitize")
+	config.Upcase = !c.GlobalBool("no-upcase")
+	config.TLS.CAFile = c.GlobalString("ca-file")
+	config.TLS.CertFile = c.GlobalString("cert-file")
+	config.TLS.KeyFile = c.GlobalString("key-file")
+
+	if err := massagePeers(); err != nil {
+		log.Fatal(err)
+	}
 }
 
 // Run accepts a slice of arguments and returns an int representing the exit
 // status from the command.
 func run(c *cli.Context) {
-	initLogger(c)
+	util.InitLogger(c.GlobalString("log-level"))
+	genConfig(c)
 
 	args := c.Args()
 	if len(args) < 1 {
 		err := fmt.Errorf("cli: missing command")
 		cli.ShowAppHelp(c)
-		handleError(err, exitCodeParseFlagsError)
+		log.Printf("[ERR] %s", err.Error())
+		os.Exit(exitCodeParseFlagsError)
 	}
 
-	command := args[0:]
-
-	log.Printf("[DEBUG] (cli) creating Runner")
-	runner, err := newRunner(c, command)
+	exitCode, err := start(args[0:]...)
 	if err != nil {
-		handleError(err, exitCodeParseFlagsError)
+		log.Printf("[ERR] %s", err.Error())
+	}
+
+	os.Exit(exitCode)
+}
+
+func start(command ...string) (int, error) {
+	log.Printf("[DEBUG] (cli) creating Runner")
+	runner, err := newRunner(command...)
+	if err != nil {
+		return exitCodeParseFlagsError, err
 	}
 
 	log.Printf("[DEBUG] (cli) creating etcd API client")
-	etcdConfig := newEtcdConfig(c)
-	client, err := getClient(etcdConfig)
+	client, err := getClient()
 	if err != nil {
-		handleError(err, exitCodeEtcdError)
+		return exitCodeEtcdError, err
 	}
 
 	log.Printf("[DEBUG] (cli) getting data from etcd")
-	runner.data = getKeyPairs(etcdConfig, client)
+	runner.data = getKeyPairs(client)
 
 	log.Printf("[INFO] (cli) invoking Runner")
 	if err := runner.run(); err != nil {
-		handleError(err, exitCodeRunnerError)
+		return exitCodeRunnerError, err
 	}
 
 	for {
@@ -74,17 +108,11 @@ func run(c *cli.Context) {
 			log.Printf("[INFO] (cli) subprocess exited")
 
 			if exitCode == exitCodeOK {
-				os.Exit(exitCodeOK)
+				return exitCodeOK, nil
 			}
 
 			err := fmt.Errorf("unexpected exit from subprocess (%d)", exitCode)
-			handleError(err, exitCode)
+			return exitCode, err
 		}
 	}
-}
-
-// handleError outputs the given error's Error() and returns the given exit status.
-func handleError(err error, status int) {
-	log.Printf("[ERR] %s", err.Error())
-	os.Exit(status)
 }

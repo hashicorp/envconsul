@@ -4,14 +4,33 @@ import (
 	"os"
 
 	"github.com/codegangsta/cli"
+	"github.com/coreos/etcd/pkg/transport"
+	"github.com/zvelo/zvelo-services/util"
+)
+
+const (
+	version = "0.0.6"
 )
 
 var (
-	app     = cli.NewApp()
-	version = "0.0.5"
+	app    = cli.NewApp()
+	config struct {
+		Peers    []string
+		Hostname string
+		System   string
+		Service  string
+		Prefix   string
+		Output   string
+		Sync     bool
+		CleanEnv bool
+		Sanitize bool
+		Upcase   bool
+		TLS      transport.TLSInfo
+	}
 )
 
 func init() {
+	hostname, _ := os.Hostname()
 	app.Name = "envetcd"
 	app.Author = "Joshua Rubin"
 	app.Email = "jrubin@zvelo.com"
@@ -42,6 +61,7 @@ func init() {
 		cli.StringFlag{
 			Name:   "hostname",
 			EnvVar: "HOSTNAME",
+			Value:  hostname,
 			Usage:  "computer hostname for host specific configuration",
 		},
 		cli.StringFlag{
@@ -60,12 +80,7 @@ func init() {
 			Value:  "/config",
 			Usage:  "etcd prefix for all keys",
 		},
-		cli.StringFlag{
-			Name:   "log-level, l",
-			EnvVar: "ENVETCD_LOG_LEVEL",
-			Value:  "WARN",
-			Usage:  "set log level (DEBUG, INFO, WARN, ERR)",
-		},
+		util.LogLevelFlag,
 		cli.StringFlag{
 			Name:   "output, o",
 			EnvVar: "ENVETCD_OUTPUT",

@@ -9,8 +9,6 @@ import (
 	"regexp"
 	"strings"
 	"syscall"
-
-	"github.com/codegangsta/cli"
 )
 
 // Regexp for invalid characters in keys
@@ -24,10 +22,6 @@ type runner struct {
 	// the child processes.
 	exitCh chan int
 
-	sanitize bool
-	upcase   bool
-	cleanEnv bool
-
 	// data is the latest representation of the data from etcd.
 	data KeyPairs
 
@@ -35,17 +29,14 @@ type runner struct {
 	outStream io.Writer
 }
 
-func newRunner(c *cli.Context, command []string) (*runner, error) {
+func newRunner(command ...string) (*runner, error) {
 	run := &runner{
 		command:   command,
-		sanitize:  !c.Bool("no-sanitize"),
-		upcase:    !c.Bool("no-upcase"),
-		cleanEnv:  c.Bool("clean-env"),
 		outStream: os.Stdout,
 	}
 
-	if output := c.String("output"); len(output) > 0 {
-		outFile, err := os.Create(output)
+	if len(config.Output) > 0 {
+		outFile, err := os.Create(config.Output)
 		if err != nil {
 			return nil, err
 		}
@@ -61,11 +52,11 @@ func newRunner(c *cli.Context, command []string) (*runner, error) {
 func (r *runner) run() error {
 	env := make(map[string]string)
 	for key, value := range r.data {
-		if r.sanitize {
+		if config.Sanitize {
 			key = invalidRegexp.ReplaceAllString(key, "_")
 		}
 
-		if r.upcase {
+		if config.Upcase {
 			key = strings.ToUpper(key)
 		}
 
@@ -74,7 +65,7 @@ func (r *runner) run() error {
 
 	// Create a new environment
 	processEnv := os.Environ()
-	if r.cleanEnv {
+	if config.CleanEnv {
 		processEnv = []string{}
 	}
 
