@@ -17,8 +17,7 @@ dependencies:
     # godep should be the only build dependency
     - go get -v github.com/tools/godep
 
-    # cover, gocov and goveralls are required for coverage testing and reporting to coveralls
-    - go get -v golang.org/x/tools/cmd/cover
+    # gocov and goveralls are required for coverage testing and reporting to coveralls
     - go get -v github.com/axw/gocov/gocov
     - go get -v github.com/mattn/goveralls
 
@@ -40,6 +39,9 @@ test:
     # rebuild the std library with "-a"
     # https://github.com/golang/go/issues/9344
     - cd /usr/local/go/src && CGO_ENABLED=0 ./make.bash
+
+    # cover has to be reinstalled after rebuild
+    - go get -v golang.org/x/tools/cmd/cover
   override:
     - make build
     - make coveralls
