@@ -55,4 +55,6 @@ deployment:
   github:
     branch: master
     commands:
+      - pwd
+      - echo gh-release create ${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME} $(./${EXECUTABLE} -v | awk '{print $3}')
       - gh-release create ${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME} $(./${EXECUTABLE} -v | awk '{print $3}')
