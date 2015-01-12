@@ -27,13 +27,13 @@ import (
 	"time"
 )
 
-func NewListener(addr string, info TLSInfo) (net.Listener, error) {
+func NewListener(addr string, scheme string, info TLSInfo) (net.Listener, error) {
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, err
 	}
 
-	if !info.Empty() {
+	if !info.Empty() && scheme == "https" {
 		cfg, err := info.ServerConfig()
 		if err != nil {
 			return nil, err
@@ -72,6 +72,10 @@ type TLSInfo struct {
 	// parseFunc exists to simplify testing. Typically, parseFunc
 	// should be left nil. In that case, tls.X509KeyPair will be used.
 	parseFunc func([]byte, []byte) (tls.Certificate, error)
+}
+
+func (info TLSInfo) String() string {
+	return fmt.Sprintf("cert = %s, key = %s, ca = %s", info.CertFile, info.KeyFile, info.CAFile)
 }
 
 func (info TLSInfo) Empty() bool {
