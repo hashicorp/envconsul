@@ -55,5 +55,4 @@ deployment:
   github:
     branch: master
     commands:
-      - export EXECUTABLE_VERSION=$(./${EXECUTABLE} -v | awk '{print $3}')
-      - gh-release create ${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME} ${EXECUTABLE_VERSION}
+      - gh-release create ${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME} $(./${EXECUTABLE} -v | awk '{print $3}')
