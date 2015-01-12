@@ -17,6 +17,7 @@ dependencies:
   cache_directories:
     - ~/bin
     - ~/.go_workspace/bin
+    - /usr/local/go
 
   override:
     # godep should be the only build dependency
