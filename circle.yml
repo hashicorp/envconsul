@@ -17,7 +17,6 @@ dependencies:
   cache_directories:
     - ~/bin
     - ~/.go_workspace/bin
-    - /usr/local/go
 
   override:
     # godep should be the only build dependency
@@ -33,17 +32,19 @@ dependencies:
     # install gh-release
     - if [[ ! -e ~/bin/gh-release ]]; then wget https://github.com/progrium/gh-release/releases/download/v${GH_RELEASE_VERSION}/gh-release_${GH_RELEASE_VERSION}_linux_x86_64.tgz && tar xzvf gh-release_${GH_RELEASE_VERSION}_linux_x86_64.tgz && mv gh-release ${HOME}/bin/ && rm -rf gh-release_${GH_RELEASE_VERSION}_linux_x86_64.tgz; fi
 
+test:
+  pre:
     # rebuild go statically to work around an change in go 1.4 that does not
     # rebuild the std library with "-a"
     # https://github.com/golang/go/issues/9344
-    # cover has to be reinstalled after rebuild
-    - if [[ ! -e /usr/local/go/.static ]]; then cd /usr/local/go/src && CGO_ENABLED=0 ./make.bash && go get -v golang.org/x/tools/cmd/cover && touch /usr/local/go/.static; fi
+    - cd /usr/local/go/src && CGO_ENABLED=0 ./make.bash
 
-test:
-  pre:
     # start etcd
     - etcd:
         background: true
+
+    # cover has to be reinstalled after rebuild
+    - go get -v golang.org/x/tools/cmd/cover
 
   override:
     - make build
