@@ -33,7 +33,7 @@ test:
   pre:
     # start etcd
     - ./etcd-$ETCD_VERSION-linux-amd64/etcd:
-      background: true
+        background: true
 
     # rebuild go statically to work around an change in go 1.4 that does not
     # rebuild the std library with "-a"
