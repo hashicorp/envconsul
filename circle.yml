@@ -17,7 +17,8 @@ dependencies:
     # godep should be the only build dependency
     - go get -v github.com/tools/godep
 
-    # gocov and goveralls are required for coverage testing and reporting to coveralls
+    # cover, gocov and goveralls are required for coverage testing and reporting to coveralls
+    - go get -v golang.org/x/tools/cmd/cover
     - go get -v github.com/axw/gocov/gocov
     - go get -v github.com/mattn/goveralls
 
