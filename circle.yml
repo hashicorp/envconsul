@@ -1,6 +1,6 @@
 machine:
   environment:
-    EXECUTABLE: envetcd
+    EXECUTABLE_NAME: envetcd
     ETCD_VERSION: v0.4.6
     ETCD_HOST: 127.0.0.1
     ETCD_PORT: 4001
@@ -55,6 +55,4 @@ deployment:
   github:
     branch: master
     commands:
-      - pwd
-      - echo gh-release create ${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME} $(./${EXECUTABLE} -v | awk '{print $3}')
-      - gh-release create ${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME} $(./${EXECUTABLE} -v | awk '{print $3}')
+      - gh-release create ${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME} $(./${EXECUTABLE_NAME} -v | awk '{print $3}')
