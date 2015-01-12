@@ -20,7 +20,7 @@ dependencies:
     # gocov and goveralls are required for coverage testing and reporting to coveralls
     - go get -v github.com/axw/gocov/gocov
     - go get -v github.com/mattn/goveralls
-    }
+
     # install etcd
     - curl -L https://github.com/coreos/etcd/releases/download/${ETCD_VERSION}/etcd-${ETCD_VERSION}-linux-amd64.tar.gz -o etcd-${ETCD_VERSION}-linux-amd64.tar.gz
     - tar xzvf etcd-${ETCD_VERSION}-linux-amd64.tar.gz
