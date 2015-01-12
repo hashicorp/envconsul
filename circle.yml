@@ -1,0 +1,52 @@
+machine:
+  environment:
+    EXECUTABLE: envetcd
+    ETCD_VERSION: v0.4.6
+    ETCD_HOST: 127.0.0.1
+    ETCD_PORT: 4001
+    GH_RELEASE_VERSION: 2.1.0
+
+checkout:
+  post:
+    ## these commands are required to configure the go environment properly
+    - mkdir -p $HOME/.go_workspace/src/_/home/ubuntu
+    - ln -sf `pwd` $HOME/.go_workspace/src/_/home/ubuntu/
+
+dependencies:
+  override:
+    # godep should be the only build dependency
+	  - go get -v github.com/tools/godep
+
+    # gocov and goveralls are required for coverage testing and reporting to coveralls
+    - go get -v github.com/axw/gocov/gocov
+    - go get -v github.com/mattn/goveralls
+
+    # install etcd
+    - curl -L https://github.com/coreos/etcd/releases/download/$ETCD_VERSION/etcd-$ETCD_VERSION-linux-amd64.tar.gz -o etcd-$ETCD_VERSION-linux-amd64.tar.gz
+    - tar xzvf etcd-$ETCD_VERSION-linux-amd64.tar.gz
+
+    # install gh-release
+    - curl -L https://github.com/progrium/gh-release/releases/download/v$GH_RELEASE_VERSION/gh-release_$GH_RELEASE_VERSION_linux_x86_64.tgz -o gh-release_$GH_RELEASE_VERSION_linux_x86_64.tgz
+    - tar xzvf gh-release_$GH_RELEASE_VERSION_linux_x86_64.tgz
+
+test:
+  pre:
+    # start etcd
+    - ./etcd-$ETCD_VERSION-linux-amd64/etcd:
+      background: true
+
+    # rebuild go statically to work around an change in go 1.4 that does not
+    # rebuild the std library with "-a"
+    # https://github.com/golang/go/issues/9344
+    - cd /usr/local/go/src && CGO_ENABLED=0 ./make.bash
+  override:
+    - make build
+    - make coveralls
+    - make release
+
+deployment:
+  github:
+    branch: master
+    commands:
+      - export EXECUTABLE_VERSION=$(./$EXECUTABLE -v | awk '{print $3}')
+      - ./gh-release create $CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME $EXECUTABLE_VERSION

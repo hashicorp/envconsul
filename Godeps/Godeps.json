@@ -7,8 +7,8 @@
 	"Deps": [
 		{
 			"ImportPath": "github.com/codegangsta/cli",
-			"Comment": "1.2.0-26-gf7ebb76",
-			"Rev": "f7ebb761e83e21225d1d8954fde853bf8edd46c4"
+			"Comment": "1.2.0-50-ga14c5b4",
+			"Rev": "a14c5b47c7efa4ff80cc42e1079a34b4756f2311"
 		},
 		{
 			"ImportPath": "github.com/codegangsta/negroni",
@@ -17,8 +17,8 @@
 		},
 		{
 			"ImportPath": "github.com/coreos/etcd/pkg/transport",
-			"Comment": "v0.5.0-alpha.2-29-gb87243d",
-			"Rev": "b87243d827d1cdc67877faa4970f71bb8619c075"
+			"Comment": "v2.0.0-rc.1-19-gf78bf98",
+			"Rev": "f78bf987c8da6724abe6e8ad3bf84d37b25c7e3e"
 		},
 		{
 			"ImportPath": "github.com/coreos/go-etcd/etcd",
@@ -39,8 +39,8 @@
 		},
 		{
 			"ImportPath": "github.com/smartystreets/goconvey/convey",
-			"Comment": "1.5.0-337-g46ed257",
-			"Rev": "46ed257da550caea1f91f8d60b8c6cfadb3a73b7"
+			"Comment": "1.5.0-359-g7086c71",
+			"Rev": "7086c714ac72ce0c9df4639a14b31002da0a8ac3"
 		},
 		{
 			"ImportPath": "github.com/unrolled/render",

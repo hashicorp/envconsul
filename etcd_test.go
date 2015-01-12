@@ -16,16 +16,8 @@ func init() {
 }
 
 func genEtcdURI() (string, string, string) {
-	etcdHost := os.Getenv("WERCKER_ETCD_HOST")
-	if len(etcdHost) == 0 {
-		etcdHost = os.Getenv("ETCD_HOST")
-	}
-
-	etcdPort := os.Getenv("WERCKER_ETCD_PORT")
-	if len(etcdPort) == 0 {
-		etcdPort = os.Getenv("ETCD_PORT")
-	}
-
+	etcdHost := os.Getenv("ETCD_HOST")
+	etcdPort := os.Getenv("ETCD_PORT")
 	return fmt.Sprintf("http://%s:%s", etcdHost, etcdPort), etcdHost, etcdPort
 }
 

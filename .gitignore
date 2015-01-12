@@ -1,6 +1,7 @@
 /envetcd
+/envetcd-linux-amd64
 /.acc.out
-/.dep-stamp
 /.coveralls-stamp
-/.coveralls-dep-stamp
 /envetcd-*.tgz
+/release/
+/profile.out

@@ -2,19 +2,11 @@ alldirs=$(shell find . \( -path ./Godeps -o -path ./.git \) -prune -o -type d -p
 GODIRS=$(foreach dir, $(alldirs), $(if $(wildcard $(dir)/*.go),$(dir)))
 GOFILES=$(foreach dir, $(alldirs), $(wildcard $(dir)/*.go))
 
-TEST_TAGS=test
-BUILD_TAGS=
-
-ifeq ("$(WERCKER)", "true")
-TEST_TAGS  += wercker
-BUILD_TAGS += wercker production
-export GIT_BRANCH = $(WERCKER_GIT_BRANCH)
+ifeq ("$(CIRCLECI)", "true")
+export GIT_BRANCH = $(CIRCLE_BRANCH)
 endif
 
 EXECUTABLE ?= envetcd
-ETCD_HOST ?= 127.0.0.1
-ETCD_PORT ?= 4001
-ETCD_PEER_PORT ?= 7001
 
 all: build
 
@@ -22,12 +14,12 @@ lint:
 	golint ./...
 	go vet ./...
 
-test: .dep-stamp $(GOFILES)
+test: $(GOFILES)
 	godep go test -tags "$(TEST_TAGS)" -v ./...
 
 coverage: .acc.out
 
-.acc.out: .dep-stamp $(GOFILES)
+.acc.out: $(GOFILES)
 	@echo "mode: set" > .acc.out
 	@for dir in $(GODIRS); do \
 		cmd="godep go test -tags '$(TEST_TAGS)' -v -coverprofile=profile.out $$dir"; \
@@ -43,50 +35,44 @@ coverage: .acc.out
 
 coveralls: .coveralls-stamp
 
-.coveralls-stamp: .coveralls-dep-stamp .acc.out
+.coveralls-stamp: .acc.out
 	@if [ -n "$(COVERALLS_REPO_TOKEN)" ]; then \
-		goveralls -v -coverprofile=.acc.out -service wercker -repotoken $(COVERALLS_REPO_TOKEN); \
+		goveralls -v -coverprofile=.acc.out -service circle-ci -repotoken $(COVERALLS_REPO_TOKEN); \
 	fi
 	@touch .coveralls-stamp
 
 build: $(EXECUTABLE)
 
-$(EXECUTABLE): .dep-stamp $(GOFILES)
-	godep go build -tags "$(BUILD_TAGS)" -v -o $(EXECUTABLE)
+$(EXECUTABLE): $(GOFILES)
+	godep go build -v -o $(EXECUTABLE)
 
-dist: $(EXECUTABLE)
+$(EXECUTABLE)-linux-amd64: $(GO_FILES)
+	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 godep go build -a -v -o $(EXECUTABLE)-linux-amd64
+
+release: release-linux-amd64
+
+release-linux-amd64: $(EXECUTABLE) $(EXECUTABLE)-linux-amd64
 	$(eval VERSION=$(shell ./$(EXECUTABLE) -v | awk '{print $$3}'))
-	@mkdir -p $(EXECUTABLE)-$(VERSION)
+	@mkdir -p $(EXECUTABLE)-$(VERSION)-linux-amd64
 	@cp ./README.md \
 		./LICENSE \
-		./$(EXECUTABLE) \
-		$(EXECUTABLE)-$(VERSION)
-	@tar czf $(EXECUTABLE)-$(VERSION).tgz $(EXECUTABLE)-$(VERSION)
-	@rm -rf $(EXECUTABLE)-$(VERSION)
+		$(EXECUTABLE)-$(VERSION)-linux-amd64
+	@cp \
+		./$(EXECUTABLE)-linux-amd64 \
+		$(EXECUTABLE)-$(VERSION)-linux-amd64/$(EXECUTABLE)
+	@mkdir -p release
+	@tar czf release/$(EXECUTABLE)-$(VERSION)-linux-amd64.tgz $(EXECUTABLE)-$(VERSION)-linux-amd64
+	@rm -rf $(EXECUTABLE)-$(VERSION)-linux-amd64
 
 clean:
-	@rm -f ./$(EXECUTABLE) \
+	@rm -rf \
+		./$(EXECUTABLE) \
+		./$(EXECUTABLE)-linux-amd64 \
 		./.acc.out \
-		./.dep-stamp \
 		./.coveralls-stamp \
-		./.coveralls-dep-stamp \
-		./$(EXECUTABLE)-*.tgz
+		./$(EXECUTABLE)-*.tgz \
+		./release
 
-save: .dep-stamp
+save:
+	@rm -rf ./Godeps
 	godep save ./...
-
-.dep-stamp:
-	# go get should not be used except for godep
-	# godep should provide all dependencies
-	# missing dependencies are a legitimate build failure
-	go get -v github.com/tools/godep
-	@touch .dep-stamp
-
-.coveralls-dep-stamp:
-	# these are needed for coverage testing
-	go get -v github.com/axw/gocov/gocov
-	go get -v github.com/mattn/goveralls
-	@touch .coveralls-dep-stamp
-
-etcd:
-	@etcd -data-dir .cache/etcd -name $(EXECUTABLE) -addr=$(ETCD_HOST):$(ETCD_PORT) -peer-addr=$(ETCD_HOST):$(ETCD_PEER_PORT)
