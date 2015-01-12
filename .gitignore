@@ -1,4 +1,5 @@
 /envetcd
+/envetcd-darwin-amd64
 /envetcd-linux-amd64
 /.acc.out
 /.coveralls-stamp

@@ -49,7 +49,10 @@ $(EXECUTABLE): $(GOFILES)
 $(EXECUTABLE)-linux-amd64: $(GO_FILES)
 	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 godep go build -a -v -o $(EXECUTABLE)-linux-amd64
 
-release: release-linux-amd64
+$(EXECUTABLE)-darwin-amd64: $(GO_FILES)
+	@CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 godep go build -a -v -o $(EXECUTABLE)-darwin-amd64
+
+release: release-linux-amd64 release-darwin-amd64
 
 release-linux-amd64: $(EXECUTABLE) $(EXECUTABLE)-linux-amd64
 	$(eval VERSION=$(shell ./$(EXECUTABLE) -v | awk '{print $$3}'))
@@ -64,10 +67,24 @@ release-linux-amd64: $(EXECUTABLE) $(EXECUTABLE)-linux-amd64
 	@tar czf release/$(EXECUTABLE)-$(VERSION)-linux-amd64.tgz $(EXECUTABLE)-$(VERSION)-linux-amd64
 	@rm -rf $(EXECUTABLE)-$(VERSION)-linux-amd64
 
+release-darwin-amd64: $(EXECUTABLE) $(EXECUTABLE)-darwin-amd64
+	$(eval VERSION=$(shell ./$(EXECUTABLE) -v | awk '{print $$3}'))
+	@mkdir -p $(EXECUTABLE)-$(VERSION)-darwin-amd64
+	@cp ./README.md \
+		./LICENSE \
+		$(EXECUTABLE)-$(VERSION)-darwin-amd64
+	@cp \
+		./$(EXECUTABLE)-darwin-amd64 \
+		$(EXECUTABLE)-$(VERSION)-darwin-amd64/$(EXECUTABLE)
+	@mkdir -p release
+	@tar czf release/$(EXECUTABLE)-$(VERSION)-darwin-amd64.tgz $(EXECUTABLE)-$(VERSION)-darwin-amd64
+	@rm -rf $(EXECUTABLE)-$(VERSION)-darwin-amd64
+
 clean:
 	@rm -rf \
 		./$(EXECUTABLE) \
 		./$(EXECUTABLE)-linux-amd64 \
+		./$(EXECUTABLE)-darwin-amd64 \
 		./.acc.out \
 		./.coveralls-stamp \
 		./$(EXECUTABLE)-*.tgz \
