@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	version = "0.0.8"
+	version = "0.0.9"
 )
 
 var (
@@ -20,6 +20,7 @@ var (
 		System   string
 		Service  string
 		Prefix   string
+		WriteEnv string
 		Output   string
 		Sync     bool
 		CleanEnv bool
@@ -81,6 +82,11 @@ func init() {
 			Usage:  "etcd prefix for all keys",
 		},
 		util.LogLevelFlag,
+		cli.StringFlag{
+			Name:   "write-env, w",
+			EnvVar: "ENVETCD_WRITE_ENV",
+			Usage:  "don't run a command, just write the environment to a 'sourcable' file",
+		},
 		cli.StringFlag{
 			Name:   "output, o",
 			EnvVar: "ENVETCD_OUTPUT",

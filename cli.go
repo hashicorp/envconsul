@@ -5,8 +5,10 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"strings"
 
 	"github.com/codegangsta/cli"
+	"github.com/coreos/go-etcd/etcd"
 	"github.com/zvelo/zvelo-services/util"
 )
 
@@ -46,6 +48,7 @@ func genConfig(c *cli.Context) {
 	config.Service = c.GlobalString("service")
 	config.Prefix = c.GlobalString("prefix")
 	config.Output = c.String("output")
+	config.WriteEnv = c.GlobalString("write-env")
 	config.Sync = !c.GlobalBool("no-sync")
 	config.CleanEnv = c.GlobalBool("clean-env")
 	config.Sanitize = !c.GlobalBool("no-sanitize")
@@ -66,7 +69,9 @@ func run(c *cli.Context) {
 	genConfig(c)
 
 	args := c.Args()
-	if len(args) < 1 {
+	if len(config.WriteEnv) > 0 && len(args) > 0 {
+		log.Println("[WARN] command not executed when --write-env is used")
+	} else if len(config.WriteEnv) == 0 && len(args) < 1 {
 		err := fmt.Errorf("cli: missing command")
 		cli.ShowAppHelp(c)
 		log.Printf("[ERR] %s", err.Error())
@@ -81,13 +86,31 @@ func run(c *cli.Context) {
 	os.Exit(exitCode)
 }
 
-func start(command ...string) (int, error) {
-	log.Printf("[DEBUG] (cli) creating Runner")
-	runner, err := newRunner(command...)
+func writeEnvFile(client *etcd.Client) (int, error) {
+	f, err := os.Create(config.WriteEnv)
 	if err != nil {
-		return exitCodeParseFlagsError, err
+		return exitCodeError, nil
+	}
+	defer f.Close()
+
+	for key, value := range getKeyPairs(client) {
+		if config.Sanitize {
+			key = invalidRegexp.ReplaceAllString(key, "_")
+		}
+
+		if config.Upcase {
+			key = strings.ToUpper(key)
+		}
+
+		value = strings.Replace(value, "\"", "\\\"", -1)
+
+		fmt.Fprintf(f, "%s=\"%s\"\n", key, value)
 	}
 
+	return exitCodeOK, nil
+}
+
+func start(command ...string) (int, error) {
 	log.Printf("[DEBUG] (cli) creating etcd API client")
 	client, err := getClient()
 	if err != nil {
@@ -95,6 +118,17 @@ func start(command ...string) (int, error) {
 	}
 
 	log.Printf("[DEBUG] (cli) getting data from etcd")
+
+	if len(config.WriteEnv) > 0 {
+		return writeEnvFile(client)
+	}
+
+	log.Printf("[DEBUG] (cli) creating Runner")
+	runner, err := newRunner(command...)
+	if err != nil {
+		return exitCodeParseFlagsError, err
+	}
+
 	runner.data = getKeyPairs(client)
 
 	log.Printf("[INFO] (cli) invoking Runner")
