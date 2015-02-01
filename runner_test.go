@@ -203,7 +203,6 @@ func TestRunner_runExitCh(t *testing.T) {
 
 	runner.Receive(pair)
 	runner.Run()
-	go runner.Wait()
 
 	select {
 	case <-runner.ExitCh:

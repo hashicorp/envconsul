@@ -175,12 +175,16 @@ func (cli *CLI) Run(args []string) int {
 	}
 
 	log.Printf("[DEBUG] (cli) creating Watcher")
-	watcher, err := watch.NewWatcher(client, runner.Dependencies())
+	watcher, err := watch.NewWatcher(client, once)
 	if err != nil {
 		return cli.handleError(err, ExitCodeWatcherError)
 	}
 
-	go watcher.Watch(once)
+	for _, dep := range runner.Dependencies() {
+		if _, err := watcher.Add(dep); err != nil {
+			return cli.handleError(err, ExitCodeWatcherError)
+		}
+	}
 
 	var minTimer, maxTimer <-chan time.Time
 
