@@ -1,6 +1,9 @@
 envconsul Changelog
 ===================
 
+## v0.4.1.dev (Unreleased)
+
+
 ## v0.4.0 (February 5, 2015)
 
 IMPROVEMENTS:
