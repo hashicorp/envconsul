@@ -1,11 +1,17 @@
 envconsul Changelog
 ===================
 
-## vx.y.z (unreleased)
+## v0.4.0 (February 5, 2015)
 
 IMPROVEMENTS:
 
   * Allow `envconsul` to run when Consul is unavailable (GH-28)
+  * Add `-max-stale` to specify envconsul may talk to non-leader Consul nodes
+    if they are less than the maximum stale value (GH-36)
+
+BUG FIXES:
+
+  * Remove deprecated CLI and config options
 
 ## v0.3.0 (November 4, 2014)
 
