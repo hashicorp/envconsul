@@ -41,10 +41,6 @@ type CLI struct {
 func (cli *CLI) Run(args []string) int {
 	cli.initLogger()
 
-	// TODO: remove in v0.4.0 (deprecated)
-	var address, datacenter string
-	var errExit, terminate, reload bool
-
 	var version, once bool
 	var config = new(Config)
 
@@ -74,47 +70,9 @@ func (cli *CLI) Run(args []string) int {
 		"do not run as a daemon")
 	flags.BoolVar(&version, "version", false, "display the version")
 
-	// TODO: remove in v0.4.0 (deprecated)
-	flags.StringVar(&datacenter, "dc", "",
-		"DEPRECATED")
-	flags.StringVar(&address, "addr", "",
-		"DEPRECATED")
-	flags.BoolVar(&errExit, "errexit", false,
-		"DEPRECAETD")
-	flags.BoolVar(&terminate, "terminate", false,
-		"DEPRECAETD")
-	flags.BoolVar(&reload, "reload", false,
-		"DEPRECATED")
-
 	// If there was a parser error, stop
 	if err := flags.Parse(args[1:]); err != nil {
 		return cli.handleError(err, ExitCodeParseFlagsError)
-	}
-
-	// TODO: remove in v0.4.0 (deprecated)
-	if address != "" {
-		fmt.Fprintf(cli.errStream,
-			"DEPRECATED: the -addr flag is deprecated, please use -consul instead\n")
-		config.Consul = address
-	}
-
-	if datacenter != "" {
-		fmt.Fprintf(cli.errStream,
-			"DEPRECATED: the -dc flag is deprecated, please use the @dc syntax instead\n")
-	}
-
-	if errExit {
-		fmt.Fprintf(cli.errStream, "DEPRECATED: the -errexit flag is deprecated\n")
-	}
-
-	if terminate {
-		fmt.Fprintf(cli.errStream,
-			"DEPRECATED: the -terminate flag is deprecated, use -once instead\n")
-	}
-
-	if reload {
-		fmt.Fprintf(cli.errStream,
-			"DEPRECATED: the -reload flag is deprecated, use -once instead\n")
 	}
 
 	// If the version was requested, return an "error" containing the version
