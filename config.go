@@ -21,6 +21,12 @@ type Config struct {
 	// address or FQDN) with port.
 	Consul string `mapstructure:"consul"`
 
+	// MaxStale is the maximum amount of time for staleness from Consul as given
+	// by LastContact. If supplied, Consul Template will query all servers instead
+	// of just the leader.
+	MaxStale    time.Duration `mapstructure:"-"`
+	MaxStaleRaw string        `mapstructure:"max_stale"`
+
 	// Sanitize converts any "bad" characters in key values to underscores
 	Sanitize bool `mapstructure:"sanitize"`
 
@@ -43,6 +49,11 @@ type Config struct {
 func (c *Config) Merge(config *Config) {
 	if config.Consul != "" {
 		c.Consul = config.Consul
+	}
+
+	if config.MaxStale != 0 {
+		c.MaxStale = config.MaxStale
+		c.MaxStaleRaw = config.MaxStaleRaw
 	}
 
 	if config.Sanitize {
@@ -100,6 +111,17 @@ func ParseConfig(path string) (*Config, error) {
 
 	// Store a reference to the path where this config was read from
 	config.Path = path
+
+	// Parse the MaxStale component
+	if raw := config.MaxStaleRaw; raw != "" {
+		stale, err := time.ParseDuration(raw)
+
+		if err == nil {
+			config.MaxStale = stale
+		} else {
+			return nil, fmt.Errorf("max_stale invalid: %v", err)
+		}
+	}
 
 	// Parse the Wait component
 	if raw := config.WaitRaw; raw != "" {
