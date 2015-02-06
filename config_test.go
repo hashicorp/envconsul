@@ -86,6 +86,7 @@ func TestParseConfig_mapstructureError(t *testing.T) {
 func TestParseConfig_correctValues(t *testing.T) {
 	configFile := test.CreateTempfile([]byte(`
     consul = "demo.consul.io"
+    max_stale = "5s"
     token = "abcd1234"
     wait = "5s:10s"
   `), t)
@@ -97,9 +98,11 @@ func TestParseConfig_correctValues(t *testing.T) {
 	}
 
 	expected := &Config{
-		Path:   configFile.Name(),
-		Consul: "demo.consul.io",
-		Token:  "abcd1234",
+		Path:        configFile.Name(),
+		Consul:      "demo.consul.io",
+		MaxStale:    5 * time.Second,
+		MaxStaleRaw: "5s",
+		Token:       "abcd1234",
 		Wait: &watch.Wait{
 			Min: time.Second * 5,
 			Max: time.Second * 10,

@@ -33,6 +33,7 @@ Usage
 | ------ | -------- |------------ |
 | `consul`    | _(required)_ | The location of the Consul instance to query (may be an IP address or FQDN) with port. |
 | `token`     | | The [Consul API token][Consul ACLs]. |
+| `max_stale` | | The maximum staleness of a query. If specified, Consul will distribute work among all servers instead of just the leader. |
 | `config`    | | The path to a configuration file on disk, relative to the current working directory. Values specified on the CLI take precedence over values specified in the configuration file |
 | `wait`      | | The `minimum(:maximum)` to wait before triggering a reload, separated by a colon (`:`). If the optional maximum value is omitted, it is assumed to be 4x the required minimum value. |
 | `timeout`   | | The duration to wait for SIGTERM to finish before sending SIGKILL |
