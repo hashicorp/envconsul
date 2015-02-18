@@ -13,6 +13,8 @@ The daemon `envconsul` allows applications to be configured with environmental v
 
 envconsul is inspired by [envdir][] in its simplicity, name, and function.
 
+**The documentation in this README corresponds to the master branch of envconsul. It may contain unreleased features or different APIs than the most recently released version. Please see the Git tag that corresponds to your version of envconsul for the proper documentation.**
+
 Installation
 ------------
 You can download a released `envconsul` artifact from [the envconsul release page][Releases] on GitHub. If you wish to compile from source, you will need to have buildtools and [Go][] installed:
