@@ -434,7 +434,7 @@ func TestRun_onceFlag(t *testing.T) {
 	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
 	cli := NewCLI(outStream, errStream)
 
-	command := "envconsul -consul demo.consul.io -once global/time sh -c ':'"
+	command := "envconsul -consul demo.consul.io -once -prefix global/time env"
 	args := strings.Split(command, " ")
 
 	ch := make(chan int, 1)
