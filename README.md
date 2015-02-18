@@ -31,17 +31,26 @@ This process will create `bin/envconsul` which make be invoked as a binary.
 Usage
 -----
 ### Options
-| Option | Required | Description |
-| ------ | -------- |------------ |
-| `consul`    | _(required)_ | The location of the Consul instance to query (may be an IP address or FQDN) with port. |
-| `token`     | | The [Consul API token][Consul ACLs]. |
-| `max_stale` | | The maximum staleness of a query. If specified, Consul will distribute work among all servers instead of just the leader. |
-| `config`    | | The path to a configuration file on disk, relative to the current working directory. Values specified on the CLI take precedence over values specified in the configuration file |
-| `wait`      | | The `minimum(:maximum)` to wait before triggering a reload, separated by a colon (`:`). If the optional maximum value is omitted, it is assumed to be 4x the required minimum value. |
-| `timeout`   | | The duration to wait for SIGTERM to finish before sending SIGKILL |
-| `sanitize`  | | Replace invalid characters in keys to underscores |
-| `upcase`    | | Convert all environment variable keys to uppercase |
-| `once`      | | Run envconsul once and exit (as opposed to the default behavior of daemon). |
+|       Option      | Description |
+| ----------------- |------------ |
+| `auth`            | The basic authentication username (and optional password), separated by a colon. There is no default value.
+| `consul`*         | The location of the Consul instance to query (may be an IP address or FQDN) with port.
+| `max-stale`       | The maximum staleness of a query. If specified, Consul will distribute work among all servers instead of just the leader. The default value is 0 (none).
+| `ssl`             | Use HTTPS while talking to Consul. Requires the Consul server to be configured to serve secure connections. The default value is false.
+| `ssl-verify`      | Verify certificates when connecting via SSL. This requires the use of `-ssl`. The default value is true.
+| `syslog`          | Send log output to syslog (in addition to stdout and stderr). The default value is false.
+| `syslog-facility` | The facility to use when sending to syslog. This requires the use of `-syslog`. The default value is `LOCAL0`.
+| `token`           | The [Consul API token][Consul ACLs]. There is no default value.
+| `wait`            | The `minimum(:maximum)` to wait before rendering a command to fire, separated by a colon (`:`). If the optional maximum value is omitted, it is assumed to be 4x the required minimum value. There is no default value.
+| `retry`           | The amount of time to wait if Consul returns an error when communicating with the API. The default value is 5 seconds.
+| `sanitize`        | Replace invalid characters in keys to underscores |
+| `upcase`          | Convert all environment variable keys to uppercase |
+| `config`          | The path to a configuration file or directory of configuration files on disk, relative to the current working directory. Values specified on the CLI take precedence over values specified in the configuration file. There is no default value.
+| `log-level`       | The log level for output. This applies to the stdout/stderr logging as well as syslog logging (if enabled). Valid values are "debug", "info", "warn", and "err". The default value is "warn".
+| `once`            | Run envconsul once and exit (as opposed to the default behavior of daemon). _(CLI-only)_
+| `version`         | Output version information and quit. _(CLI-only)_
+
+\* = Required parameter
 
 ### Command Line
 The CLI interface supports all of the options detailed above.
@@ -72,8 +81,26 @@ The Configuration file syntax interface supports all of the options detailed abo
 ```javascript
 consul = "127.0.0.1:8500"
 token = "abcd1234"
+max_stale = "10m"
 timeout = "5s"
+retry = "10s"
 sanitize = true
+
+auth {
+  enabled = true
+  username = "test"
+  password = "test"
+}
+
+ssl {
+  enabled = true
+  verify = false
+}
+
+syslog {
+  enabled = true
+  facility = "LOCAL5"
+}
 ```
 
 **Commands specified on the command line take precedence over those defined in a config file!**
@@ -116,6 +143,47 @@ ADDRESS=1.2.3.4
 ADDRESS=1.2.3.4
 MAXCONNS=50
 -----
+```
+
+
+Debugging
+---------
+envconsul can print verbose debugging output. To set the log level for envconsul, use the `-log-level` flag:
+
+```shell
+$ envconsul -log-level info ...
+```
+
+```text
+<timestamp> [INFO] (cli) received redis from Watcher
+<timestamp> [INFO] (cli) invoking Runner
+# ...
+```
+
+You can also specify the level as debug:
+
+```shell
+$ envconsul -log-level debug ...
+```
+
+```text
+<timestamp> [DEBUG] (cli) creating Runner
+<timestamp> [DEBUG] (cli) creating Consul API client
+<timestamp> [DEBUG] (cli) creating Watcher
+<timestamp> [INFO] (watcher) adding "storeKeyPrefix(redis/config)"
+<timestamp> [DEBUG] (watcher) "storeKeyPrefix(redis/config)" starting
+<timestamp> [DEBUG] (cli) looping for data
+<timestamp> [DEBUG] (view) "storeKeyPrefix(redis/config)" starting fetch
+<timestamp> [DEBUG] ("storeKeyPrefix(redis/config)") querying Consul with ...
+<timestamp> [DEBUG] ("storeKeyPrefix(redis/config)") Consul returned 0 key pairs
+<timestamp> [INFO] (view) "storeKeyPrefix(redis/config)" received data from consul
+<timestamp> [INFO] (cli) received "storeKeyPrefix(redis/config)" from Watcher
+<timestamp> [DEBUG] (cli) detected quiescence, starting timers
+<timestamp> [DEBUG] (cli) looping for data
+<timestamp> [DEBUG] (cli) quiescence minTimer fired, invoking Runner
+<timestamp> [DEBUG] (view) "storeKeyPrefix(redis/config)" starting fetch
+<timestamp> [DEBUG] ("storeKeyPrefix(redis/config)") querying Consul with ...
+# ...
 ```
 
 Contributing
