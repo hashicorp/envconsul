@@ -88,17 +88,23 @@ func NewRunner(config *Config, command []string, once bool) (*Runner, error) {
 	return runner, nil
 }
 
-//
+// Start creates a new runner and begins watching dependencies and quiescence
+// timers. This is the main event loop and will block until finished.
 func (r *Runner) Start() {
 	log.Printf("[INFO] (runner) starting")
 
+	// Add the dependencies to the watcher
+	for _, prefix := range r.config.Prefixes {
+		r.watcher.Add(prefix)
+	}
+
 	for {
-	OUTER:
 		select {
 		case data := <-r.watcher.DataCh:
 			r.Receive(data.Dependency, data.Data)
 
 			// Drain all views that have data
+		OUTER:
 			for {
 				select {
 				case data = <-r.watcher.DataCh:
@@ -161,11 +167,6 @@ func (r *Runner) Receive(d dep.Dependency, data interface{}) {
 	r.Lock()
 	defer r.Unlock()
 	r.data[d.HashCode()] = data.([]*dep.KeyPair)
-}
-
-// Wait for the child process to finish (if one exists).
-func (r *Runner) Wait() int {
-	return <-r.ExitCh
 }
 
 // Signal sends a signal to the child process, if it exists. Any errors that
