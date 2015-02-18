@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	dep "github.com/hashicorp/consul-template/dependency"
 	"github.com/hashicorp/consul-template/watch"
 	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/hcl"
@@ -26,14 +27,16 @@ type Config struct {
 	// Token is the Consul API token.
 	Token string `mapstructure:"token"`
 
+	// Prefixes is the list of key prefix dependencies.
+	Prefixes    []*dep.StoreKeyPrefix `mapstructure:"-"`
+	PrefixesRaw []string              `mapstructure:"prefixes"`
+
 	// Auth is the HTTP basic authentication for communicating with Consul.
 	Auth    *Auth   `mapstructure:"-"`
 	AuthRaw []*Auth `mapstructure:"auth"`
 
 	// SSL indicates we should use a secure connection while talking to
 	// Consul. This requires Consul to be configured to serve HTTPS.
-	//
-	// SSLNoVerify determines if we should skip certificate warnings
 	SSL    *SSL   `mapstructure:"-"`
 	SSLRaw []*SSL `mapstructure:"ssl"`
 
@@ -79,6 +82,21 @@ func (c *Config) Merge(config *Config) {
 
 	if config.Token != "" {
 		c.Token = config.Token
+	}
+
+	if config.Prefixes != nil {
+		if c.Prefixes == nil {
+			c.Prefixes = make([]*dep.StoreKeyPrefix, 0)
+			c.PrefixesRaw = make([]string, 0)
+		}
+
+		for _, prefix := range config.Prefixes {
+			c.Prefixes = append(c.Prefixes, prefix)
+		}
+
+		for _, prefixRaw := range config.PrefixesRaw {
+			c.PrefixesRaw = append(c.PrefixesRaw, prefixRaw)
+		}
 	}
 
 	if config.Auth != nil {
@@ -179,6 +197,16 @@ func ParseConfig(path string) (*Config, error) {
 	// Store a reference to the path where this config was read from
 	config.Path = path
 
+	// Parse the prefixes
+	for _, prefixRaw := range config.PrefixesRaw {
+		prefix, err := dep.ParseStoreKeyPrefix(prefixRaw)
+		if err != nil {
+			errs = multierror.Append(errs, err)
+			continue
+		}
+		config.Prefixes = append(config.Prefixes, prefix)
+	}
+
 	// Parse the MaxStale component
 	if raw := config.MaxStaleRaw; raw != "" {
 		stale, err := time.ParseDuration(raw)
@@ -186,7 +214,7 @@ func ParseConfig(path string) (*Config, error) {
 		if err == nil {
 			config.MaxStale = stale
 		} else {
-			return nil, fmt.Errorf("max_stale invalid: %v", err)
+			errs = multierror.Append(errs, fmt.Errorf("max_stale invalid: %v", err))
 		}
 	}
 

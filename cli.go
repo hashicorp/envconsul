@@ -242,6 +242,7 @@ func (cli *CLI) parseFlags(args []string) (*Config, []string, bool, bool, error)
 	flags.StringVar(&config.Syslog.Facility, "syslog-facility", config.Syslog.Facility, "")
 	flags.Var((*watch.WaitVar)(config.Wait), "wait", "")
 	flags.DurationVar(&config.Retry, "retry", config.Retry, "")
+	flags.Var((*prefixVar)(&config.Prefixes), "prefix", "")
 	flags.BoolVar(&config.Sanitize, "sanitize", config.Sanitize, "")
 	flags.BoolVar(&config.Upcase, "upcase", config.Upcase, "")
 	flags.StringVar(&config.Path, "config", config.Path, "")
@@ -293,6 +294,9 @@ Options:
   -retry=<duration>        The amount of time to wait if Consul returns an
                            error when communicating with the API
 
+  -prefix                  A prefix to watch, multiple prefixes are merged from
+                           left to right, with the right-most result taking
+                           precedence
   -sanitize                Replace invalid characters in keys to underscores
   -upcase                  Convert all environment variable keys to uppercase
 

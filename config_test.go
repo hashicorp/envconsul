@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	dep "github.com/hashicorp/consul-template/dependency"
 	"github.com/hashicorp/consul-template/test"
 	"github.com/hashicorp/consul-template/watch"
 )
@@ -77,6 +78,38 @@ func TestMerge_HttpsOptions(t *testing.T) {
 
 	if config.SSL.Verify != false {
 		t.Errorf("expected SSL verify to be false")
+	}
+}
+
+func TestMerge_Prefixes(t *testing.T) {
+	globalDep, err := dep.ParseStoreKeyPrefix("global/config")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	redisDep, err := dep.ParseStoreKeyPrefix("redis/config")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	config := &Config{
+		Prefixes:    []*dep.StoreKeyPrefix{globalDep},
+		PrefixesRaw: []string{"global/config"},
+	}
+	otherConfig := &Config{
+		Prefixes:    []*dep.StoreKeyPrefix{redisDep},
+		PrefixesRaw: []string{"redis/config"},
+	}
+	config.Merge(otherConfig)
+
+	expected := []*dep.StoreKeyPrefix{globalDep, redisDep}
+	if !reflect.DeepEqual(config.Prefixes, expected) {
+		t.Errorf("expected %#v to be %#v", config.Prefixes, expected)
+	}
+
+	expectedRaw := []string{"global/config", "redis/config"}
+	if !reflect.DeepEqual(config.PrefixesRaw, expectedRaw) {
+		t.Errorf("expected %#v to be %#v", config.PrefixesRaw, expectedRaw)
 	}
 }
 
@@ -172,6 +205,8 @@ func TestParseConfig_correctValues(t *testing.T) {
     retry = "10s"
     log_level = "warn"
 
+    prefixes = ["global/config", "redis/config"]
+
     auth {
     	enabled = true
     	username = "test"
@@ -195,12 +230,24 @@ func TestParseConfig_correctValues(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	globalDep, err := dep.ParseStoreKeyPrefix("global/config")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	redisDep, err := dep.ParseStoreKeyPrefix("redis/config")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	expected := &Config{
 		Path:        configFile.Name(),
 		Consul:      "nyc1.demo.consul.io",
 		Token:       "abcd1234",
 		MaxStale:    time.Second * 5,
 		MaxStaleRaw: "5s",
+		Prefixes:    []*dep.StoreKeyPrefix{globalDep, redisDep},
+		PrefixesRaw: []string{"global/config", "redis/config"},
 		Auth: &Auth{
 			Enabled:  true,
 			Username: "test",
@@ -247,6 +294,23 @@ func TestParseConfig_correctValues(t *testing.T) {
 
 	if !reflect.DeepEqual(config, expected) {
 		t.Fatalf("expected \n%#v\n\n, got \n\n%#v", expected, config)
+	}
+}
+
+func TestParseConfig_parseStoreKeyPrefixError(t *testing.T) {
+	configFile := test.CreateTempfile([]byte(`
+    prefixes = ["@*(#42"]
+  `), t)
+	defer test.DeleteTempfile(configFile, t)
+
+	_, err := ParseConfig(configFile.Name())
+	if err == nil {
+		t.Fatal("expected error, but nothing was returned")
+	}
+
+	expectedErr := "invalid key prefix dependency format"
+	if !strings.Contains(err.Error(), expectedErr) {
+		t.Fatalf("expected error %q to contain %q", err.Error(), expectedErr)
 	}
 }
 

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	dep "github.com/hashicorp/consul-template/dependency"
 	"github.com/hashicorp/consul-template/watch"
 )
 
@@ -248,6 +249,31 @@ func TestParseFlags_retry(t *testing.T) {
 	expected := 10 * time.Hour
 	if config.Retry != expected {
 		t.Errorf("expected %v to be %v", config.Retry, expected)
+	}
+}
+
+func TestParseFlags_prefixes(t *testing.T) {
+	cli := NewCLI(ioutil.Discard, ioutil.Discard)
+	config, _, _, _, err := cli.parseFlags([]string{
+		"-prefix", "config/global", "-prefix", "config/redis",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	globalDep, err := dep.ParseStoreKeyPrefix("config/global")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	redisDep, err := dep.ParseStoreKeyPrefix("config/redis")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := []*dep.StoreKeyPrefix{globalDep, redisDep}
+	if !reflect.DeepEqual(config.Prefixes, expected) {
+		t.Errorf("expected %v to be %v", config.Prefixes, expected)
 	}
 }
 

@@ -3,7 +3,38 @@ package main
 import (
 	"fmt"
 	"strings"
+
+	dep "github.com/hashicorp/consul-template/dependency"
 )
+
+// prefixVar implements the Flag.Value interface and allows the user
+// to specify multiple -prefix keys in the CLI where each option is parsed
+// as a dependency.
+type prefixVar []*dep.StoreKeyPrefix
+
+func (pv *prefixVar) Set(value string) error {
+	prefix, err := dep.ParseStoreKeyPrefix(value)
+	if err != nil {
+		return err
+	}
+
+	if *pv == nil {
+		*pv = make([]*dep.StoreKeyPrefix, 0, 1)
+	}
+	*pv = append(*pv, prefix)
+
+	return nil
+}
+
+func (pv *prefixVar) String() string {
+	list := make([]string, 0, len(*pv))
+	for _, prefix := range *pv {
+		list = append(list, prefix.Prefix)
+	}
+	return strings.Join(list, ", ")
+}
+
+/// ------------------------- ///
 
 // authVar implements the Flag.Value interface and allows the user to specify
 // authentication in the username[:password] form.
