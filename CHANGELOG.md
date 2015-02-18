@@ -3,6 +3,26 @@ envconsul Changelog
 
 ## v0.4.1.dev (Unreleased)
 
+FEATURES:
+
+  * Add support for logging to syslog
+  * Add `log_level` as a configuration file option and CLI option
+  * Add support for basic HTTP authentication when connecting to Consul
+  * Add support for connecting to Consul via SSL
+  * Add support for specifying a custom retry interval when Consul is not
+    available
+
+IMPROVEMENTS:
+
+  * Improve test coverage, specifically around command-line flag parsing
+  * Use Consul Template's logging library for consistency (and get syslog
+    logging for free)
+
+BUG FIXES:
+
+  * Fix a bug in the documentation where the environment would be reset
+  * Raise an error when specifying a non-existent option in the configuration
+    file
 
 ## v0.4.0 (February 5, 2015)
 
