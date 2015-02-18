@@ -85,7 +85,7 @@ Redis is a command key-value storage engine. If Redis is configured to read the 
 ```shell
 $ envconsul \
   -consul demo.consul.io \
-  redis/config service redis start
+  redis/config /etc/init.d/redis start
 ```
 
 ### Env
