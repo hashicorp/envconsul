@@ -277,6 +277,36 @@ func TestParseFlags_prefixes(t *testing.T) {
 	}
 }
 
+func TestParseFlags_sanitize(t *testing.T) {
+	cli := NewCLI(ioutil.Discard, ioutil.Discard)
+	config, _, _, _, err := cli.parseFlags([]string{
+		"-sanitize",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := true
+	if config.Sanitize != expected {
+		t.Errorf("expected %t to be %t", config.Sanitize, expected)
+	}
+}
+
+func TestParseFlags_upcase(t *testing.T) {
+	cli := NewCLI(ioutil.Discard, ioutil.Discard)
+	config, _, _, _, err := cli.parseFlags([]string{
+		"-upcase",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := true
+	if config.Upcase != expected {
+		t.Errorf("expected %t to be %t", config.Upcase, expected)
+	}
+}
+
 func TestParseFlags_once(t *testing.T) {
 	cli := NewCLI(ioutil.Discard, ioutil.Discard)
 	_, _, once, _, err := cli.parseFlags([]string{
