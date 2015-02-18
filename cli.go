@@ -84,17 +84,25 @@ func (cli *CLI) Run(args []string) int {
 		return ExitCodeOK
 	}
 
-	if len(parsedArgs) < 2 {
-		err := fmt.Errorf("cli: missing required arguments prefix and command")
-		return cli.handleError(err, ExitCodeParseFlagsError)
-	}
+	var command []string
+	if len(config.Prefixes) > 0 {
+		command = parsedArgs
+	} else {
+		if len(parsedArgs) < 2 {
+			err := fmt.Errorf("cli: missing required arguments prefix and command")
+			return cli.handleError(err, ExitCodeParseFlagsError)
+		}
 
-	prefix, command := parsedArgs[0], parsedArgs[1:]
-
-	// TODO: move this config/cli flags
-	dependency, err := dep.ParseStoreKeyPrefix(prefix)
-	if err != nil {
-		return cli.handleError(err, ExitCodeError)
+		// TODO: Remove in an upcoming release
+		log.Printf("[WARN] specifying the consul key on the command line is " +
+			"deprecated, please use -prefix instead")
+		prefixRaw := parsedArgs[0]
+		command = parsedArgs[1:]
+		prefix, err := dep.ParseStoreKeyPrefix(prefixRaw)
+		if err != nil {
+			return cli.handleError(err, ExitCodeError)
+		}
+		config.Prefixes = append(config.Prefixes, prefix)
 	}
 
 	// Initial runner
@@ -104,19 +112,9 @@ func (cli *CLI) Run(args []string) int {
 	}
 	go runner.Start()
 
-	// TODO: move this to config
-	if _, err := runner.watcher.Add(dependency); err != nil {
-		return cli.handleError(err, ExitCodeError)
-	}
-
 	// Listen for signals
 	signalCh := make(chan os.Signal, 1)
-	signal.Notify(signalCh,
-		syscall.SIGHUP,
-		syscall.SIGINT,
-		syscall.SIGTERM,
-		syscall.SIGQUIT,
-	)
+	signal.Notify(signalCh, Signals...)
 
 	for {
 		select {
@@ -126,6 +124,7 @@ func (cli *CLI) Run(args []string) int {
 			return ExitCodeOK
 		case code := <-runner.ExitCh:
 			log.Printf("[INFO] (cli) subprocess exited")
+			runner.Stop()
 
 			if code == ExitCodeOK {
 				return ExitCodeOK
@@ -134,19 +133,14 @@ func (cli *CLI) Run(args []string) int {
 				return cli.handleError(err, code)
 			}
 		case s := <-signalCh:
+			// Propogate the signal to the child process
+			runner.Signal(s)
+
 			switch s {
 			case syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT:
 				fmt.Fprintf(cli.errStream, "Received interrupt, cleaning up...\n")
 				runner.Stop()
 				return ExitCodeInterrupt
-			case syscall.SIGHUP:
-				fmt.Fprintf(cli.errStream, "Received HUP, reloading configuration...\n")
-				runner.Stop()
-				runner, err = NewRunner(config, command, once)
-				if err != nil {
-					return cli.handleError(err, ExitCodeRunnerError)
-				}
-				go runner.Start()
 			}
 		case <-cli.stopCh:
 			return ExitCodeOK
