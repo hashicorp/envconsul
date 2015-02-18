@@ -125,6 +125,9 @@ func (cli *CLI) Run(args []string) int {
 		Client:   client,
 		Once:     once,
 		MaxStale: config.MaxStale,
+		RetryFunc: func(current time.Duration) time.Duration {
+			return config.Retry
+		},
 	})
 	if err != nil {
 		return cli.handleError(err, ExitCodeWatcherError)
