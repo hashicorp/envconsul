@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
+	"os/signal"
 	"sync"
-	"time"
+	"syscall"
 
+	dep "github.com/hashicorp/consul-template/dependency"
 	"github.com/hashicorp/consul-template/logging"
 	"github.com/hashicorp/consul-template/watch"
-	"github.com/hashicorp/consul/api"
 )
 
 // Exit codes are int valuse that represent an exit code for a particular error.
@@ -21,6 +23,7 @@ const (
 
 	// Errors start at 10
 	ExitCodeError = 10 + iota
+	ExitCodeInterrupt
 	ExitCodeLoggingError
 	ExitCodeParseFlagsError
 	ExitCodeParseConfigError
@@ -81,123 +84,63 @@ func (cli *CLI) Run(args []string) int {
 		return ExitCodeOK
 	}
 
-	// Merge a path config with the command line options. Command line options
-	// take precedence over config file options for easy overriding.
-	if config.Path != "" {
-		log.Printf("[DEBUG] (cli) detected -config, merging")
-		fileConfig, err := ParseConfig(config.Path)
-		if err != nil {
-			return cli.handleError(err, ExitCodeParseConfigError)
+	var command []string
+	if len(config.Prefixes) > 0 {
+		command = parsedArgs
+	} else {
+		if len(parsedArgs) < 2 {
+			err := fmt.Errorf("cli: missing required arguments prefix and command")
+			return cli.handleError(err, ExitCodeParseFlagsError)
 		}
 
-		fileConfig.Merge(config)
-		config = fileConfig
+		// TODO: Remove in an upcoming release
+		log.Printf("[WARN] specifying the consul key on the command line is " +
+			"deprecated, please use -prefix instead")
+		prefixRaw := parsedArgs[0]
+		command = parsedArgs[1:]
+		prefix, err := dep.ParseStoreKeyPrefix(prefixRaw)
+		if err != nil {
+			return cli.handleError(err, ExitCodeError)
+		}
+		config.Prefixes = append(config.Prefixes, prefix)
 	}
 
-	if len(parsedArgs) < 2 {
-		err := fmt.Errorf("cli: missing required arguments prefix and command")
-		return cli.handleError(err, ExitCodeParseFlagsError)
-	}
-
-	prefix, command := parsedArgs[0], parsedArgs[1:]
-
-	log.Printf("[DEBUG] (cli) creating Runner")
-	runner, err := NewRunner(prefix, config, command)
+	// Initial runner
+	runner, err := NewRunner(config, command, once)
 	if err != nil {
 		return cli.handleError(err, ExitCodeRunnerError)
 	}
+	go runner.Start()
 
-	log.Printf("[DEBUG] (cli) creating Consul API client")
-	consulConfig := api.DefaultConfig()
-	if config.Consul != "" {
-		consulConfig.Address = config.Consul
-	}
-	if config.Token != "" {
-		consulConfig.Token = config.Token
-	}
-	client, err := api.NewClient(consulConfig)
-	if err != nil {
-		return cli.handleError(err, ExitCodeConsulAPIError)
-	}
-
-	log.Printf("[DEBUG] (cli) creating Watcher")
-	watcher, err := watch.NewWatcher(&watch.WatcherConfig{
-		Client:   client,
-		Once:     once,
-		MaxStale: config.MaxStale,
-		RetryFunc: func(current time.Duration) time.Duration {
-			return config.Retry
-		},
-	})
-	if err != nil {
-		return cli.handleError(err, ExitCodeWatcherError)
-	}
-
-	for _, dep := range runner.Dependencies() {
-		if _, err := watcher.Add(dep); err != nil {
-			return cli.handleError(err, ExitCodeWatcherError)
-		}
-	}
-
-	var minTimer, maxTimer <-chan time.Time
+	// Listen for signals
+	signalCh := make(chan os.Signal, 1)
+	signal.Notify(signalCh, Signals...)
 
 	for {
-		log.Printf("[DEBUG] (cli) looping for data")
-
 		select {
-		case data := <-watcher.DataCh:
-			log.Printf("[INFO] (cli) received %s from Watcher", data.Dependency.Display())
-
-			// Tell the Runner about the data
-			runner.Receive(data.Data)
-
-			// If we are waiting for quiescence, setup the timers
-			if config.Wait != nil {
-				log.Printf("[DEBUG] (cli) detected quiescence, starting timers")
-
-				// Reset the min timer
-				minTimer = time.After(config.Wait.Min)
-
-				// Set the max timer if it does not already exist
-				if maxTimer == nil {
-					maxTimer = time.After(config.Wait.Max)
-				}
-			} else {
-				log.Printf("[INFO] (cli) invoking Runner")
-				if err := runner.Run(); err != nil {
-					return cli.handleError(err, ExitCodeRunnerError)
-				}
-			}
-		case <-minTimer:
-			log.Printf("[DEBUG] (cli) quiescence minTimer fired, invoking Runner")
-
-			minTimer, maxTimer = nil, nil
-
-			if err := runner.Run(); err != nil {
-				return cli.handleError(err, ExitCodeRunnerError)
-			}
-		case <-maxTimer:
-			log.Printf("[DEBUG] (cli) quiescence maxTimer fired, invoking Runner")
-
-			minTimer, maxTimer = nil, nil
-
-			if err := runner.Run(); err != nil {
-				return cli.handleError(err, ExitCodeRunnerError)
-			}
-		case err := <-watcher.ErrCh:
-			log.Printf("[INFO] (cli) watcher got error")
-			return cli.handleError(err, ExitCodeError)
-		case <-watcher.FinishCh:
-			log.Printf("[INFO] (cli) received finished signal")
-			return runner.Wait()
-		case exitCode := <-runner.ExitCh:
+		case err := <-runner.ErrCh:
+			return cli.handleError(err, ExitCodeRunnerError)
+		case <-runner.DoneCh:
+			return ExitCodeOK
+		case code := <-runner.ExitCh:
 			log.Printf("[INFO] (cli) subprocess exited")
+			runner.Stop()
 
-			if exitCode == ExitCodeOK {
+			if code == ExitCodeOK {
 				return ExitCodeOK
 			} else {
-				err := fmt.Errorf("unexpected exit from subprocess (%d)", exitCode)
-				return cli.handleError(err, exitCode)
+				err := fmt.Errorf("unexpected exit from subprocess (%d)", code)
+				return cli.handleError(err, code)
+			}
+		case s := <-signalCh:
+			// Propogate the signal to the child process
+			runner.Signal(s)
+
+			switch s {
+			case syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT:
+				fmt.Fprintf(cli.errStream, "Received interrupt, cleaning up...\n")
+				runner.Stop()
+				return ExitCodeInterrupt
 			}
 		case <-cli.stopCh:
 			return ExitCodeOK
@@ -242,6 +185,7 @@ func (cli *CLI) parseFlags(args []string) (*Config, []string, bool, bool, error)
 	flags.StringVar(&config.Syslog.Facility, "syslog-facility", config.Syslog.Facility, "")
 	flags.Var((*watch.WaitVar)(config.Wait), "wait", "")
 	flags.DurationVar(&config.Retry, "retry", config.Retry, "")
+	flags.Var((*prefixVar)(&config.Prefixes), "prefix", "")
 	flags.BoolVar(&config.Sanitize, "sanitize", config.Sanitize, "")
 	flags.BoolVar(&config.Upcase, "upcase", config.Upcase, "")
 	flags.StringVar(&config.Path, "config", config.Path, "")
@@ -293,6 +237,9 @@ Options:
   -retry=<duration>        The amount of time to wait if Consul returns an
                            error when communicating with the API
 
+  -prefix                  A prefix to watch, multiple prefixes are merged from
+                           left to right, with the right-most result taking
+                           precedence
   -sanitize                Replace invalid characters in keys to underscores
   -upcase                  Convert all environment variable keys to uppercase
 

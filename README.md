@@ -43,14 +43,41 @@ Usage
 | `token`           | The [Consul API token][Consul ACLs]. There is no default value.
 | `wait`            | The `minimum(:maximum)` to wait before rendering a command to fire, separated by a colon (`:`). If the optional maximum value is omitted, it is assumed to be 4x the required minimum value. There is no default value.
 | `retry`           | The amount of time to wait if Consul returns an error when communicating with the API. The default value is 5 seconds.
-| `sanitize`        | Replace invalid characters in keys to underscores |
-| `upcase`          | Convert all environment variable keys to uppercase |
+| `prefix`          | A prefix to watch in Consul. This may be specified multiple times.
+| `sanitize`        | Replace invalid characters in keys to underscores .
+| `upcase`          | Convert all environment variable keys to uppercase.
 | `config`          | The path to a configuration file or directory of configuration files on disk, relative to the current working directory. Values specified on the CLI take precedence over values specified in the configuration file. There is no default value.
 | `log-level`       | The log level for output. This applies to the stdout/stderr logging as well as syslog logging (if enabled). Valid values are "debug", "info", "warn", and "err". The default value is "warn".
 | `once`            | Run envconsul once and exit (as opposed to the default behavior of daemon). _(CLI-only)_
 | `version`         | Output version information and quit. _(CLI-only)_
 
 \* = Required parameter
+
+Multiple prefixes are merged in the order they are specified, with the right-most prefix taking precedence over its left siblings. For example, consider:
+
+```shell
+envconsul -prefix global/config -prefix redis/config
+```
+
+In this example, the values of `redis` take precedence over the values in `global`. If they had the following structure:
+
+```text
+# Global
+A=1
+B=1
+C=1
+
+# Redis
+A=2
+```
+
+The resulting environment would be:
+
+```text
+A=2
+B=1
+C=1
+```
 
 ### Command Line
 The CLI interface supports all of the options detailed above.
@@ -85,6 +112,8 @@ max_stale = "10m"
 timeout = "5s"
 retry = "10s"
 sanitize = true
+
+prefixes = ["config/global", "config/redis"]
 
 auth {
   enabled = true
@@ -185,6 +214,17 @@ $ envconsul -log-level debug ...
 <timestamp> [DEBUG] ("storeKeyPrefix(redis/config)") querying Consul with ...
 # ...
 ```
+
+Quiescence
+----------
+If you have a large number of services that are in flux, you may want to specify a quiescence timer. This will prevent commands from running until a stable state is reached (or a maximum timeout you specify). You can specify the quiescence interval using the `-wait` flag on the command line:
+
+```shell
+envconsul -wait "10s:50s"
+```
+
+This tells envconsul to wait for a period of 10 seconds while we do not have data before running/restarting the command, but to wait no more than 50 seconds.
+
 
 Contributing
 ------------

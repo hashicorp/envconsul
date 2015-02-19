@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	dep "github.com/hashicorp/consul-template/dependency"
 	"github.com/hashicorp/consul-template/watch"
 )
 
@@ -251,6 +252,61 @@ func TestParseFlags_retry(t *testing.T) {
 	}
 }
 
+func TestParseFlags_prefixes(t *testing.T) {
+	cli := NewCLI(ioutil.Discard, ioutil.Discard)
+	config, _, _, _, err := cli.parseFlags([]string{
+		"-prefix", "config/global", "-prefix", "config/redis",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	globalDep, err := dep.ParseStoreKeyPrefix("config/global")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	redisDep, err := dep.ParseStoreKeyPrefix("config/redis")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := []*dep.StoreKeyPrefix{globalDep, redisDep}
+	if !reflect.DeepEqual(config.Prefixes, expected) {
+		t.Errorf("expected %v to be %v", config.Prefixes, expected)
+	}
+}
+
+func TestParseFlags_sanitize(t *testing.T) {
+	cli := NewCLI(ioutil.Discard, ioutil.Discard)
+	config, _, _, _, err := cli.parseFlags([]string{
+		"-sanitize",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := true
+	if config.Sanitize != expected {
+		t.Errorf("expected %t to be %t", config.Sanitize, expected)
+	}
+}
+
+func TestParseFlags_upcase(t *testing.T) {
+	cli := NewCLI(ioutil.Discard, ioutil.Discard)
+	config, _, _, _, err := cli.parseFlags([]string{
+		"-upcase",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := true
+	if config.Upcase != expected {
+		t.Errorf("expected %t to be %t", config.Upcase, expected)
+	}
+}
+
 func TestParseFlags_once(t *testing.T) {
 	cli := NewCLI(ioutil.Discard, ioutil.Discard)
 	_, _, once, _, err := cli.parseFlags([]string{
@@ -378,7 +434,7 @@ func TestRun_onceFlag(t *testing.T) {
 	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
 	cli := NewCLI(outStream, errStream)
 
-	command := "envconsul -consul demo.consul.io -once global/time sh -c ':'"
+	command := "envconsul -consul demo.consul.io -once -prefix global/time env"
 	args := strings.Split(command, " ")
 
 	ch := make(chan int, 1)
