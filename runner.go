@@ -159,6 +159,13 @@ func (r *Runner) Start() {
 func (r *Runner) Stop() {
 	log.Printf("[INFO] (runner) stopping")
 	r.watcher.Stop()
+
+	// Stop the process if it is running
+	if r.cmd != nil {
+		log.Printf("[DEBUG] (runner) killing child process")
+		r.killProcess()
+	}
+
 	close(r.DoneCh)
 }
 
@@ -239,7 +246,7 @@ func (r *Runner) Run() error {
 
 	// Restart the current process if it exists
 	if r.cmd != nil && r.cmd.Process != nil {
-		r.restartProcess()
+		r.killProcess()
 	}
 
 	// Create a new environment
@@ -328,7 +335,7 @@ func (r *Runner) init() error {
 
 // Restart the current process in the Runner by sending a SIGTERM. It is
 // assumed that the process is set on the Runner!
-func (r *Runner) restartProcess() {
+func (r *Runner) killProcess() {
 	// Kill the process
 	exited := false
 
