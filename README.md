@@ -53,6 +53,32 @@ Usage
 
 \* = Required parameter
 
+Multiple prefixes are merged in the order they are specified, with the right-most prefix taking precedence over its left siblings. For example, consider:
+
+```shell
+envconsul -prefix global/config -prefix redis/config
+```
+
+In this example, the values of `redis` take precedence over the values in `global`. If they had the following structure:
+
+```text
+# Global
+A=1
+B=1
+C=1
+
+# Redis
+A=2
+```
+
+The resulting environment would be:
+
+```text
+A=2
+B=1
+C=1
+```
+
 ### Command Line
 The CLI interface supports all of the options detailed above.
 
