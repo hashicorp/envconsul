@@ -98,6 +98,9 @@ func (r *Runner) Start() {
 		r.watcher.Add(prefix)
 	}
 
+	var err error
+	var exitCh <-chan int
+
 	for {
 		select {
 		case data := <-r.watcher.DataCh:
@@ -141,6 +144,8 @@ func (r *Runner) Start() {
 		case <-r.watcher.FinishCh:
 			log.Printf("[INFO] (runner) watcher reported finish")
 			return
+		case code := <-exitCh:
+			r.ExitCh <- code
 		case <-r.DoneCh:
 			log.Printf("[INFO] (runner) received finish")
 			return
@@ -148,7 +153,8 @@ func (r *Runner) Start() {
 
 		// If we got this far, that means we got new data or one of the timers
 		// fired, so attempt to re-process the environment.
-		if err := r.Run(); err != nil {
+		exitCh, err = r.Run()
+		if err != nil {
 			r.ErrCh <- err
 			return
 		}
@@ -190,7 +196,7 @@ func (r *Runner) Signal(sig os.Signal) error {
 
 // Run executes and manages the child process with the correct environment. The
 // current enviornment is also copied into the child process environment.
-func (r *Runner) Run() error {
+func (r *Runner) Run() (<-chan int, error) {
 	log.Printf("[INFO] (runner) running")
 
 	env := make(map[string]string)
@@ -205,7 +211,7 @@ func (r *Runner) Run() error {
 		data, ok := r.data[dep.HashCode()]
 		if !ok {
 			log.Printf("[INFO] (runner) missing data for %s", dep.Display())
-			return nil
+			return nil, nil
 		}
 
 		// For each pair, update the environment hash. Subsequent runs could
@@ -240,7 +246,7 @@ func (r *Runner) Run() error {
 	// If the resulting map is the same, do not do anything
 	if reflect.DeepEqual(r.env, env) {
 		log.Printf("[INFO] (runner) environment was the same")
-		return nil
+		return nil, nil
 	}
 
 	// Update the environment
@@ -265,7 +271,7 @@ func (r *Runner) Run() error {
 	cmd.Env = cmdEnv
 	err := cmd.Start()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	r.cmd = cmd
@@ -273,8 +279,8 @@ func (r *Runner) Run() error {
 	// Create a new exitCh so that previously invoked commands
 	// (if any) don't cause us to exit, and start a goroutine
 	// to wait for that process to end.
-	r.ExitCh = make(chan int, 1)
-	go func(cmd *exec.Cmd, exitCh chan<- int) {
+	exitCh := make(chan int, 1)
+	go func() {
 		err := cmd.Wait()
 		if err == nil {
 			exitCh <- ExitCodeOK
@@ -290,9 +296,9 @@ func (r *Runner) Run() error {
 		}
 
 		exitCh <- ExitCodeError
-	}(cmd, r.ExitCh)
+	}()
 
-	return nil
+	return exitCh, nil
 }
 
 // init creates the Runner's underlying data structures and returns an error if

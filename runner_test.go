@@ -114,14 +114,15 @@ func TestRun_sanitize(t *testing.T) {
 
 	runner.Receive(prefix, pair)
 
-	if err := runner.Run(); err != nil {
+	exitCh, err := runner.Run()
+	if err != nil {
 		t.Fatal(err)
 	}
 
 	select {
 	case err := <-runner.ErrCh:
 		t.Fatal(err)
-	case <-runner.ExitCh:
+	case <-exitCh:
 		expected := "b_a_r=baz"
 		if !strings.Contains(outStream.String(), expected) {
 			t.Fatalf("expected %q to include %q", outStream.String(), expected)
@@ -157,14 +158,15 @@ func TestRun_upcase(t *testing.T) {
 
 	runner.Receive(prefix, pair)
 
-	if err := runner.Run(); err != nil {
+	exitCh, err := runner.Run()
+	if err != nil {
 		t.Fatal(err)
 	}
 
 	select {
 	case err := <-runner.ErrCh:
 		t.Fatal(err)
-	case <-runner.ExitCh:
+	case <-exitCh:
 		expected := "BAR=baz"
 		if !strings.Contains(outStream.String(), expected) {
 			t.Fatalf("expected %q to include %q", outStream.String(), expected)
@@ -199,14 +201,15 @@ func TestRun_exitCh(t *testing.T) {
 
 	runner.Receive(prefix, pair)
 
-	if err := runner.Run(); err != nil {
+	exitCh, err := runner.Run()
+	if err != nil {
 		t.Fatal(err)
 	}
 
 	select {
 	case err := <-runner.ErrCh:
 		t.Fatal(err)
-	case <-runner.ExitCh:
+	case <-exitCh:
 		// Ok
 	}
 }
@@ -258,15 +261,21 @@ func TestRun_merges(t *testing.T) {
 	}
 	runner.Receive(redisPrefix, redisData)
 
-	if err := runner.Run(); err != nil {
+	exitCh, err := runner.Run()
+	if err != nil {
 		t.Fatal(err)
 	}
 
 	select {
 	case err := <-runner.ErrCh:
 		t.Fatal(err)
-	case <-runner.ExitCh:
-		expected := "ADDRESS=1.2.3.4\nPORT=8000"
+	case <-exitCh:
+		expected := "ADDRESS=1.2.3.4"
+		if !strings.Contains(outStream.String(), expected) {
+			t.Fatalf("expected %q to include %q", outStream.String(), expected)
+		}
+
+		expected = "PORT=8000"
 		if !strings.Contains(outStream.String(), expected) {
 			t.Fatalf("expected %q to include %q", outStream.String(), expected)
 		}
