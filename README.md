@@ -215,6 +215,17 @@ $ envconsul -log-level debug ...
 # ...
 ```
 
+Quiescence
+----------
+If you have a large number of services that are in flux, you may want to specify a quiescence timer. This will prevent commands from running until a stable state is reached (or a maximum timeout you specify). You can specify the quiescence interval using the `-wait` flag on the command line:
+
+```shell
+envconsul -wait "10s:50s"
+```
+
+This tells envconsul to wait for a period of 10 seconds while we do not have data before running/restarting the command, but to wait no more than 50 seconds.
+
+
 Contributing
 ------------
 To hack on envconsul, you will need a modern [Go][] environment. To compile the `envconsul` binary and run the test suite, simply execute:
