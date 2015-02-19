@@ -115,7 +115,7 @@ func (r *Runner) Start() {
 			}
 
 			// If we are waiting for quiescence, setup the timers
-			if r.config.Wait != nil {
+			if r.config.Wait.Min != 0 && r.config.Wait.Max != 0 {
 				log.Printf("[INFO] (runner) quiescence timers starting")
 				r.minTimer = time.After(r.config.Wait.Min)
 				if r.maxTimer == nil {
@@ -191,6 +191,8 @@ func (r *Runner) Signal(sig os.Signal) error {
 // Run executes and manages the child process with the correct environment. The
 // current enviornment is also copied into the child process environment.
 func (r *Runner) Run() error {
+	log.Printf("[INFO] (runner) running")
+
 	env := make(map[string]string)
 
 	// Iterate over each dependency and pull out its data. If any dependencies do
