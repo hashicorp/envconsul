@@ -5,7 +5,7 @@ import (
 )
 
 const Name = "envconsul"
-const Version = "0.5.0"
+const Version = "0.5.1.dev"
 
 func main() {
 	cli := &CLI{outStream: os.Stdout, errStream: os.Stderr}
