@@ -2,12 +2,15 @@ package main
 
 import (
 	"bytes"
+	"io/ioutil"
 	"reflect"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
 	dep "github.com/hashicorp/consul-template/dependency"
+	"github.com/hashicorp/consul-template/test"
 	"github.com/hashicorp/consul-template/watch"
 )
 
@@ -383,6 +386,44 @@ func TestStart_runsCommandOnChange(t *testing.T) {
 		expected := "two\n"
 		if outStream.String() != expected {
 			t.Fatalf("expected %q to be %q", outStream.String(), expected)
+		}
+	}
+}
+
+func TestSignal_sendsToChild(t *testing.T) {
+	script := test.CreateTempfile([]byte(`
+		trap 'exit 123' USR1
+		while : ; do sleep 0.1; done
+	`), t)
+	defer test.DeleteTempfile(script, t)
+
+	runner, err := NewRunner(DefaultConfig(), []string{"bash", script.Name()}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	runner.outStream, runner.errStream = ioutil.Discard, ioutil.Discard
+	defer runner.Stop()
+
+	exitCh, err := runner.Run()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case <-exitCh:
+		t.Error("unexpected exit")
+	case <-time.After(10 * time.Millisecond):
+		// Continue
+	}
+
+	if err := runner.Signal(syscall.SIGUSR1); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case code := <-exitCh:
+		if code != 123 {
+			t.Errorf("bad exit code: %d", code)
 		}
 	}
 }
