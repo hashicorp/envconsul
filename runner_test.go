@@ -2,212 +2,263 @@ package main
 
 import (
 	"bytes"
-	"os"
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/hashicorp/consul-template/dependency"
+	dep "github.com/hashicorp/consul-template/dependency"
 )
 
-func TestNewRunner_noPrefix(t *testing.T) {
-	_, err := NewRunner("", nil, nil)
-	if err == nil {
-		t.Fatal("expected error, but nothing was returned")
-	}
-
-	expected := "missing prefix"
-	if !strings.Contains(err.Error(), expected) {
-		t.Errorf("expected %q to include %q", err.Error(), expected)
-	}
-}
-
-func TestNewRunner_noConfig(t *testing.T) {
-	_, err := NewRunner("foo/bar", nil, nil)
-	if err == nil {
-		t.Fatal("expected error, but nothing was returned")
-	}
-
-	expected := "missing config"
-	if !strings.Contains(err.Error(), expected) {
-		t.Errorf("expected %q to include %q", err.Error(), expected)
-	}
-}
-
-func TestNewRunner_noCommand(t *testing.T) {
-	_, err := NewRunner("foo/bar", &Config{}, nil)
-	if err == nil {
-		t.Fatal("expected error, but nothing was returned")
-	}
-
-	expected := "missing command"
-	if !strings.Contains(err.Error(), expected) {
-		t.Errorf("expected %q to include %q", err.Error(), expected)
-	}
-}
-
-func TestNewRunner_parseKeyPrefixError(t *testing.T) {
-	_, err := NewRunner("!foo", &Config{}, []string{"env"})
-	if err == nil {
-		t.Fatal("expected error, but nothing was returned")
-	}
-
-	expected := "invalid key prefix dependency format"
-	if !strings.Contains(err.Error(), expected) {
-		t.Errorf("expected %q to include %q", err.Error(), expected)
-	}
-}
-
-func TestNewRunner_parsesRunner(t *testing.T) {
-	config, command := &Config{}, []string{"env"}
-	prefix, err := dependency.ParseStoreKeyPrefix("foo/bar")
+func TestNewRunner(t *testing.T) {
+	config := DefaultConfig()
+	command := []string{"env"}
+	runner, err := NewRunner(config, command, true)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	runner, err := NewRunner("foo/bar", config, command)
-	if err != nil {
-		t.Fatal(err)
+	if !reflect.DeepEqual(runner.config, config) {
+		t.Errorf("expected %#v to be %#v", runner.config, config)
 	}
 
-	expected := &Runner{
-		Prefix:    prefix,
-		Command:   command,
-		config:    config,
-		outStream: os.Stdout,
-		errStream: os.Stderr,
+	if !reflect.DeepEqual(runner.command, command) {
+		t.Errorf("expected %#v to be %#v", runner.command, command)
 	}
 
-	if !reflect.DeepEqual(runner, expected) {
-		t.Errorf("expected \n%#v\n to include \n%#v\n", runner, expected)
-	}
-}
-
-func TestRunner_dependencies(t *testing.T) {
-	prefix, err := dependency.ParseStoreKeyPrefix("foo/bar")
-	if err != nil {
-		t.Fatal(err)
+	if runner.once != true {
+		t.Error("expected once to be true")
 	}
 
-	runner, err := NewRunner("foo/bar", &Config{}, []string{"env"})
-	if err != nil {
-		t.Fatal(err)
+	if runner.client == nil {
+		t.Error("expected client to exist")
 	}
 
-	expected := []dependency.Dependency{prefix}
-	if !reflect.DeepEqual(runner.Dependencies(), expected) {
-		t.Errorf("expected \n%#v\n to include \n%#v\n", runner, expected)
-	}
-}
-
-func TestRunner_receiveSetsData(t *testing.T) {
-	runner, err := NewRunner("foo/bar", &Config{}, []string{"env"})
-	if err != nil {
-		t.Fatal(err)
+	if runner.watcher == nil {
+		t.Error("expected watcher to exist")
 	}
 
-	pair := []*dependency.KeyPair{&dependency.KeyPair{Path: "foo/bar"}}
-	runner.Receive(pair)
+	if runner.data == nil {
+		t.Error("expected data to exist")
+	}
 
-	if !reflect.DeepEqual(runner.data, pair) {
-		t.Errorf("expected \n%#v\n to include \n%#v\n", runner.data, pair)
+	if runner.outStream == nil {
+		t.Errorf("expected outStream to exist")
+	}
+
+	if runner.errStream == nil {
+		t.Error("expected errStream to exist")
+	}
+
+	if runner.ErrCh == nil {
+		t.Error("expected ErrCh to exist")
+	}
+
+	if runner.DoneCh == nil {
+		t.Error("expected DoneCh to exist")
+	}
+
+	if runner.ExitCh == nil {
+		t.Error("expected ExitCh to exit")
 	}
 }
 
-func TestRunner_waitWaits(t *testing.T) {
-	runner, err := NewRunner("foo/bar", &Config{}, []string{"read"})
+func TestReceive_receivesData(t *testing.T) {
+	prefix, err := dep.ParseStoreKeyPrefix("foo/bar")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	go runner.Wait()
+	config := DefaultConfig()
+	config.Prefixes = append(config.Prefixes, prefix)
 
-	select {
-	case <-runner.ExitCh:
-		t.Fatal("expected non-exit")
-	case <-time.After(100 * time.Nanosecond):
+	runner, err := NewRunner(config, []string{"env"}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	data := []*dep.KeyPair{&dep.KeyPair{Path: "foo/bar"}}
+	runner.Receive(prefix, data)
+
+	if !reflect.DeepEqual(runner.data[prefix.HashCode()], data) {
+		t.Errorf("expected %#v to be %#v", runner.data[prefix.HashCode()], data)
 	}
 }
 
-func TestRunner_runSanitize(t *testing.T) {
+func TestRun_sanitize(t *testing.T) {
+	prefix, err := dep.ParseStoreKeyPrefix("foo/bar")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	config := DefaultConfig()
+	config.Sanitize = true
+	config.Prefixes = append(config.Prefixes, prefix)
+
+	runner, err := NewRunner(config, []string{"env"}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
-	runner, err := NewRunner("foo/bar", &Config{Sanitize: true}, []string{"env"})
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	runner.outStream, runner.errStream = outStream, errStream
 
-	pair := []*dependency.KeyPair{
-		&dependency.KeyPair{
+	pair := []*dep.KeyPair{
+		&dep.KeyPair{
 			Path:  "foo/bar",
 			Key:   "b*a*r",
 			Value: "baz",
 		},
 	}
 
-	runner.Receive(pair)
-	runner.Run()
-	runner.Wait()
+	runner.Receive(prefix, pair)
 
-	expected := "b_a_r=baz"
-	if !strings.Contains(outStream.String(), expected) {
-		t.Fatalf("expected %q to include %q", outStream.String(), expected)
-	}
-}
-
-func TestRunner_runUpcase(t *testing.T) {
-	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
-	runner, err := NewRunner("foo/bar", &Config{Upcase: true}, []string{"env"})
-	if err != nil {
+	if err := runner.Run(); err != nil {
 		t.Fatal(err)
 	}
-
-	runner.outStream, runner.errStream = outStream, errStream
-
-	pair := []*dependency.KeyPair{
-		&dependency.KeyPair{
-			Path:  "foo/bar",
-			Key:   "bar",
-			Value: "baz",
-		},
-	}
-
-	runner.Receive(pair)
-	runner.Run()
-	runner.Wait()
-
-	expected := "BAR=baz"
-	if !strings.Contains(outStream.String(), expected) {
-		t.Fatalf("expected %q to include %q", outStream.String(), expected)
-	}
-}
-
-func TestRunner_runExitCh(t *testing.T) {
-	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
-	runner, err := NewRunner("foo/bar", &Config{}, []string{"env"})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	runner.outStream, runner.errStream = outStream, errStream
-
-	pair := []*dependency.KeyPair{
-		&dependency.KeyPair{
-			Path:  "foo/bar",
-			Key:   "bar",
-			Value: "baz",
-		},
-	}
-
-	runner.Receive(pair)
-	runner.Run()
 
 	select {
 	case <-runner.ExitCh:
-		return
-	case <-time.After(1 * time.Second):
-		t.Fatal("expected process to exit on ExitCh")
+		expected := "b_a_r=baz"
+		if !strings.Contains(outStream.String(), expected) {
+			t.Fatalf("expected %q to include %q", outStream.String(), expected)
+		}
+	}
+}
+
+func TestRun_upcase(t *testing.T) {
+	prefix, err := dep.ParseStoreKeyPrefix("foo/bar")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	config := DefaultConfig()
+	config.Upcase = true
+	config.Prefixes = append(config.Prefixes, prefix)
+
+	runner, err := NewRunner(config, []string{"env"}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
+	runner.outStream, runner.errStream = outStream, errStream
+
+	pair := []*dep.KeyPair{
+		&dep.KeyPair{
+			Path:  "foo/bar",
+			Key:   "bar",
+			Value: "baz",
+		},
+	}
+
+	runner.Receive(prefix, pair)
+
+	if err := runner.Run(); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case <-runner.ExitCh:
+		expected := "BAR=baz"
+		if !strings.Contains(outStream.String(), expected) {
+			t.Fatalf("expected %q to include %q", outStream.String(), expected)
+		}
+	}
+}
+
+func TestRun_exitCh(t *testing.T) {
+	prefix, err := dep.ParseStoreKeyPrefix("foo/bar")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	config := DefaultConfig()
+	config.Prefixes = append(config.Prefixes, prefix)
+
+	runner, err := NewRunner(config, []string{"env"}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
+	runner.outStream, runner.errStream = outStream, errStream
+
+	pair := []*dep.KeyPair{
+		&dep.KeyPair{
+			Path:  "foo/bar",
+			Key:   "bar",
+			Value: "baz",
+		},
+	}
+
+	runner.Receive(prefix, pair)
+
+	if err := runner.Run(); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case <-runner.ExitCh:
+		// Ok
+	}
+}
+
+func TestRun_merges(t *testing.T) {
+	globalPrefix, err := dep.ParseStoreKeyPrefix("config/global")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	redisPrefix, err := dep.ParseStoreKeyPrefix("config/redis")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	config := DefaultConfig()
+	config.Upcase = true
+	config.Prefixes = append(config.Prefixes, globalPrefix)
+	config.Prefixes = append(config.Prefixes, redisPrefix)
+
+	runner, err := NewRunner(config, []string{"env"}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
+	runner.outStream, runner.errStream = outStream, errStream
+
+	globalData := []*dep.KeyPair{
+		&dep.KeyPair{
+			Path:  "config/global",
+			Key:   "address",
+			Value: "1.2.3.4",
+		},
+		&dep.KeyPair{
+			Path:  "config/global",
+			Key:   "port",
+			Value: "5598",
+		},
+	}
+	runner.Receive(globalPrefix, globalData)
+
+	redisData := []*dep.KeyPair{
+		&dep.KeyPair{
+			Path:  "config/redis",
+			Key:   "port",
+			Value: "8000",
+		},
+	}
+	runner.Receive(redisPrefix, redisData)
+
+	if err := runner.Run(); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case <-runner.ExitCh:
+		expected := "ADDRESS=1.2.3.4\nPORT=8000"
+		if !strings.Contains(outStream.String(), expected) {
+			t.Fatalf("expected %q to include %q", outStream.String(), expected)
+		}
 	}
 }
