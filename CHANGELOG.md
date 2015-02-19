@@ -3,6 +3,11 @@ envconsul Changelog
 
 ## v0.4.1.dev (Unreleased)
 
+DEPRECATIONS:
+
+  * Specifying the prefix before the command is deprecated, please use the
+    `-prefix` key instead
+
 FEATURES:
 
   * Add support for logging to syslog
@@ -11,6 +16,10 @@ FEATURES:
   * Add support for connecting to Consul via SSL
   * Add support for specifying a custom retry interval when Consul is not
     available
+  * Add support for specifying multiple prefixes using the new `-prefix` command
+    line and configuration option (GH-27)
+  * Add support for propagating select signals to the child process (GH-31)
+
 
 IMPROVEMENTS:
 
