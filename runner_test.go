@@ -80,6 +80,7 @@ func TestReceive_receivesData(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	runner.outStream, runner.errStream = ioutil.Discard, ioutil.Discard
 
 	data := []*dep.KeyPair{&dep.KeyPair{Path: "foo/bar"}}
 	runner.Receive(prefix, data)
@@ -360,7 +361,7 @@ func TestStart_runsCommandOnChange(t *testing.T) {
 	select {
 	case err := <-runner.ErrCh:
 		t.Fatal(err)
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(200 * time.Millisecond):
 		expected := "one\n"
 		if outStream.String() != expected {
 			t.Fatalf("expected %q to be %q", outStream.String(), expected)
@@ -382,7 +383,7 @@ func TestStart_runsCommandOnChange(t *testing.T) {
 	select {
 	case err := <-runner.ErrCh:
 		t.Fatal(err)
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(200 * time.Millisecond):
 		expected := "two\n"
 		if outStream.String() != expected {
 			t.Fatalf("expected %q to be %q", outStream.String(), expected)

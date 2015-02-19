@@ -295,7 +295,10 @@ func DefaultConfig() *Config {
 		Upcase:   false,
 		Timeout:  5 * time.Second,
 		Retry:    5 * time.Second,
-		Wait:     &watch.Wait{},
+		Wait: &watch.Wait{
+			Min: 150 * time.Millisecond,
+			Max: 400 * time.Millisecond,
+		},
 		LogLevel: logLevel,
 	}
 }
