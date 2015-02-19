@@ -5,8 +5,10 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	dep "github.com/hashicorp/consul-template/dependency"
+	"github.com/hashicorp/consul-template/watch"
 )
 
 func TestNewRunner(t *testing.T) {
@@ -117,6 +119,8 @@ func TestRun_sanitize(t *testing.T) {
 	}
 
 	select {
+	case err := <-runner.ErrCh:
+		t.Fatal(err)
 	case <-runner.ExitCh:
 		expected := "b_a_r=baz"
 		if !strings.Contains(outStream.String(), expected) {
@@ -158,6 +162,8 @@ func TestRun_upcase(t *testing.T) {
 	}
 
 	select {
+	case err := <-runner.ErrCh:
+		t.Fatal(err)
 	case <-runner.ExitCh:
 		expected := "BAR=baz"
 		if !strings.Contains(outStream.String(), expected) {
@@ -198,6 +204,8 @@ func TestRun_exitCh(t *testing.T) {
 	}
 
 	select {
+	case err := <-runner.ErrCh:
+		t.Fatal(err)
 	case <-runner.ExitCh:
 		// Ok
 	}
@@ -255,10 +263,117 @@ func TestRun_merges(t *testing.T) {
 	}
 
 	select {
+	case err := <-runner.ErrCh:
+		t.Fatal(err)
 	case <-runner.ExitCh:
 		expected := "ADDRESS=1.2.3.4\nPORT=8000"
 		if !strings.Contains(outStream.String(), expected) {
 			t.Fatalf("expected %q to include %q", outStream.String(), expected)
+		}
+	}
+}
+
+func TestStart_noRunMissingData(t *testing.T) {
+	prefix, err := dep.ParseStoreKeyPrefix("foo/bar")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	config := DefaultConfig()
+	config.Prefixes = append(config.Prefixes, prefix)
+
+	runner, err := NewRunner(config, []string{"sh", "-c", "echo $BAR"}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
+	runner.outStream, runner.errStream = outStream, errStream
+
+	go runner.Start()
+	defer runner.Stop()
+
+	// Kind of hacky, but wait for the runner to return an error, indicating we
+	// are all setup.
+	select {
+	case <-runner.watcher.ErrCh:
+	}
+
+	select {
+	case err := <-runner.ErrCh:
+		t.Fatal(err)
+	case <-time.After(50 * time.Millisecond):
+		expected := ""
+		if outStream.String() != expected {
+			t.Fatalf("expected %q to be %q", outStream.String(), expected)
+		}
+	}
+}
+
+func TestStart_runsCommandOnChange(t *testing.T) {
+	prefix, err := dep.ParseStoreKeyPrefix("foo/bar")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	config := DefaultConfig()
+	config.Prefixes = append(config.Prefixes, prefix)
+
+	runner, err := NewRunner(config, []string{"sh", "-c", "echo $BAR"}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
+	runner.outStream, runner.errStream = outStream, errStream
+
+	go runner.Start()
+	defer runner.Stop()
+
+	// Kind of hacky, but wait for the runner to return an error, indicating we
+	// are all setup.
+	select {
+	case <-runner.watcher.ErrCh:
+	}
+
+	pair := []*dep.KeyPair{
+		&dep.KeyPair{
+			Path:  "foo/bar",
+			Key:   "BAR",
+			Value: "one",
+		},
+	}
+	runner.watcher.DataCh <- &watch.View{Dependency: prefix, Data: pair}
+
+	select {
+	case err := <-runner.ErrCh:
+		t.Fatal(err)
+	case <-time.After(50 * time.Millisecond):
+		expected := "one\n"
+		if outStream.String() != expected {
+			t.Fatalf("expected %q to be %q", outStream.String(), expected)
+		}
+	}
+
+	outStream.Reset()
+	errStream.Reset()
+
+	pair = []*dep.KeyPair{
+		&dep.KeyPair{
+			Path:  "foo/bar",
+			Key:   "BAR",
+			Value: "two",
+		},
+	}
+	runner.watcher.DataCh <- &watch.View{Dependency: prefix, Data: pair}
+
+	select {
+	case err := <-runner.ErrCh:
+		t.Fatal(err)
+	case <-time.After(50 * time.Millisecond):
+		expected := "two\n"
+		if outStream.String() != expected {
+			t.Fatalf("expected %q to be %q", outStream.String(), expected)
 		}
 	}
 }
