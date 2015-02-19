@@ -265,6 +265,8 @@ func (r *Runner) Run() (<-chan int, error) {
 		cmdEnv = append(cmdEnv, fmt.Sprintf("%s=%s", k, v))
 	}
 
+	// Create the command
+	log.Printf("[INFO] (runner) running command %s %s", r.command[0], strings.Join(r.command[1:], " "))
 	cmd := exec.Command(r.command[0], r.command[1:]...)
 	cmd.Stdout = r.outStream
 	cmd.Stderr = r.errStream
