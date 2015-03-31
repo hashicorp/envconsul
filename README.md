@@ -103,7 +103,7 @@ $ envconsul \
 ### Configuration File
 The envconsul configuration file is written in [HashiCorp Configuration Language (HCL)][HCL]. By proxy, this means the envconsul configuration file is JSON-compatible. For more information, please see the [HCL specification][HCL].
 
-The Configuration file syntax interface supports all of the options detailed above.
+The Configuration file syntax interface supports all of the options detailed above, but the dashes are replaced with underscores.
 
 ```javascript
 consul = "127.0.0.1:8500"
