@@ -1,6 +1,7 @@
 package envetcd
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
@@ -84,6 +85,8 @@ func TestEtcd(t *testing.T) {
 						client.Set("/config/global/systemtest/testKey", "globaltestVal", 0)
 						keyPairs, err := GetKeyPairs(config)
 						So(err, ShouldBeNil)
+
+						fmt.Println("\n\n", keyPairs, "\n")
 
 						_, isExisting := keyPairs["systemtest_testKey"]
 						So(isExisting, ShouldBeTrue)
