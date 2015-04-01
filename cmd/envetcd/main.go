@@ -63,12 +63,12 @@ func init() {
 			Usage:  "system name for system specific configuration",
 		},
 		cli.StringFlag{
-			Name:   "service",
+			Name:   "service, s",
 			EnvVar: "ENVETCD_SERVICE",
 			Usage:  "service name for service specific configuration",
 		},
 		cli.StringFlag{
-			Name:   "prefix",
+			Name:   "prefix, p",
 			EnvVar: "ENVETCD_PREFIX",
 			Value:  "/config",
 			Usage:  "etcd prefix for all keys",

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"net/url"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -23,13 +24,13 @@ var invalidRegexp = regexp.MustCompile(`[^a-zA-Z0-9_]`)
 type Config struct {
 	Peers    []string
 	Sync     bool
-	TLS      *transport.TLSInfo
+	Sanitize bool
+	Upcase   bool
+	Prefix   string
 	System   string
 	Service  string
 	Hostname string
-	Prefix   string
-	Sanitize bool
-	Upcase   bool
+	TLS      *transport.TLSInfo
 }
 
 var etcdKeyTemplates = [...]string{
@@ -83,17 +84,70 @@ func getClient(config *Config) (*etcd.Client, error) {
 	// Sync cluster.
 	if config.Sync {
 		if ok := client.SyncCluster(); !ok {
-			return nil, errors.New("cannot sync with the cluster using endpoints " + strings.Join(config.Peers, ", "))
+			return nil, errors.New("cannot sync with the cluster using endpoints \"" + strings.Join(config.Peers, "\", \"") + "\"")
 		}
 	}
 
 	return client, nil
 }
 
+// Set modifies the current environment with variables retrieved from etcd. Set
+// will not overwrite existing variables.
+// The only required environment variable is $ETCD_ENDPOINT.
+// $ETCD_ENDPOINT should look like "http://127.0.0.1:401".
+// service should be set by the application calling Set and not derived from
+// an environment variable.
+// Set will also use some other environment variables if they exist.
+// $ETCD_PREFIX defaults to "/config"
+// $HOSTNAME will be honored if it is set.
+func Set(service string) error {
+	etcdEndpoint := os.Getenv("ETCD_ENDPOINT")
+	if len(etcdEndpoint) == 0 {
+		return nil
+	}
+
+	config := &Config{
+		Peers:    []string{etcdEndpoint},
+		Sync:     true,
+		Sanitize: true,
+		Upcase:   true,
+		Prefix:   os.Getenv("ETCD_PREFIX"),
+		Service:  service,
+		Hostname: os.Getenv("HOSTNAME"),
+	}
+
+	if len(config.Peers[0]) == 0 {
+		config.Peers[0] = "http://127.0.0.1:4001"
+	}
+
+	if len(config.Prefix) == 0 {
+		config.Prefix = "/config"
+	}
+
+	keyPairs, err := GetKeyPairs(config)
+	if err != nil {
+		return err
+	}
+
+	for key, value := range keyPairs {
+		if len(os.Getenv(key)) == 0 {
+			os.Setenv(key, value)
+		}
+	}
+
+	return nil
+}
+
 // GetKeyPairs takes a given config and client, and returns all key pairs
 func GetKeyPairs(config *Config) (KeyPairs, error) {
 	const noSort = false
 	const recursive = true
+
+	if len(config.Service) > 0 && len(config.System) == 0 {
+		if index := strings.Index(config.Service, "-"); index != -1 {
+			config.System = config.Service[:index]
+		}
+	}
 
 	client, err := getClient(config)
 	if err != nil {
