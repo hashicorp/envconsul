@@ -17,23 +17,23 @@
 		},
 		{
 			"ImportPath": "github.com/coreos/etcd/etcdserver/etcdhttp/httptypes",
-			"Comment": "v2.0.4-320-gfbfa6ba",
-			"Rev": "fbfa6ba86aee2701741bf6b11aae4a7307be29e3"
+			"Comment": "v2.0.8",
+			"Rev": "86e616c6e974828fc9119c1eb0f6439577a9ce0b"
 		},
 		{
 			"ImportPath": "github.com/coreos/etcd/pkg/transport",
-			"Comment": "v2.0.4-320-gfbfa6ba",
-			"Rev": "fbfa6ba86aee2701741bf6b11aae4a7307be29e3"
+			"Comment": "v2.0.8",
+			"Rev": "86e616c6e974828fc9119c1eb0f6439577a9ce0b"
 		},
 		{
 			"ImportPath": "github.com/coreos/etcd/pkg/types",
-			"Comment": "v2.0.4-320-gfbfa6ba",
-			"Rev": "fbfa6ba86aee2701741bf6b11aae4a7307be29e3"
+			"Comment": "v2.0.8",
+			"Rev": "86e616c6e974828fc9119c1eb0f6439577a9ce0b"
 		},
 		{
 			"ImportPath": "github.com/coreos/go-etcd/etcd",
-			"Comment": "v0.4.6-8-g60e12ca",
-			"Rev": "60e12cac3db8ffce00b576b4af0e7b0a968f1003"
+			"Comment": "v0.4.6-12-gbf30eb7",
+			"Rev": "bf30eb7162940ff9aa35d55b23e49ba69322963d"
 		},
 		{
 			"ImportPath": "github.com/golang/protobuf/proto",

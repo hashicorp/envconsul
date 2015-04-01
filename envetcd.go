@@ -65,21 +65,20 @@ func getClient(config *Config) (*etcd.Client, error) {
 		return nil, errors.New("config is nil")
 	}
 
-	if config.TLS == nil {
-		config.TLS = &transport.TLSInfo{}
-	}
-
-	tr, err := transport.NewTransport(*config.TLS)
-	if err != nil {
-		return nil, err
-	}
-
 	if err := massagePeers(config); err != nil {
 		return nil, err
 	}
 
 	client := etcd.NewClient(config.Peers)
-	client.SetTransport(tr)
+
+	if config.TLS != nil {
+		tr, err := transport.NewTransport(*config.TLS)
+		if err != nil {
+			return nil, err
+		}
+
+		client.SetTransport(tr)
+	}
 
 	// Sync cluster.
 	if config.Sync {

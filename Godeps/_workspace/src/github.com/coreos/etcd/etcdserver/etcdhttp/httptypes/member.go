@@ -35,6 +35,20 @@ type MemberUpdateRequest struct {
 	MemberCreateRequest
 }
 
+func (m *MemberCreateRequest) MarshalJSON() ([]byte, error) {
+	s := struct {
+		PeerURLs []string `json:"peerURLs"`
+	}{
+		PeerURLs: make([]string, len(m.PeerURLs)),
+	}
+
+	for i, u := range m.PeerURLs {
+		s.PeerURLs[i] = u.String()
+	}
+
+	return json.Marshal(&s)
+}
+
 func (m *MemberCreateRequest) UnmarshalJSON(data []byte) error {
 	s := struct {
 		PeerURLs []string `json:"peerURLs"`
@@ -64,4 +78,22 @@ func (c *MemberCollection) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(d)
+}
+
+func (c *MemberCollection) UnmarshalJSON(data []byte) error {
+	d := struct {
+		Members []Member
+	}{}
+
+	if err := json.Unmarshal(data, &d); err != nil {
+		return err
+	}
+
+	if d.Members == nil {
+		*c = make([]Member, 0)
+		return nil
+	}
+
+	*c = d.Members
+	return nil
 }

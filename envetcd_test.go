@@ -1,7 +1,6 @@
 package envetcd
 
 import (
-	"fmt"
 	"os"
 	"testing"
 
@@ -25,7 +24,7 @@ func init() {
 		Peers:    []string{os.Getenv("ETCD_ENDPOINT")},
 		Prefix:   "/config",
 		Hostname: "env",
-		Sync:     false,
+		Sync:     true,
 		System:   "systemtest",
 		Service:  "servicetest",
 		TLS:      &transport.TLSInfo{},
@@ -45,7 +44,7 @@ func TestEtcd(t *testing.T) {
 		Convey("config should be valid", func() {
 			So(config.Prefix, ShouldEqual, "/config")
 			So(config.Hostname, ShouldEqual, "env")
-			So(config.Sync, ShouldBeFalse)
+			So(config.Sync, ShouldBeTrue)
 			So(config.System, ShouldEqual, "systemtest")
 			So(config.Service, ShouldEqual, "servicetest")
 			So(config.Peers, ShouldNotBeEmpty)
@@ -85,8 +84,6 @@ func TestEtcd(t *testing.T) {
 						client.Set("/config/global/systemtest/testKey", "globaltestVal", 0)
 						keyPairs, err := GetKeyPairs(config)
 						So(err, ShouldBeNil)
-
-						fmt.Println("\n\n", keyPairs, "\n")
 
 						_, isExisting := keyPairs["systemtest_testKey"]
 						So(isExisting, ShouldBeTrue)
