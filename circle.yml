@@ -1,7 +1,7 @@
 machine:
   environment:
     EXECUTABLE_NAME: envetcd
-    ETCD_VERSION: v2.0.3
+    ETCD_DOWNLOAD_VERSION: v2.0.8
     ETCD_ENDPOINT: http://127.0.0.1:4001
     GH_RELEASE_VERSION: 2.1.0
 
@@ -27,7 +27,7 @@ dependencies:
     - if [[ ! -e ~/.go_workspace/bin/goveralls ]]; then go get -v github.com/mattn/goveralls; fi
 
     # install etcd
-    - if [[ ! -e ~/bin/etcd ]]; then wget https://github.com/coreos/etcd/releases/download/${ETCD_VERSION}/etcd-${ETCD_VERSION}-linux-amd64.tar.gz && tar xzvf etcd-${ETCD_VERSION}-linux-amd64.tar.gz && mv etcd-${ETCD_VERSION}-linux-amd64/etcd ${HOME}/bin/ && rm -rf etcd-${ETCD_VERSION}-linux-amd64/ etcd-${ETCD_VERSION}-linux-amd64.tar.gz; fi
+    - if [[ ! -e ~/bin/etcd ]]; then wget https://github.com/coreos/etcd/releases/download/${ETCD_DOWNLOAD_VERSION}/etcd-${ETCD_DOWNLOAD_VERSION}-linux-amd64.tar.gz && tar xzvf etcd-${ETCD_DOWNLOAD_VERSION}-linux-amd64.tar.gz && mv etcd-${ETCD_DOWNLOAD_VERSION}-linux-amd64/etcd ${HOME}/bin/ && rm -rf etcd-${ETCD_DOWNLOAD_VERSION}-linux-amd64/ etcd-${ETCD_DOWNLOAD_VERSION}-linux-amd64.tar.gz; fi
 
     # install gh-release
     - if [[ ! -e ~/bin/gh-release ]]; then wget https://github.com/progrium/gh-release/releases/download/v${GH_RELEASE_VERSION}/gh-release_${GH_RELEASE_VERSION}_linux_x86_64.tgz && tar xzvf gh-release_${GH_RELEASE_VERSION}_linux_x86_64.tgz && mv gh-release ${HOME}/bin/ && rm -rf gh-release_${GH_RELEASE_VERSION}_linux_x86_64.tgz; fi

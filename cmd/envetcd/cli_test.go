@@ -5,9 +5,11 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/zvelo/envetcd"
+	"github.com/zvelo/zvelo-services/util"
 )
 
 func init() {
+	util.InitLogger("WARN")
 	config.EnvEtcd = &envetcd.Config{
 		Peers: []string{"127.0.0.1:4001"},
 	}
