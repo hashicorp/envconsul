@@ -1,6 +1,6 @@
-alldirs=$(shell find . \( -path ./Godeps -o -path ./.git \) -prune -o -type d -print)
-GODIRS=$(foreach dir, $(alldirs), $(if $(wildcard $(dir)/*.go),$(dir)))
-GOFILES=$(foreach dir, $(alldirs), $(wildcard $(dir)/*.go))
+ALL_DIRS=$(shell find . \( -path ./Godeps -o -path ./.git \) -prune -o -type d -print)
+GO_FILES=$(foreach dir, $(ALL_DIRS), $(wildcard $(dir)/*.go))
+GO_PKGS=$(shell go list ./...)
 
 ifeq ("$(CIRCLECI)", "true")
 export GIT_BRANCH = $(CIRCLE_BRANCH)
@@ -14,15 +14,15 @@ lint:
 	golint ./...
 	go vet ./...
 
-test: $(GOFILES)
-	godep go test -tags "$(TEST_TAGS)" -v ./...
+test: $(GO_FILES)
+	godep go test -v ./...
 
 coverage: .acc.out
 
-.acc.out: $(GOFILES)
+.acc.out: $(GO_FILES)
 	@echo "mode: set" > .acc.out
-	@for dir in $(GODIRS); do \
-		cmd="godep go test -tags '$(TEST_TAGS)' -v -coverprofile=profile.out $$dir"; \
+	@for pkg in $(GO_PKGS); do \
+		cmd="godep go test -v -coverprofile=profile.out $$pkg"; \
 		eval $$cmd; \
 		if test $$? -ne 0; then \
 			exit 1; \
@@ -43,14 +43,14 @@ coveralls: .coveralls-stamp
 
 build: $(EXECUTABLE)
 
-$(EXECUTABLE): $(GOFILES)
-	godep go build -v -o $(EXECUTABLE)
+$(EXECUTABLE): $(GO_FILES)
+	@godep go build -v -o $(EXECUTABLE) ./cmd/envetcd
 
 $(EXECUTABLE)-linux-amd64: $(GO_FILES)
-	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 godep go build -a -v -o $(EXECUTABLE)-linux-amd64
+	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 godep go build -a -v -tags netgo -installsuffix netgo -o $(EXECUTABLE)-linux-amd64 ./cmd/envetcd
 
 $(EXECUTABLE)-darwin-amd64: $(GO_FILES)
-	@CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 godep go build -a -v -o $(EXECUTABLE)-darwin-amd64
+	@CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 godep go build -a -v -tags netgo -installsuffix netgo -o $(EXECUTABLE)-darwin-amd64 ./cmd/envetcd
 
 release: release-linux-amd64 release-darwin-amd64
 

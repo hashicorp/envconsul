@@ -3,6 +3,5 @@
 /envetcd-linux-amd64
 /.acc.out
 /.coveralls-stamp
-/envetcd-*.tgz
 /release/
 /profile.out

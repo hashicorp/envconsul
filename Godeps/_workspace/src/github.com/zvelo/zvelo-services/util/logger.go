@@ -26,7 +26,7 @@ var (
 		start := time.Now()
 		next(rw, r)
 		res := rw.(negroni.ResponseWriter)
-		log.Printf("[INFO] %s %s %v %s in %v", r.Method, r.URL.Path, res.Status(), http.StatusText(res.Status()), time.Since(start))
+		log.Printf("[DEBUG] %s %s %v %s in %v", r.Method, r.URL.Path, res.Status(), http.StatusText(res.Status()), time.Since(start))
 	})
 
 	// NegroniRecovery is a negroni recovery middleware that implements
@@ -58,21 +58,27 @@ func InitLogger(minLevel string) {
 			Writer:   os.Stderr,
 		}
 
-		prefix := ""
-
-		image := os.Getenv("IMAGE_NAME")
-		if len(image) > 0 {
-			prefix += fmt.Sprintf("image=%s ", image)
-		}
-
-		commit := os.Getenv("GIT_COMMIT")
-		if len(commit) > 0 {
-			prefix += fmt.Sprintf("commit=%s ", commit)
-		}
+		// $IMAGE_NAME and $GIT_COMMIT are no longer used as a prefix because
+		// they are set as a tag/field in the fluent metadata
 
 		log.SetFlags(0)
-		log.SetPrefix(prefix)
 		log.SetOutput(LogFilter)
 		log.Printf("[INFO] log level set to %s", minLevel)
 	})
+}
+
+// InitLoggerCli should be called once at the start of each application to enable
+// the output log filtering. It depends on a cli context GlobalString
+// "log-level" to set the MinLevel.
+func InitLoggerCli(c *cli.Context) {
+	InitLogger(c.GlobalString("log-level"))
+}
+
+// NewLogger returns a pointer to an object that implements the log.Logger
+// interface but otherwise works the same as the standard logger.
+func NewLogger(level string) *log.Logger {
+	if LogFilter == nil {
+		log.Fatalln("Must call InitLogger first!")
+	}
+	return log.New(LogFilter, fmt.Sprintf("[%s] ", level), 0)
 }

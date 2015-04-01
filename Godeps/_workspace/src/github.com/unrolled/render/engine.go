@@ -77,6 +77,7 @@ func (j JSON) Render(w http.ResponseWriter, v interface{}) error {
 
 	if j.Indent {
 		result, err = json.MarshalIndent(v, "", "  ")
+		result = append(result, '\n')
 	} else {
 		result, err = json.Marshal(v)
 	}
@@ -112,6 +113,11 @@ func (j JSONP) Render(w http.ResponseWriter, v interface{}) error {
 	w.Write([]byte(j.Callback + "("))
 	w.Write(result)
 	w.Write([]byte(");"))
+
+	// If indenting, append a new line.
+	if j.Indent {
+		w.Write([]byte("\n"))
+	}
 	return nil
 }
 
@@ -122,6 +128,7 @@ func (x XML) Render(w http.ResponseWriter, v interface{}) error {
 
 	if x.Indent {
 		result, err = xml.MarshalIndent(v, "", "  ")
+		result = append(result, '\n')
 	} else {
 		result, err = xml.Marshal(v)
 	}

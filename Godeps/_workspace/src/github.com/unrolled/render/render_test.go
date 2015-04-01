@@ -1,6 +1,7 @@
 package render
 
 import (
+	"encoding/json"
 	"encoding/xml"
 	"html/template"
 	"math"
@@ -74,7 +75,28 @@ func TestRenderIndentedJSON(t *testing.T) {
 	expect(t, res.Body.String(), `{
   "one": "hello",
   "two": "world"
-}`)
+}
+`)
+}
+
+func TestRenderConsumeIndentedJSON(t *testing.T) {
+	render := New(Options{
+		IndentJSON: true,
+	})
+
+	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		render.JSON(w, http.StatusOK, Greeting{"hello", "world"})
+	})
+
+	res := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/foo", nil)
+	h.ServeHTTP(res, req)
+
+	var output Greeting
+	err := json.Unmarshal(res.Body.Bytes(), &output)
+	expect(t, err, nil)
+	expect(t, output.One, "hello")
+	expect(t, output.Two, "world")
 }
 
 func TestRenderJSONWithError(t *testing.T) {
@@ -125,7 +147,8 @@ func TestRenderIndentedJSONP(t *testing.T) {
 	expect(t, res.Body.String(), `helloCallback({
   "one": "hello",
   "two": "world"
-});`)
+});
+`)
 }
 
 func TestRenderJSONPWithError(t *testing.T) {
@@ -194,7 +217,8 @@ func TestRenderIndentedXML(t *testing.T) {
 
 	expect(t, res.Code, http.StatusOK)
 	expect(t, res.Header().Get(ContentType), ContentXML+"; charset=UTF-8")
-	expect(t, res.Body.String(), `<greeting one="hello" two="world"></greeting>`)
+	expect(t, res.Body.String(), `<greeting one="hello" two="world"></greeting>
+`)
 }
 
 func TestRenderXMLWithError(t *testing.T) {

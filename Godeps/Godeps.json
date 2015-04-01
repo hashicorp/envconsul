@@ -1,14 +1,14 @@
 {
 	"ImportPath": "github.com/zvelo/envetcd",
-	"GoVersion": "go1.4",
+	"GoVersion": "go1.4.2",
 	"Packages": [
 		"./..."
 	],
 	"Deps": [
 		{
 			"ImportPath": "github.com/codegangsta/cli",
-			"Comment": "1.2.0-50-ga14c5b4",
-			"Rev": "a14c5b47c7efa4ff80cc42e1079a34b4756f2311"
+			"Comment": "1.2.0-95-g9b2bd2b",
+			"Rev": "9b2bd2b3489748d4d0a204fa4eb2ee9e89e0ebc6"
 		},
 		{
 			"ImportPath": "github.com/codegangsta/negroni",
@@ -16,18 +16,28 @@
 			"Rev": "1dd3ab0ff59e13f5b73dcbf70703710aebe50d2f"
 		},
 		{
+			"ImportPath": "github.com/coreos/etcd/etcdserver/etcdhttp/httptypes",
+			"Comment": "v2.0.4-320-gfbfa6ba",
+			"Rev": "fbfa6ba86aee2701741bf6b11aae4a7307be29e3"
+		},
+		{
 			"ImportPath": "github.com/coreos/etcd/pkg/transport",
-			"Comment": "v2.0.0-rc.1-19-gf78bf98",
-			"Rev": "f78bf987c8da6724abe6e8ad3bf84d37b25c7e3e"
+			"Comment": "v2.0.4-320-gfbfa6ba",
+			"Rev": "fbfa6ba86aee2701741bf6b11aae4a7307be29e3"
+		},
+		{
+			"ImportPath": "github.com/coreos/etcd/pkg/types",
+			"Comment": "v2.0.4-320-gfbfa6ba",
+			"Rev": "fbfa6ba86aee2701741bf6b11aae4a7307be29e3"
 		},
 		{
 			"ImportPath": "github.com/coreos/go-etcd/etcd",
-			"Comment": "v0.2.0-rc1-127-g6fe04d5",
-			"Rev": "6fe04d580dfb71c9e34cbce2f4df9eefd1e1241e"
+			"Comment": "v0.4.6-8-g60e12ca",
+			"Rev": "60e12cac3db8ffce00b576b4af0e7b0a968f1003"
 		},
 		{
-			"ImportPath": "github.com/gogo/protobuf/proto",
-			"Rev": "d59ce9ecb817e6fbca932115f03520207f5a8a07"
+			"ImportPath": "github.com/golang/protobuf/proto",
+			"Rev": "a8323e2cd7e8ba8596aeb64a2ae304ddcd7dfbc0"
 		},
 		{
 			"ImportPath": "github.com/hashicorp/logutils",
@@ -39,16 +49,24 @@
 		},
 		{
 			"ImportPath": "github.com/smartystreets/goconvey/convey",
-			"Comment": "1.5.0-359-g7086c71",
-			"Rev": "7086c714ac72ce0c9df4639a14b31002da0a8ac3"
+			"Comment": "1.5.0-376-g507d829",
+			"Rev": "507d82961b11be9fc3c07aeb0fc338be0b757775"
 		},
 		{
 			"ImportPath": "github.com/unrolled/render",
-			"Rev": "bdfac4a8df10cc9dc03ee14ba2f655137fd70378"
+			"Rev": "4af7c600639360d65cae54f24fbc3e1366489843"
+		},
+		{
+			"ImportPath": "github.com/zvelo/zvelo-services/port",
+			"Rev": "c880c1f7dae1a5b14d2a6480c7ad23e5733cb588"
+		},
+		{
+			"ImportPath": "github.com/zvelo/zvelo-services/stats",
+			"Rev": "c880c1f7dae1a5b14d2a6480c7ad23e5733cb588"
 		},
 		{
 			"ImportPath": "github.com/zvelo/zvelo-services/util",
-			"Rev": "cb9bbe4dd4d1cdc96455789b57f91a4ff8514217"
+			"Rev": "c880c1f7dae1a5b14d2a6480c7ad23e5733cb588"
 		}
 	]
 }

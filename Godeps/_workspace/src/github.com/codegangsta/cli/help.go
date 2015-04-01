@@ -12,14 +12,13 @@ USAGE:
    {{.Name}} {{if .Flags}}[global options] {{end}}command{{if .Flags}} [command options]{{end}} [arguments...]
 
 VERSION:
-   {{.Version}}{{if or .Author .Email}}
+   {{.Version}}
 
-AUTHOR:{{if .Author}}
-  {{.Author}}{{if .Email}} - <{{.Email}}>{{end}}{{else}}
-  {{.Email}}{{end}}{{end}}
-
+AUTHOR(S): 
+   {{range .Authors}}{{ . }}
+   {{end}}
 COMMANDS:
-   {{range .Commands}}{{.Name}}{{with .ShortName}}, {{.}}{{end}}{{ "\t" }}{{.Usage}}
+   {{range .Commands}}{{join .Names ", "}}{{ "\t" }}{{.Usage}}
    {{end}}{{if .Flags}}
 GLOBAL OPTIONS:
    {{range .Flags}}{{.}}
@@ -53,7 +52,7 @@ USAGE:
    {{.Name}} command{{if .Flags}} [command options]{{end}} [arguments...]
 
 COMMANDS:
-   {{range .Commands}}{{.Name}}{{with .ShortName}}, {{.}}{{end}}{{ "\t" }}{{.Usage}}
+   {{range .Commands}}{{join .Names ", "}}{{ "\t" }}{{.Usage}}
    {{end}}{{if .Flags}}
 OPTIONS:
    {{range .Flags}}{{.}}
@@ -61,9 +60,9 @@ OPTIONS:
 `
 
 var helpCommand = Command{
-	Name:      "help",
-	ShortName: "h",
-	Usage:     "Shows a list of commands or help for one command",
+	Name:    "help",
+	Aliases: []string{"h"},
+	Usage:   "Shows a list of commands or help for one command",
 	Action: func(c *Context) {
 		args := c.Args()
 		if args.Present() {
@@ -75,9 +74,9 @@ var helpCommand = Command{
 }
 
 var helpSubcommand = Command{
-	Name:      "help",
-	ShortName: "h",
-	Usage:     "Shows a list of commands or help for one command",
+	Name:    "help",
+	Aliases: []string{"h"},
+	Usage:   "Shows a list of commands or help for one command",
 	Action: func(c *Context) {
 		args := c.Args()
 		if args.Present() {
@@ -103,15 +102,20 @@ func ShowAppHelp(c *Context) {
 // Prints the list of subcommands as the default app completion method
 func DefaultAppComplete(c *Context) {
 	for _, command := range c.App.Commands {
-		fmt.Fprintln(c.App.Writer, command.Name)
-		if command.ShortName != "" {
-			fmt.Fprintln(c.App.Writer, command.ShortName)
+		for _, name := range command.Names() {
+			fmt.Fprintln(c.App.Writer, name)
 		}
 	}
 }
 
 // Prints help for the given command
 func ShowCommandHelp(c *Context, command string) {
+	// show the subcommand help for a command with subcommands
+	if command == "" {
+		HelpPrinter(SubcommandHelpTemplate, c.App)
+		return
+	}
+
 	for _, c := range c.App.Commands {
 		if c.HasName(command) {
 			HelpPrinter(CommandHelpTemplate, c)

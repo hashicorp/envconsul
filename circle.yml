@@ -1,11 +1,9 @@
 machine:
   environment:
     EXECUTABLE_NAME: envetcd
-    ETCD_VERSION: v0.4.6
-    ETCD_HOST: 127.0.0.1
-    ETCD_PORT: 4001
+    ETCD_VERSION: v2.0.3
+    ETCD_ENDPOINT: http://127.0.0.1:4001
     GH_RELEASE_VERSION: 2.1.0
-    CGO_ENABLED: 0
 
 checkout:
   post:
@@ -34,17 +32,9 @@ dependencies:
 
 test:
   pre:
-    # rebuild go statically to work around an change in go 1.4 that does not
-    # rebuild the std library with "-a"
-    # https://github.com/golang/go/issues/9344
-    - cd /usr/local/go/src && CGO_ENABLED=0 ./make.bash
-
     # start etcd
     - etcd:
         background: true
-
-    # cover has to be reinstalled after rebuild
-    - go get -v golang.org/x/tools/cmd/cover
 
   override:
     - make build

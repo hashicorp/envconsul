@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"path/filepath"
 
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 	"github.com/unrolled/render"
 )
 
@@ -33,6 +33,10 @@ func Render(w http.ResponseWriter, req *http.Request, status int, data interface
 		return
 	}
 
-	// TODO(jrubin) add JSONP
+	if callback := req.FormValue("callback"); len(callback) > 0 {
+		r.JSONP(w, status, callback, data)
+		return
+	}
+
 	r.JSON(w, status, data)
 }
