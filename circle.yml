@@ -8,8 +8,10 @@ machine:
 checkout:
   post:
     ## these commands are required to configure the go environment properly
-    - mkdir -p ${HOME}/.go_workspace/src/_/home/ubuntu
-    - ln -sf `pwd` ${HOME}/.go_workspace/src/_/home/ubuntu/
+    - mkdir -p $HOME/.go_workspace/src/_/home/ubuntu
+    - mkdir -p $HOME/.go_workspace/src/github.com/$CIRCLE_PROJECT_USERNAME
+    - ln -sf `pwd` $HOME/.go_workspace/src/_/home/ubuntu
+    - ln -sf `pwd` $HOME/.go_workspace/src/github.com/$CIRCLE_PROJECT_USERNAME
 
 dependencies:
   cache_directories:
