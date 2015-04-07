@@ -90,6 +90,11 @@ func init() {
 			Usage:  "don't synchronize cluster information before sending request",
 		},
 		cli.BoolFlag{
+			Name:   "sync",
+			EnvVar: "ENVETCD_SYNC",
+			Usage:  "synchronize cluster information before sending request",
+		},
+		cli.BoolFlag{
 			Name:   "clean-env, c",
 			EnvVar: "ENVETCD_CLEAN_ENV",
 			Usage:  "don't inherit any environment variables other than those pulled from etcd",
