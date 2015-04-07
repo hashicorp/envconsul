@@ -4,7 +4,7 @@ package port
 
 import "fmt"
 
-const _Port_name = "CarbonPlaintextCarbonPickleNsqdTCPNsqdHTTPNsqlookupdTCPNsqlookupdHTTPNsqadminAdFraudCoreAdFraudAwisAdFraudArbiterAdFraudFinalizerAdFraudAdapterZveloUserZveloAPIZveloUserHystrixGodocRedisRedisNoServiceDiscoveryCarbonQueryWhoamiDynamoDBGraphiteGrafanaKibanaGerritHTTPStatsdElasticsearchRestElasticsearchRestNoServiceDiscoveryElasticsearchElasticsearchNoServiceDiscoveryRedisControlNoServiceDiscoveryGerritSSH"
+const _Port_name = "CarbonPlaintextCarbonPickleNsqdTCPNsqdHTTPNsqlookupdTCPNsqlookupdHTTPNsqadminAdFraudCoreAdFraudAwisAdFraudArbiterAdFraudFinalizerAdFraudAdapterZveloUserZveloAPIZveloHystrixZveloAuthGodocRedisRedisNoServiceDiscoveryCarbonQueryWhoamiDynamoDBGraphiteGrafanaKibanaGerritHTTPConsoleStatsdElasticsearchRestElasticsearchRestNoServiceDiscoveryElasticsearchElasticsearchNoServiceDiscoveryRedisControlNoServiceDiscoveryGerritSSH"
 
 var _Port_map = map[Port]string{
 	2003:  _Port_name[0:15],
@@ -21,24 +21,26 @@ var _Port_map = map[Port]string{
 	5400:  _Port_name[129:143],
 	5401:  _Port_name[143:152],
 	5402:  _Port_name[152:160],
-	5403:  _Port_name[160:176],
-	6060:  _Port_name[176:181],
-	6379:  _Port_name[181:186],
-	7000:  _Port_name[186:209],
-	7002:  _Port_name[209:220],
-	8000:  _Port_name[220:226],
-	8001:  _Port_name[226:234],
-	8002:  _Port_name[234:242],
-	8003:  _Port_name[242:249],
-	8004:  _Port_name[249:255],
-	8005:  _Port_name[255:265],
-	8125:  _Port_name[265:271],
-	9200:  _Port_name[271:288],
-	9201:  _Port_name[288:323],
-	9300:  _Port_name[323:336],
-	9301:  _Port_name[336:367],
-	17000: _Port_name[367:397],
-	29418: _Port_name[397:406],
+	5403:  _Port_name[160:172],
+	5404:  _Port_name[172:181],
+	6060:  _Port_name[181:186],
+	6379:  _Port_name[186:191],
+	7000:  _Port_name[191:214],
+	7002:  _Port_name[214:225],
+	8000:  _Port_name[225:231],
+	8001:  _Port_name[231:239],
+	8002:  _Port_name[239:247],
+	8003:  _Port_name[247:254],
+	8004:  _Port_name[254:260],
+	8005:  _Port_name[260:270],
+	8006:  _Port_name[270:277],
+	8125:  _Port_name[277:283],
+	9200:  _Port_name[283:300],
+	9201:  _Port_name[300:335],
+	9300:  _Port_name[335:348],
+	9301:  _Port_name[348:379],
+	17000: _Port_name[379:409],
+	29418: _Port_name[409:418],
 }
 
 func (i Port) String() string {

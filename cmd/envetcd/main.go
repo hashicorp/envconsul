@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	version = "0.1.0"
+	version = "0.1.1"
 )
 
 var (
@@ -88,11 +88,6 @@ func init() {
 			Name:   "no-sync",
 			EnvVar: "ENVETCD_NO_SYNC",
 			Usage:  "don't synchronize cluster information before sending request",
-		},
-		cli.BoolFlag{
-			Name:   "sync",
-			EnvVar: "ENVETCD_SYNC",
-			Usage:  "synchronize cluster information before sending request",
 		},
 		cli.BoolFlag{
 			Name:   "clean-env, c",

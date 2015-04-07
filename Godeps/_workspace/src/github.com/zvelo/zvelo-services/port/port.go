@@ -44,9 +44,11 @@ const (
 	ZveloUser Port = 5401
 	// ZveloAPI is the port for the zvelo external query API
 	ZveloAPI Port = 5402
-	// ZveloUserHystrix is the port for the zvelo user management service
-	// hystrix data
-	ZveloUserHystrix Port = 5403
+	// ZveloHystrix is the port reserved for services which implent a hystrix
+	// listener
+	ZveloHystrix Port = 5403
+	// ZveloAuth authentication, authorization and token management
+	ZveloAuth Port = 5404
 	// Godoc is the port that the godoc http server uses
 	Godoc Port = 6060
 	// Redis is the port for connecting to redis
@@ -70,6 +72,8 @@ const (
 	Kibana Port = 8004
 	// GerritHTTP is the port for connecting to the gerrit web server
 	GerritHTTP Port = 8005
+	// Console port
+	Console Port = 8006
 	// Statsd is the port for connecting to statsd
 	Statsd Port = 8125
 	// ElasticsearchRest is the port for elasticsearch's RESTful API

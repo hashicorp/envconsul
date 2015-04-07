@@ -31,7 +31,7 @@ func genConfig(c *cli.Context) {
 		System:   c.GlobalString("system"),
 		Service:  c.GlobalString("service"),
 		Peers:    c.GlobalStringSlice("peers"),
-		Sync:     false && !c.GlobalBool("no-sync") || c.GlobalBool("sync"),
+		Sync:     !c.GlobalBool("no-sync"),
 		Prefix:   c.GlobalString("prefix"),
 		Sanitize: !c.GlobalBool("no-sanitize"),
 		Upcase:   !c.GlobalBool("no-upcase"),
