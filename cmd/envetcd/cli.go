@@ -80,7 +80,7 @@ func writeEnvFile() (int, error) {
 
 	keyPairs, err := envetcd.GetKeyPairs(config.EnvEtcd)
 	if err != nil {
-		return exitCodeEnvEtcdError, nil
+		return exitCodeEnvEtcdError, err
 	}
 
 	for key, value := range keyPairs {
@@ -105,6 +105,9 @@ func start(command ...string) (int, error) {
 	}
 
 	runner.data, err = envetcd.GetKeyPairs(config.EnvEtcd)
+	if err != nil {
+		return exitCodeEnvEtcdError, err
+	}
 
 	log.Printf("[INFO] (cli) invoking Runner")
 	if err := runner.run(); err != nil {
