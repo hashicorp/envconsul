@@ -3,7 +3,6 @@ package envetcd
 import (
 	"bytes"
 	"errors"
-	"log"
 	"net/url"
 	"os"
 	"regexp"
@@ -222,6 +221,5 @@ func addKeyPair(config *Config, keyPairs KeyPairs, dir string, node *etcd.Node) 
 		key = strings.ToUpper(key)
 	}
 
-	log.Printf("[DEBUG] Adding keyPairs[%v] = %v", key, node.Value)
 	keyPairs[key] = node.Value
 }
