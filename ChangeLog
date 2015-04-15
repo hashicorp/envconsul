@@ -2,6 +2,7 @@
 
   * Start feature "In envetcd get the default route and use it as ETCD_ENDPOINT"
   https://www.pivotaltracker.com/story/show/92456914
+  https://github.com/zvelo/envetcd/pull/9
 
 2014-12-15  Luke Kingland <lkingland@zvelo.com>
 
