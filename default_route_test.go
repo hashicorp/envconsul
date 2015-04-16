@@ -15,7 +15,7 @@ func TestGetRoute(t *testing.T) {
 			ip, err := getDefaultRouteGateway()
 			So(ip, ShouldNotBeEmpty)
 			So(err, ShouldBeNil)
-		case "darwin":
+		default:
 			ip, err := getDefaultRouteGateway()
 			So(ip, ShouldBeEmpty)
 			So(err, ShouldNotBeNil)
