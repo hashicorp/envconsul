@@ -1,6 +1,7 @@
 package envetcd
 
 import (
+	"runtime"
 	"strings"
 	"testing"
 
@@ -9,9 +10,17 @@ import (
 
 func TestGetRoute(t *testing.T) {
 	Convey("Getting default gateway", t, func() {
-		ip, err := getDefaultRouteGateway()
-		So(ip, ShouldNotBeEmpty)
-		So(err, ShouldBeNil)
+		switch runtime.GOOS {
+		case "linux":
+			ip, err := getDefaultRouteGateway()
+			So(ip, ShouldNotBeEmpty)
+			So(err, ShouldBeNil)
+		case "darwin":
+			ip, err := getDefaultRouteGateway()
+			So(ip, ShouldBeEmpty)
+			So(err, ShouldNotBeNil)
+			So(err.Error(), ShouldEqual, "not attempting to determine default gateway on non-linux OS")
+		}
 	})
 }
 

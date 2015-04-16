@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	version = "0.1.1"
+	version = "0.1.2"
 )
 
 var (
@@ -103,6 +103,11 @@ func init() {
 			Name:   "no-upcase",
 			EnvVar: "ENVETCD_NO_UPCASE",
 			Usage:  "don't convert all environment keys to uppercase",
+		},
+		cli.BoolFlag{
+			Name:   "use-default-gateway, d",
+			EnvVar: "ENVETCD_USE_DEFAULT_GATEWAY",
+			Usage:  "expose the default gateway as $ENVETCD_DEFAULT_GATEWAY",
 		},
 	}
 	app.Action = run

@@ -27,14 +27,15 @@ const (
 
 func genConfig(c *cli.Context) {
 	config.EnvEtcd = &envetcd.Config{
-		Hostname: c.GlobalString("hostname"),
-		System:   c.GlobalString("system"),
-		Service:  c.GlobalString("service"),
-		Peers:    c.GlobalStringSlice("peers"),
-		Sync:     !c.GlobalBool("no-sync"),
-		Prefix:   c.GlobalString("prefix"),
-		Sanitize: !c.GlobalBool("no-sanitize"),
-		Upcase:   !c.GlobalBool("no-upcase"),
+		Hostname:          c.GlobalString("hostname"),
+		System:            c.GlobalString("system"),
+		Service:           c.GlobalString("service"),
+		Peers:             c.GlobalStringSlice("peers"),
+		Sync:              !c.GlobalBool("no-sync"),
+		Prefix:            c.GlobalString("prefix"),
+		Sanitize:          !c.GlobalBool("no-sanitize"),
+		Upcase:            !c.GlobalBool("no-upcase"),
+		UseDefaultGateway: c.GlobalBool("use-default-gateway"),
 		TLS: &transport.TLSInfo{
 			CAFile:   c.GlobalString("ca-file"),
 			CertFile: c.GlobalString("cert-file"),

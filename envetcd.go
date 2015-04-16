@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"log"
+	"net"
 	"net/url"
 	"os"
 	"regexp"
@@ -23,26 +25,39 @@ var invalidRegexp = regexp.MustCompile(`[^a-zA-Z0-9_]`)
 
 // Config contains all of the parameters needed to run GetKeyPairs
 type Config struct {
-	Peers    []string
-	Sync     bool
-	Sanitize bool
-	Upcase   bool
-	Prefix   string
-	System   string
-	Service  string
-	Hostname string
-	TLS      *transport.TLSInfo
+	Peers             []string
+	Sync              bool
+	Sanitize          bool
+	Upcase            bool
+	UseDefaultGateway bool
+	Prefix            string
+	System            string
+	Service           string
+	Hostname          string
+	TLS               *transport.TLSInfo
 }
 
-var etcdKeyTemplates = [...]string{
-	"{{.Prefix}}/global",
-	"{{if .System}}{{.Prefix}}/system/{{.System}}{{end}}",
-	"{{if .Service}}{{.Prefix}}/service/{{.Service}}{{end}}",
-	"{{if .Hostname}}{{.Prefix}}/host/{{.Hostname}}{{end}}",
-}
+var (
+	etcdKeyTemplates = [...]string{
+		"{{.Prefix}}/global",
+		"{{if .System}}{{.Prefix}}/system/{{.System}}{{end}}",
+		"{{if .Service}}{{.Prefix}}/service/{{.Service}}{{end}}",
+		"{{if .Hostname}}{{.Prefix}}/host/{{.Hostname}}{{end}}",
+	}
+
+	gatewayIP *net.IP
+)
 
 // KeyPairs is a slice of KeyPair pointers
 type KeyPairs map[string]string
+
+func init() {
+	if ip, err := getDefaultRouteGateway(); err != nil {
+		log.Printf("[INFO] envetcd error getting default gateway: %v\n", err)
+	} else {
+		gatewayIP = &ip
+	}
+}
 
 func massagePeers(config *Config) error {
 	for i, ep := range config.Peers {
@@ -94,33 +109,48 @@ func getClient(config *Config) (*etcd.Client, error) {
 
 // Set modifies the current environment with variables retrieved from etcd. Set
 // will not overwrite existing variables.
-// The only required environment variable is $ETCD_ENDPOINT.
+// On linux systems, the default gateway will be automatically used as the etcd
+// endpoint.
+// If $ETCD_ENDPOINT is set, it will override the default gateway.
 // $ETCD_ENDPOINT should look like "http://127.0.0.1:4001".
 // service should be set by the application calling Set and not derived from
 // an environment variable.
 // Set will also use some other environment variables if they exist.
 // $ETCD_PREFIX defaults to "/config"
 // $HOSTNAME will be honored if it is set.
+// An error is returned only if there was an actual error. Inability to
+// determine the etcd endpoint as tolerated and not considered an error. In this
+// case Set will simply not do anyting and it is up to the application to ensure
+// that it has been configured properly through other means such as environment
+// variables or command line flags.
 func Set(service string) error {
-	gatewayIP, err := getDefaultRouteGateway()
-	if err != nil {
-		return err
-	}
-	os.Setenv("ENVETCD_DEFAULT_GATEWAY", gatewayIP.String())
-
 	etcdEndpoint := os.Getenv("ETCD_ENDPOINT")
-	if len(etcdEndpoint) == 0 {
+
+	useDefaultGateway := true
+	if len(os.Getenv("ENVETCD_USE_DEFAULT_GATEWAY")) > 0 {
+		if val, err := strconv.ParseBool(os.Getenv("ENVETCD_USE_DEFAULT_GATEWAY")); err == nil {
+			useDefaultGateway = val
+		}
+	}
+
+	if gatewayIP != nil && useDefaultGateway && len(etcdEndpoint) == 0 {
 		etcdEndpoint = fmt.Sprintf("http://%s:4001", gatewayIP.String())
 	}
 
+	if len(etcdEndpoint) == 0 {
+		log.Println("[INFO] envetcd.Set returned after it could not determine the etcd endpoint")
+		return nil
+	}
+
 	config := &Config{
-		Peers:    []string{etcdEndpoint},
-		Sync:     true,
-		Sanitize: true,
-		Upcase:   true,
-		Prefix:   os.Getenv("ETCD_PREFIX"),
-		Service:  service,
-		Hostname: os.Getenv("HOSTNAME"),
+		Peers:             []string{etcdEndpoint},
+		Sync:              true,
+		Sanitize:          true,
+		Upcase:            true,
+		UseDefaultGateway: useDefaultGateway,
+		Prefix:            os.Getenv("ETCD_PREFIX"),
+		Service:           service,
+		Hostname:          os.Getenv("HOSTNAME"),
 	}
 
 	if len(config.Peers[0]) == 0 {
@@ -199,6 +229,10 @@ func GetKeyPairs(config *Config) (KeyPairs, error) {
 
 	if "" != config.Hostname {
 		keyPairs["ENVETCD_HOSTNAME"] = config.Hostname
+	}
+
+	if config.UseDefaultGateway && gatewayIP != nil {
+		keyPairs["ENVETCD_DEFAULT_GATEWAY"] = gatewayIP.String()
 	}
 
 	return keyPairs, nil
