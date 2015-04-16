@@ -32,7 +32,9 @@ func init() {
 
 func TestEtcd(t *testing.T) {
 	Convey("When getting keys from etcd", t, func() {
-		So(os.Getenv("ETCD_ENDPOINT"), ShouldNotBeEmpty)
+		Convey("ETCD_ENDPOINT environment variable", func() {
+			So(os.Getenv("ETCD_ENDPOINT"), ShouldNotBeBlank)
+		})
 
 		client := etcd.NewClient(config.Peers)
 		client.SetDir("/config/system/general", 0)
