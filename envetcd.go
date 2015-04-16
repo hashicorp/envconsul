@@ -128,7 +128,9 @@ func Set(service string) error {
 
 	useDefaultGateway := true
 	if len(os.Getenv("ENVETCD_USE_DEFAULT_GATEWAY")) > 0 {
-		if val, err := strconv.ParseBool(os.Getenv("ENVETCD_USE_DEFAULT_GATEWAY")); err == nil {
+		if val, err := strconv.ParseBool(os.Getenv("ENVETCD_USE_DEFAULT_GATEWAY")); err != nil {
+			log.Printf("[INFO] envetcd.Set could not parse $ENVETCD_USE_DEFAULT_GATEWAY, defaulting to true: %v\n", err)
+		} else {
 			useDefaultGateway = val
 		}
 	}
