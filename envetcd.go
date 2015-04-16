@@ -3,6 +3,7 @@ package envetcd
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"net/url"
 	"os"
 	"regexp"
@@ -94,7 +95,7 @@ func getClient(config *Config) (*etcd.Client, error) {
 // Set modifies the current environment with variables retrieved from etcd. Set
 // will not overwrite existing variables.
 // The only required environment variable is $ETCD_ENDPOINT.
-// $ETCD_ENDPOINT should look like "http://127.0.0.1:401".
+// $ETCD_ENDPOINT should look like "http://127.0.0.1:4001".
 // service should be set by the application calling Set and not derived from
 // an environment variable.
 // Set will also use some other environment variables if they exist.
@@ -103,7 +104,12 @@ func getClient(config *Config) (*etcd.Client, error) {
 func Set(service string) error {
 	etcdEndpoint := os.Getenv("ETCD_ENDPOINT")
 	if len(etcdEndpoint) == 0 {
-		return nil
+		// Look for the default gateway and use that.
+		gatewayIP, err := getDefaultRouteGateway()
+		if err != nil {
+			return err
+		}
+		etcdEndpoint = fmt.Sprintf("http://%s:4001", gatewayIP.String())
 	}
 
 	config := &Config{
