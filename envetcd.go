@@ -102,13 +102,14 @@ func getClient(config *Config) (*etcd.Client, error) {
 // $ETCD_PREFIX defaults to "/config"
 // $HOSTNAME will be honored if it is set.
 func Set(service string) error {
+	gatewayIP, err := getDefaultRouteGateway()
+	if err != nil {
+		return err
+	}
+	os.Setenv("ENVETCD_DEFAULT_GATEWAY", gatewayIP.String())
+
 	etcdEndpoint := os.Getenv("ETCD_ENDPOINT")
 	if len(etcdEndpoint) == 0 {
-		// Look for the default gateway and use that.
-		gatewayIP, err := getDefaultRouteGateway()
-		if err != nil {
-			return err
-		}
 		etcdEndpoint = fmt.Sprintf("http://%s:4001", gatewayIP.String())
 	}
 
