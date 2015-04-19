@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"text/template"
@@ -235,6 +236,16 @@ func GetKeyPairs(config *Config) (KeyPairs, error) {
 
 	if config.UseDefaultGateway && gatewayIP != nil {
 		keyPairs["ENVETCD_DEFAULT_GATEWAY"] = gatewayIP.String()
+	}
+
+	var keys []string
+	for key := range keyPairs {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		log.Printf("[DEBUG] envetcd: %v => %v\n", key, keyPairs[key])
 	}
 
 	return keyPairs, nil
