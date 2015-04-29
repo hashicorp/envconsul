@@ -422,8 +422,13 @@ func newAPIClient(config *Config) (*api.Client, error) {
 func newWatcher(config *Config, client *api.Client, once bool) (*watch.Watcher, error) {
 	log.Printf("[INFO] (runner) creating Watcher")
 
+	clientSet := dep.NewClientSet()
+	if err := clientSet.Add(client); err != nil {
+		return nil, err
+	}
+
 	watcher, err := watch.NewWatcher(&watch.WatcherConfig{
-		Client:   client,
+		Clients:  clientSet,
 		Once:     once,
 		MaxStale: config.MaxStale,
 		RetryFunc: func(current time.Duration) time.Duration {
