@@ -4,39 +4,19 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net/http"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/codegangsta/cli"
-	"github.com/codegangsta/negroni"
 	"github.com/hashicorp/logutils"
 )
 
 var (
 	loggerOnce sync.Once
-	// LogFilter implements an io.Writer that writes to os.Stderr and filters
+
+	// logFilter implements an io.Writer that writes to os.Stderr and filters
 	// messages by logutils.LogLevel
-	LogFilter io.Writer
-
-	// NegroniLogger is a negroni logging middleware that implements
-	// logutils.LogLevel
-	NegroniLogger = negroni.HandlerFunc(func(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
-		start := time.Now()
-		next(rw, r)
-		res := rw.(negroni.ResponseWriter)
-		log.Printf("[DEBUG] %s %s %v %s in %v", r.Method, r.URL.Path, res.Status(), http.StatusText(res.Status()), time.Since(start))
-	})
-
-	// NegroniRecovery is a negroni recovery middleware that implements
-	// logutils.LogLevel
-	NegroniRecovery = &negroni.Recovery{
-		Logger:     log.New(LogFilter, "[ERR] [negroni] ", 0),
-		PrintStack: false,
-		StackAll:   false,
-		StackSize:  1024 * 8,
-	}
+	logFilter io.Writer
 
 	// LogLevelFlag is a convenience variable for a simple log-level cli argument
 	LogLevelFlag = cli.StringFlag{
@@ -52,7 +32,7 @@ var (
 // "log-level" to set the MinLevel.
 func InitLogger(minLevel string) {
 	loggerOnce.Do(func() {
-		LogFilter = &logutils.LevelFilter{
+		logFilter = &logutils.LevelFilter{
 			Levels:   []logutils.LogLevel{"DEBUG", "INFO", "WARN", "ERR"},
 			MinLevel: logutils.LogLevel(minLevel),
 			Writer:   os.Stderr,
@@ -62,9 +42,14 @@ func InitLogger(minLevel string) {
 		// they are set as a tag/field in the fluent metadata
 
 		log.SetFlags(0)
-		log.SetOutput(LogFilter)
+		log.SetOutput(logFilter)
 		log.Printf("[INFO] log level set to %s", minLevel)
 	})
+}
+
+// ChangeLogLevel updates the minimum log level
+func ChangeLogLevel(minLevel string) {
+	logFilter.(*logutils.LevelFilter).MinLevel = logutils.LogLevel(minLevel)
 }
 
 // InitLoggerCli should be called once at the start of each application to enable
@@ -77,8 +62,8 @@ func InitLoggerCli(c *cli.Context) {
 // NewLogger returns a pointer to an object that implements the log.Logger
 // interface but otherwise works the same as the standard logger.
 func NewLogger(level string) *log.Logger {
-	if LogFilter == nil {
+	if logFilter == nil {
 		log.Fatalln("Must call InitLogger first!")
 	}
-	return log.New(LogFilter, fmt.Sprintf("[%s] ", level), 0)
+	return log.New(logFilter, fmt.Sprintf("[%s] ", level), 0)
 }

@@ -28,14 +28,16 @@ func RenderPB(w http.ResponseWriter, status int, msg proto.Message) {
 // Render looks for a ".pb" extension and renders either the protobuf or JSON
 // message properly to an http.ResponseWriter
 func Render(w http.ResponseWriter, req *http.Request, status int, data interface{}) {
-	if msg, ok := data.(proto.Message); ok && filepath.Ext(req.URL.Path) == ".pb" {
-		RenderPB(w, status, msg)
-		return
-	}
+	if req != nil {
+		if msg, ok := data.(proto.Message); ok && filepath.Ext(req.URL.Path) == ".pb" {
+			RenderPB(w, status, msg)
+			return
+		}
 
-	if callback := req.FormValue("callback"); len(callback) > 0 {
-		r.JSONP(w, status, callback, data)
-		return
+		if callback := req.FormValue("callback"); len(callback) > 0 {
+			r.JSONP(w, status, callback, data)
+			return
+		}
 	}
 
 	r.JSON(w, status, data)

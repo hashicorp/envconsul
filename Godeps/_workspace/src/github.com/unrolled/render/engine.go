@@ -29,8 +29,9 @@ type XML struct {
 // JSON built-in renderer.
 type JSON struct {
 	Head
-	Indent bool
-	Prefix []byte
+	Indent       bool
+	UnEscapeHTML bool
+	Prefix       []byte
 }
 
 // JSONP built-in renderer.
@@ -83,6 +84,13 @@ func (j JSON) Render(w http.ResponseWriter, v interface{}) error {
 	}
 	if err != nil {
 		return err
+	}
+
+	// Unescape HTML if needed.
+	if j.UnEscapeHTML {
+		result = bytes.Replace(result, []byte("\\u003c"), []byte("<"), -1)
+		result = bytes.Replace(result, []byte("\\u003e"), []byte(">"), -1)
+		result = bytes.Replace(result, []byte("\\u0026"), []byte("&"), -1)
 	}
 
 	// JSON marshaled fine, write out the result.

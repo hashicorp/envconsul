@@ -11,7 +11,9 @@ import (
 func init() {
 	util.InitLogger("WARN")
 	config.EnvEtcd = &envetcd.Config{
-		Peers: []string{"127.0.0.1:4001"},
+		Etcd: &util.EtcdConfig{
+			Peers: []string{"127.0.0.1:4001"},
+		},
 	}
 }
 

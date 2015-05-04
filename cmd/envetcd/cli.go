@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/codegangsta/cli"
-	"github.com/coreos/etcd/pkg/transport"
 	"github.com/zvelo/envetcd"
 	"github.com/zvelo/zvelo-services/util"
 )
@@ -25,35 +24,31 @@ const (
 	exitCodeEnvEtcdError
 )
 
-func genConfig(c *cli.Context) {
-	config.EnvEtcd = &envetcd.Config{
-		Hostname:          c.GlobalString("hostname"),
-		System:            c.GlobalString("system"),
-		Service:           c.GlobalString("service"),
-		Peers:             c.GlobalStringSlice("peers"),
-		Sync:              !c.GlobalBool("no-sync"),
-		Prefix:            c.GlobalString("prefix"),
-		Sanitize:          !c.GlobalBool("no-sanitize"),
-		Upcase:            !c.GlobalBool("no-upcase"),
-		UseDefaultGateway: c.GlobalBool("use-default-gateway"),
-		TLS: &transport.TLSInfo{
-			CAFile:   c.GlobalString("ca-file"),
-			CertFile: c.GlobalString("cert-file"),
-			KeyFile:  c.GlobalString("key-file"),
+func setup(c *cli.Context) error {
+	util.InitLogger(c.GlobalString("log-level"))
+
+	config = configT{
+		EnvEtcd: &envetcd.Config{
+			Etcd:              util.NewEtcdConfig(c),
+			Hostname:          c.GlobalString("hostname"),
+			System:            c.GlobalString("system"),
+			Service:           c.GlobalString("service"),
+			Prefix:            c.GlobalString("prefix"),
+			Sanitize:          !c.GlobalBool("no-sanitize"),
+			Upcase:            !c.GlobalBool("no-upcase"),
+			UseDefaultGateway: c.GlobalBool("use-default-gateway"),
 		},
+		Output:   c.String("output"),
+		WriteEnv: c.GlobalString("write-env"),
+		CleanEnv: c.GlobalBool("clean-env"),
 	}
 
-	config.Output = c.String("output")
-	config.WriteEnv = c.GlobalString("write-env")
-	config.CleanEnv = c.GlobalBool("clean-env")
+	return nil
 }
 
 // Run accepts a slice of arguments and returns an int representing the exit
 // status from the command.
 func run(c *cli.Context) {
-	util.InitLogger(c.GlobalString("log-level"))
-	genConfig(c)
-
 	args := c.Args()
 	if len(config.WriteEnv) > 0 && len(args) > 0 {
 		log.Println("[WARN] command not executed when --write-env is used")

@@ -9,48 +9,31 @@ import (
 )
 
 const (
-	version = "0.1.2"
+	name    = "envetcd"
+	version = "0.2.0"
 )
+
+type configT struct {
+	EnvEtcd  *envetcd.Config
+	WriteEnv string
+	Output   string
+	CleanEnv bool
+}
 
 var (
 	app    = cli.NewApp()
-	config struct {
-		EnvEtcd  *envetcd.Config
-		WriteEnv string
-		Output   string
-		CleanEnv bool
-	}
+	config configT
 )
 
 func init() {
 	hostname, _ := os.Hostname()
-	app.Name = "envetcd"
-	app.Author = "Joshua Rubin"
-	app.Email = "jrubin@zvelo.com"
+	app.Name = name
 	app.Version = version
 	app.Usage = "set environment variables from etcd"
-	app.Flags = []cli.Flag{
-		cli.StringSliceFlag{
-			Name:   "peers, C",
-			EnvVar: "ENVETCD_PEERS",
-			Value:  &cli.StringSlice{"127.0.0.1:4001"},
-			Usage:  "a comma-delimited list of machine addresses in the cluster (default: \"127.0.0.1:4001\")",
-		},
-		cli.StringFlag{
-			Name:   "ca-file",
-			EnvVar: "ENVETCD_CA_FILE",
-			Usage:  "certificate authority file",
-		},
-		cli.StringFlag{
-			Name:   "cert-file",
-			EnvVar: "ENVETCD_CERT_FILE",
-			Usage:  "tls client certificate file",
-		},
-		cli.StringFlag{
-			Name:   "key-file",
-			EnvVar: "ENVETCD_KEY_FILE",
-			Usage:  "tls client key file",
-		},
+	app.Authors = []cli.Author{
+		{Name: "Joshua Rubin", Email: "jrubin@zvelo.com"},
+	}
+	app.Flags = append(util.EtcdFlags, []cli.Flag{
 		cli.StringFlag{
 			Name:   "hostname",
 			EnvVar: "HOSTNAME",
@@ -85,11 +68,6 @@ func init() {
 			Usage:  "write stdout from the command to this file",
 		},
 		cli.BoolFlag{
-			Name:   "no-sync",
-			EnvVar: "ENVETCD_NO_SYNC",
-			Usage:  "don't synchronize cluster information before sending request",
-		},
-		cli.BoolFlag{
 			Name:   "clean-env, c",
 			EnvVar: "ENVETCD_CLEAN_ENV",
 			Usage:  "don't inherit any environment variables other than those pulled from etcd",
@@ -109,7 +87,8 @@ func init() {
 			EnvVar: "ENVETCD_USE_DEFAULT_GATEWAY",
 			Usage:  "expose the default gateway as $ENVETCD_DEFAULT_GATEWAY",
 		},
-	}
+	}...)
+	app.Before = setup
 	app.Action = run
 }
 

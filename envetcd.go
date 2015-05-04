@@ -2,11 +2,9 @@ package envetcd
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"log"
 	"net"
-	"net/url"
 	"os"
 	"regexp"
 	"sort"
@@ -14,8 +12,8 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/coreos/etcd/pkg/transport"
 	"github.com/coreos/go-etcd/etcd"
+	"github.com/zvelo/zvelo-services/util"
 )
 
 // order of precedence:
@@ -26,8 +24,7 @@ var invalidRegexp = regexp.MustCompile(`[^a-zA-Z0-9_]`)
 
 // Config contains all of the parameters needed to run GetKeyPairs
 type Config struct {
-	Peers             []string
-	Sync              bool
+	Etcd              *util.EtcdConfig
 	Sanitize          bool
 	Upcase            bool
 	UseDefaultGateway bool
@@ -35,7 +32,6 @@ type Config struct {
 	System            string
 	Service           string
 	Hostname          string
-	TLS               *transport.TLSInfo
 }
 
 var (
@@ -58,54 +54,6 @@ func init() {
 	} else {
 		gatewayIP = &ip
 	}
-}
-
-func massagePeers(config *Config) error {
-	for i, ep := range config.Peers {
-
-		u, err := url.Parse(ep)
-		if err != nil {
-			return err
-		}
-
-		if u.Scheme == "" {
-			u.Scheme = "http"
-		}
-
-		config.Peers[i] = u.String()
-	}
-
-	return nil
-}
-
-func getClient(config *Config) (*etcd.Client, error) {
-	if config == nil {
-		return nil, errors.New("config is nil")
-	}
-
-	if err := massagePeers(config); err != nil {
-		return nil, err
-	}
-
-	client := etcd.NewClient(config.Peers)
-
-	if config.TLS != nil {
-		tr, err := transport.NewTransport(*config.TLS)
-		if err != nil {
-			return nil, err
-		}
-
-		client.SetTransport(tr)
-	}
-
-	// Sync cluster.
-	if config.Sync {
-		if ok := client.SyncCluster(); !ok {
-			return nil, errors.New("cannot sync with the cluster using endpoints \"" + strings.Join(config.Peers, "\", \"") + "\"")
-		}
-	}
-
-	return client, nil
 }
 
 // Set modifies the current environment with variables retrieved from etcd. Set
@@ -146,8 +94,10 @@ func Set(service string) error {
 	}
 
 	config := &Config{
-		Peers:             []string{etcdEndpoint},
-		Sync:              true,
+		Etcd: &util.EtcdConfig{
+			Peers: []string{etcdEndpoint},
+			Sync:  true,
+		},
 		Sanitize:          true,
 		Upcase:            true,
 		UseDefaultGateway: useDefaultGateway,
@@ -156,8 +106,8 @@ func Set(service string) error {
 		Hostname:          os.Getenv("HOSTNAME"),
 	}
 
-	if len(config.Peers[0]) == 0 {
-		config.Peers[0] = "http://127.0.0.1:4001"
+	if len(config.Etcd.Peers[0]) == 0 {
+		config.Etcd.Peers[0] = "http://127.0.0.1:4001"
 	}
 
 	if len(config.Prefix) == 0 {
@@ -168,6 +118,9 @@ func Set(service string) error {
 	if err != nil {
 		return err
 	}
+
+	log.Printf("[DEBUG] envetcd: %v => %v\n", "ETCD_ENDPOINT", etcdEndpoint)
+	keyPairs["ETCD_ENDPOINT"] = etcdEndpoint
 
 	for key, value := range keyPairs {
 		if len(os.Getenv(key)) == 0 {
@@ -189,12 +142,12 @@ func GetKeyPairs(config *Config) (KeyPairs, error) {
 		}
 	}
 
-	client, err := getClient(config)
+	client, err := util.GetEtcdClient(config.Etcd)
 	if err != nil {
 		return nil, err
 	}
 
-	keyPairs := make(KeyPairs)
+	keyPairs := KeyPairs{}
 
 	// For each etcd directory key template
 	// fetch from etcd and add to keypairs
@@ -219,6 +172,8 @@ func GetKeyPairs(config *Config) (KeyPairs, error) {
 
 		addKeyPair(config, keyPairs, dir, resp.Node)
 	}
+
+	keyPairs["ETCD_PEERS"] = strings.Join(client.GetCluster(), ", ")
 
 	// Expose --service --system and --hostname command variables to the child process' emvironment,
 	// ignoring if these are not set in etcd (or set in etcd. Command line arguments take precedence.)

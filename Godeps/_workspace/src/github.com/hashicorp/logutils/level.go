@@ -1,3 +1,4 @@
+// Package logutils augments the standard log package with levels.
 package logutils
 
 import (
