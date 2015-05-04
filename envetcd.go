@@ -49,7 +49,7 @@ var (
 type KeyPairs map[string]string
 
 func init() {
-	if ip, err := getDefaultRouteGateway(); err != nil {
+	if ip, err := util.DefaultRoute(); err != nil {
 		log.Printf("[INFO] envetcd error getting default gateway: %v\n", err)
 	} else {
 		gatewayIP = &ip

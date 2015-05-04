@@ -1,4 +1,4 @@
-package envetcd
+package util
 
 import (
 	"runtime"
@@ -8,24 +8,22 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-func TestGetRoute(t *testing.T) {
-	Convey("Getting default gateway", t, func() {
+func TestDefaultRoute(t *testing.T) {
+	Convey("Default Route should be found", t, func() {
 		switch runtime.GOOS {
 		case "linux":
-			ip, err := getDefaultRouteGateway()
+			ip, err := DefaultRoute()
 			So(ip, ShouldNotBeEmpty)
 			So(err, ShouldBeNil)
 		default:
-			ip, err := getDefaultRouteGateway()
+			ip, err := DefaultRoute()
 			So(ip, ShouldBeEmpty)
 			So(err, ShouldNotBeNil)
 			So(err.Error(), ShouldEqual, "not attempting to determine default gateway on non-linux OS")
 		}
 	})
-}
 
-func TestGetRouteCorrectly(t *testing.T) {
-	Convey("Given a sample route file", t, func() {
+	Convey("route file should be parsed properly", t, func() {
 		input := strings.NewReader(
 			`Iface	Destination	Gateway 	Flags	RefCnt	Use	Metric	Mask		MTU	Window	IRTT                                                       
 wlp6s0	00000000	010C150A	0003	0	0	600	00000000	0	0	0                                                                           

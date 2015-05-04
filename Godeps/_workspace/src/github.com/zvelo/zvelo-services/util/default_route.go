@@ -1,4 +1,4 @@
-package envetcd
+package util
 
 import (
 	"bufio"
@@ -9,10 +9,10 @@ import (
 	"runtime"
 )
 
-// This will read /proc/net/route and look for an IPv4 default gateway.
-// IPv6 gateways will not be found.
-// It will then return the gateway as an IP.
-func getDefaultRouteGateway() (ip net.IP, err error) {
+// DefaultRoute will read /proc/net/route and look for an IPv4 default
+// gateway. IPv6 gateways will not be found. It will then return the gateway as
+// an IP.
+func DefaultRoute() (ip net.IP, err error) {
 	if runtime.GOOS != "linux" {
 		return ip, fmt.Errorf("not attempting to determine default gateway on non-linux OS")
 	}
