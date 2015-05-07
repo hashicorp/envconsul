@@ -205,8 +205,10 @@ func GetKeyPairs(config *Config) (KeyPairs, error) {
 	}
 	sort.Strings(keys)
 
-	for _, key := range keys {
-		log.Printf("[DEBUG] envetcd: %v => %v\n", key, keyPairs[key])
+	if keyPairs["LOG_LEVEL"] == "DEBUG" {
+		for _, key := range keys {
+			log.Printf("[DEBUG] envetcd: %v => %v\n", key, keyPairs[key])
+		}
 	}
 
 	return keyPairs, nil
