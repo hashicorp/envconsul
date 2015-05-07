@@ -75,6 +75,10 @@ func init() {
 func Set(service string) error {
 	etcdEndpoint := os.Getenv("ETCD_ENDPOINT")
 
+	useSync := true
+	if len(os.Getenv("ETCD_NO_SYNC")) > 0 {
+		useSync = false
+	}
 	useDefaultGateway := true
 	if len(os.Getenv("ENVETCD_USE_DEFAULT_GATEWAY")) > 0 {
 		if val, err := strconv.ParseBool(os.Getenv("ENVETCD_USE_DEFAULT_GATEWAY")); err != nil {
@@ -96,7 +100,7 @@ func Set(service string) error {
 	config := &Config{
 		Etcd: &util.EtcdConfig{
 			Peers: []string{etcdEndpoint},
-			Sync:  true,
+			Sync:  useSync,
 		},
 		Sanitize:          true,
 		Upcase:            true,
