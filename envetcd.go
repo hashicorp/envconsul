@@ -73,6 +73,8 @@ func init() {
 // that it has been configured properly through other means such as environment
 // variables or command line flags.
 func Set(service string) error {
+	util.InitLogger("WARN")
+
 	etcdEndpoint := os.Getenv("ETCD_ENDPOINT")
 
 	useSync := true
@@ -123,9 +125,7 @@ func Set(service string) error {
 		return err
 	}
 
-	if keyPairs["LOG_LEVEL"] == "DEBUG" {
-		log.Printf("[DEBUG] envetcd: %v => %v\n", "ETCD_ENDPOINT", etcdEndpoint)
-	}
+	log.Printf("[DEBUG] envetcd: %v => %v\n", "ETCD_ENDPOINT", etcdEndpoint)
 	keyPairs["ETCD_ENDPOINT"] = etcdEndpoint
 
 	for key, value := range keyPairs {
@@ -205,10 +205,10 @@ func GetKeyPairs(config *Config) (KeyPairs, error) {
 	}
 	sort.Strings(keys)
 
-	if keyPairs["LOG_LEVEL"] == "DEBUG" {
-		for _, key := range keys {
-			log.Printf("[DEBUG] envetcd: %v => %v\n", key, keyPairs[key])
-		}
+	util.InitLogger(keyPairs["LOG_LEVEL"])
+
+	for _, key := range keys {
+		log.Printf("[DEBUG] envetcd: %v => %v\n", key, keyPairs[key])
 	}
 
 	return keyPairs, nil
