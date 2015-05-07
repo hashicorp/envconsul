@@ -123,7 +123,9 @@ func Set(service string) error {
 		return err
 	}
 
-	log.Printf("[DEBUG] envetcd: %v => %v\n", "ETCD_ENDPOINT", etcdEndpoint)
+	if keyPairs["LOG_LEVEL"] == "DEBUG" {
+		log.Printf("[DEBUG] envetcd: %v => %v\n", "ETCD_ENDPOINT", etcdEndpoint)
+	}
 	keyPairs["ETCD_ENDPOINT"] = etcdEndpoint
 
 	for key, value := range keyPairs {
