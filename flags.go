@@ -13,6 +13,7 @@ import (
 type prefixVar []*dep.StoreKeyPrefix
 
 func (pv *prefixVar) Set(value string) error {
+	value = strings.TrimPrefix(value, "/")
 	prefix, err := dep.ParseStoreKeyPrefix(value)
 	if err != nil {
 		return err

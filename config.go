@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 	"time"
 
 	dep "github.com/hashicorp/consul-template/dependency"
@@ -198,7 +199,10 @@ func ParseConfig(path string) (*Config, error) {
 	config.Path = path
 
 	// Parse the prefixes
-	for _, prefixRaw := range config.PrefixesRaw {
+	for i, prefixRaw := range config.PrefixesRaw {
+		prefixRaw = strings.TrimLeft(prefixRaw, "/")
+		config.PrefixesRaw[i] = prefixRaw
+
 		prefix, err := dep.ParseStoreKeyPrefix(prefixRaw)
 		if err != nil {
 			errs = multierror.Append(errs, err)
