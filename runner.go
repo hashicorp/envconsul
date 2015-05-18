@@ -349,7 +349,7 @@ func (r *Runner) killProcess() {
 	// Kill the process
 	exited := false
 
-	if err := r.cmd.Process.Signal(syscall.SIGTERM); err == nil {
+	if err := r.cmd.Process.Signal(r.config.KillSig); err == nil {
 		// Wait a few seconds for it to exit
 		killCh := make(chan struct{})
 		go func() {
