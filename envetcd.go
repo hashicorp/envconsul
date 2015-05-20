@@ -73,7 +73,11 @@ func init() {
 // that it has been configured properly through other means such as environment
 // variables or command line flags.
 func Set(service string) error {
-	util.InitLogger("WARN")
+	logLevel := os.Getenv("LOG_LEVEL")
+	if logLevel == "" {
+		logLevel = "WARN"
+	}
+	util.InitLogger(logLevel)
 
 	etcdEndpoint := os.Getenv("ETCD_ENDPOINT")
 
