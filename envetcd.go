@@ -73,7 +73,12 @@ func init() {
 // that it has been configured properly through other means such as environment
 // variables or command line flags.
 func Set(service string) error {
-	util.InitLogger("WARN")
+	logLevel := "WARN"
+	if val := os.Getenv("LOG_LEVEL"); len(val) > 0 {
+		logLevel = val
+	}
+
+	util.InitLogger(logLevel)
 
 	etcdEndpoint := os.Getenv("ETCD_ENDPOINT")
 
@@ -204,8 +209,6 @@ func GetKeyPairs(config *Config) (KeyPairs, error) {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
-
-	util.InitLogger(keyPairs["LOG_LEVEL"])
 
 	for _, key := range keys {
 		log.Printf("[DEBUG] envetcd: %v => %v\n", key, keyPairs[key])
