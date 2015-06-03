@@ -10,7 +10,7 @@ import (
 
 const (
 	name    = "envetcd"
-	version = "0.3.0"
+	version = "0.3.1"
 )
 
 type configT struct {
