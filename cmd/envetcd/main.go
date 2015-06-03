@@ -10,19 +10,21 @@ import (
 
 const (
 	name    = "envetcd"
-	version = "0.2.3"
+	version = "0.3.0"
 )
 
 type configT struct {
-	EnvEtcd  *envetcd.Config
-	WriteEnv string
-	Output   string
-	CleanEnv bool
+	EnvEtcd   *envetcd.Config
+	WriteEnv  string
+	Output    string
+	CleanEnv  bool
+	Templates []string
 }
 
 var (
-	app    = cli.NewApp()
-	config configT
+	app       = cli.NewApp()
+	config    configT
+	templates = cli.StringSlice{}
 )
 
 func init() {
@@ -67,6 +69,15 @@ func init() {
 			EnvVar: "ENVETCD_OUTPUT",
 			Usage:  "write stdout from the command to this file",
 		},
+		cli.StringSliceFlag{
+			Name:   "template, t",
+			EnvVar: "ENVETCD_TEMPLATES",
+			Usage: "replace values in this template file using those pulled from etcd," +
+				"filename should end in '.tmpl'," +
+				"the substituted file will be written without the '.tmpl' suffix," +
+				"may be supplied multiple times",
+			Value: &templates,
+		},
 		cli.BoolFlag{
 			Name:   "clean-env, c",
 			EnvVar: "ENVETCD_CLEAN_ENV",
@@ -90,6 +101,29 @@ func init() {
 	}...)
 	app.Before = setup
 	app.Action = run
+}
+
+func setup(c *cli.Context) error {
+	util.InitLogger(c.GlobalString("log-level"))
+
+	config = configT{
+		EnvEtcd: &envetcd.Config{
+			Etcd:              util.NewEtcdConfig(c),
+			Hostname:          c.GlobalString("hostname"),
+			System:            c.GlobalString("system"),
+			Service:           c.GlobalString("service"),
+			Prefix:            c.GlobalString("prefix"),
+			Sanitize:          !c.GlobalBool("no-sanitize"),
+			Upcase:            !c.GlobalBool("no-upcase"),
+			UseDefaultGateway: c.GlobalBool("use-default-gateway"),
+		},
+		Templates: templates,
+		Output:    c.String("output"),
+		WriteEnv:  c.GlobalString("write-env"),
+		CleanEnv:  c.GlobalBool("clean-env"),
+	}
+
+	return nil
 }
 
 func main() {

@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
+	"text/template"
 
 	"github.com/codegangsta/cli"
 	"github.com/zvelo/envetcd"
-	"github.com/zvelo/zvelo-services/util"
 )
 
 // Exit codes are int values that represent an exit code for a particular error.
@@ -23,28 +24,6 @@ const (
 	exitCodeRunnerError
 	exitCodeEnvEtcdError
 )
-
-func setup(c *cli.Context) error {
-	util.InitLogger(c.GlobalString("log-level"))
-
-	config = configT{
-		EnvEtcd: &envetcd.Config{
-			Etcd:              util.NewEtcdConfig(c),
-			Hostname:          c.GlobalString("hostname"),
-			System:            c.GlobalString("system"),
-			Service:           c.GlobalString("service"),
-			Prefix:            c.GlobalString("prefix"),
-			Sanitize:          !c.GlobalBool("no-sanitize"),
-			Upcase:            !c.GlobalBool("no-upcase"),
-			UseDefaultGateway: c.GlobalBool("use-default-gateway"),
-		},
-		Output:   c.String("output"),
-		WriteEnv: c.GlobalString("write-env"),
-		CleanEnv: c.GlobalBool("clean-env"),
-	}
-
-	return nil
-}
 
 // Run accepts a slice of arguments and returns an int representing the exit
 // status from the command.
@@ -103,6 +82,32 @@ func start(command ...string) (int, error) {
 	runner.data, err = envetcd.GetKeyPairs(config.EnvEtcd)
 	if err != nil {
 		return exitCodeEnvEtcdError, err
+	}
+
+	const ext = ".tmpl"
+	for _, tmpl := range config.Templates {
+		if filepath.Ext(tmpl) != ext {
+			log.Printf("[WARN] template file does not end with '.tmpl' (%s)", tmpl)
+			continue
+		}
+
+		outFileName := tmpl[0 : len(tmpl)-len(ext)]
+		outFile, err := os.Create(outFileName)
+		if err != nil {
+			log.Printf("[WARN] error creating file (%s): %s", outFileName, err)
+			continue
+		}
+
+		tpl, err := template.ParseFiles(tmpl)
+		if err != nil {
+			log.Printf("[WARN] error parsing template (%s): %s", tmpl, err)
+			continue
+		}
+
+		log.Printf("[INFO] updating template %s", tmpl)
+		if err := tpl.Execute(outFile, runner.data); err != nil {
+			log.Printf("[WARN] error writing template file (%s): %s", outFileName, err)
+		}
 	}
 
 	log.Printf("[INFO] (cli) invoking Runner")
