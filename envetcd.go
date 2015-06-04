@@ -186,18 +186,19 @@ func processTemplates(keyPairs KeyPairs, templateFiles []string) {
 			continue
 		}
 
+		tpl, err := template.ParseFiles(tmpl)
+		if err != nil {
+			log.Printf("[WARN] error parsing template (%s): %s", tmpl, err)
+			continue
+		}
+
 		outFileName := tmpl[0 : len(tmpl)-len(ext)]
 		outFile, err := os.Create(outFileName)
 		if err != nil {
 			log.Printf("[WARN] error creating file (%s): %s", outFileName, err)
 			continue
 		}
-
-		tpl, err := template.ParseFiles(tmpl)
-		if err != nil {
-			log.Printf("[WARN] error parsing template (%s): %s", tmpl, err)
-			continue
-		}
+		defer outFile.Close()
 
 		log.Printf("[INFO] updating template %s", tmpl)
 		if err := tpl.Execute(outFile, keyPairs); err != nil {
