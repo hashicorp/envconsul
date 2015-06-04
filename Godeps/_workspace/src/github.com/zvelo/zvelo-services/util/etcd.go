@@ -43,8 +43,8 @@ var (
 		},
 		cli.BoolFlag{
 			Name:   "use-default-gateway, d",
-			EnvVar: "ENVETCD_USE_DEFAULT_GATEWAY",
-			Usage:  "expose the default gateway as $ENVETCD_DEFAULT_GATEWAY",
+			EnvVar: "ETCD_USE_DEFAULT_GATEWAY",
+			Usage:  "expose the default gateway as $ETCD_DEFAULT_GATEWAY",
 		},
 	}
 )
@@ -77,7 +77,7 @@ func NewEtcdConfig(c *cli.Context) *EtcdConfig {
 		if ret.UseDefaultGateway {
 			ip, err := DefaultRoute()
 			if err != nil {
-				log.Printf("[INFO] envetcd error getting default gateway: %v\n", err)
+				log.Printf("[INFO] etcd error getting default gateway: %v\n", err)
 			} else {
 				ret.Peers = []string{fmt.Sprintf("http://%s:4001", ip.String())}
 			}

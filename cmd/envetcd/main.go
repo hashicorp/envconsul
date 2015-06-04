@@ -10,15 +10,14 @@ import (
 
 const (
 	name    = "envetcd"
-	version = "0.3.2"
+	version = "0.3.3"
 )
 
 type configT struct {
-	EnvEtcd   *envetcd.Config
-	WriteEnv  string
-	Output    string
-	CleanEnv  bool
-	Templates []string
+	EnvEtcd  *envetcd.Config
+	WriteEnv string
+	Output   string
+	CleanEnv bool
 }
 
 var (
@@ -70,7 +69,7 @@ func init() {
 			Usage:  "write stdout from the command to this file",
 		},
 		cli.StringSliceFlag{
-			Name:   "template, t",
+			Name:   "templates, t",
 			EnvVar: "ENVETCD_TEMPLATES",
 			Usage: "replace values in this template file using those pulled from etcd," +
 				"filename should end in '.tmpl'," +
@@ -103,18 +102,18 @@ func setup(c *cli.Context) error {
 
 	config = configT{
 		EnvEtcd: &envetcd.Config{
-			Etcd:     util.NewEtcdConfig(c),
-			Hostname: c.GlobalString("hostname"),
-			System:   c.GlobalString("system"),
-			Service:  c.GlobalString("service"),
-			Prefix:   c.GlobalString("prefix"),
-			Sanitize: !c.GlobalBool("no-sanitize"),
-			Upcase:   !c.GlobalBool("no-upcase"),
+			Etcd:          util.NewEtcdConfig(c),
+			Hostname:      c.GlobalString("hostname"),
+			System:        c.GlobalString("system"),
+			Service:       c.GlobalString("service"),
+			Prefix:        c.GlobalString("prefix"),
+			Sanitize:      !c.GlobalBool("no-sanitize"),
+			Upcase:        !c.GlobalBool("no-upcase"),
+			TemplateFiles: c.StringSlice("templates"),
 		},
-		Templates: templates,
-		Output:    c.String("output"),
-		WriteEnv:  c.GlobalString("write-env"),
-		CleanEnv:  c.GlobalBool("clean-env"),
+		Output:   c.String("output"),
+		WriteEnv: c.GlobalString("write-env"),
+		CleanEnv: c.GlobalBool("clean-env"),
 	}
 
 	return nil
