@@ -8,15 +8,14 @@ package some_pkg
 
 import (
 	fmt "fmt"
+	oglemock "github.com/smartystreets/assertions/internal/oglemock"
+	complicated_pkg "github.com/smartystreets/assertions/internal/oglemock/generate/test_cases/complicated_pkg"
+	tony "github.com/smartystreets/assertions/internal/oglemock/generate/test_cases/renamed_pkg"
 	image "image"
 	io "io"
 	net "net"
 	runtime "runtime"
 	unsafe "unsafe"
-
-	oglemock "github.com/smartystreets/assertions/internal/oglemock"
-	complicated_pkg "github.com/smartystreets/assertions/internal/oglemock/generate/test_cases/complicated_pkg"
-	tony "github.com/smartystreets/assertions/internal/oglemock/generate/test_cases/renamed_pkg"
 )
 
 type MockComplicatedThing interface {

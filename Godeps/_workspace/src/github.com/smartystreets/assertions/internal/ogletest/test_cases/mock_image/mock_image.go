@@ -8,12 +8,11 @@ package mock_image
 
 import (
 	fmt "fmt"
+	oglemock "github.com/smartystreets/assertions/internal/oglemock"
 	image "image"
 	color "image/color"
 	runtime "runtime"
 	unsafe "unsafe"
-
-	oglemock "github.com/smartystreets/assertions/internal/oglemock"
 )
 
 type MockImage interface {

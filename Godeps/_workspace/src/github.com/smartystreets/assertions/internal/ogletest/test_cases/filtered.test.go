@@ -17,10 +17,9 @@ package oglematchers_test
 
 import (
 	"fmt"
-	"testing"
-
 	. "github.com/smartystreets/assertions/internal/oglematchers"
 	. "github.com/smartystreets/assertions/internal/ogletest"
+	"testing"
 )
 
 func TestFiltered(t *testing.T) { RunTests(t) }

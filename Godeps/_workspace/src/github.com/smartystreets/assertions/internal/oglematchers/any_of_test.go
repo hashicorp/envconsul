@@ -94,6 +94,23 @@ func (t *AnyOfTest) OneFatal() {
 	ExpectThat(err, Error(Equals("taco")))
 }
 
+func (t *AnyOfTest) OneNil() {
+	var err error
+	matcher := AnyOf(
+		13,
+		nil,
+		19,
+	)
+
+	// No match
+	err = matcher.Matches(14)
+	ExpectNe(nil, err)
+
+	// Match
+	err = matcher.Matches(nil)
+	ExpectEq(nil, err)
+}
+
 func (t *AnyOfTest) AllFalseAndNotEqual() {
 	matcher := AnyOf(
 		&fakeAnyOfMatcher{"", errors.New("foo")},

@@ -16,9 +16,8 @@
 package ogletest
 
 import (
-	"runtime"
-
 	"github.com/smartystreets/assertions/internal/oglemock"
+	"runtime"
 )
 
 // ExpectCall expresses an expectation that the method of the given name

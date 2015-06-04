@@ -91,6 +91,7 @@ r := render.New(render.Options{
     HTMLContentType: "application/xhtml+xml", // Output XHTML content type instead of default "text/html".
     IsDevelopment: true, // Render will now recompile the templates on every HTML response.
     UnEscapeHTML: true, // Replace ensure '&<>' are output correctly (JSON only).
+    StreamingJSON: true, // Streams the JSON response via json.Encoder.
 })
 // ...
 ~~~
@@ -119,8 +120,14 @@ r := render.New(render.Options{
     HTMLContentType: "text/html",
     IsDevelopment: false,
     UnEscapeHTML: false,
+    StreamingJSON: false,
 })
 ~~~
+
+### JSON vs Streaming JSON
+By default, Render does **not** stream JSON to the `http.ResponseWriter`. It instead marshalls your object into a byte array, and if no errors occurred, writes that byte array to the `http.ResponseWriter`. This is ideal as you can catch errors before sending any data.
+
+If however you have the need to stream your JSON response (ie: dealing with massive objects), you can set the `StreamingJSON` option to true. This will use the `json.Encoder` to stream the output to the `http.ResponseWriter`. If an error occurs, you will receive the error in your code, but the response will have already been sent. Also note that streaming is only implemented in `render.JSON` and not `render.JSONP`, and the `UnEscapeHTML` and `Indent` options are ignored when streaming.
 
 ### Loading Templates
 By default Render will attempt to load templates with a '.tmpl' extension from the "templates" directory. Templates are found by traversing the templates directory and are named by path and basename. For instance, the following directory structure:

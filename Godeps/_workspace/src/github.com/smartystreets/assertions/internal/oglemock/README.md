@@ -1,3 +1,5 @@
+[![GoDoc](https://godoc.org/github.com/smartystreets/assertions/internal/oglemock?status.svg)](https://godoc.org/github.com/smartystreets/assertions/internal/oglemock)
+
 `oglemock` is a mocking framework for the Go programming language with the
 following features:
 
@@ -90,12 +92,12 @@ For thorough documentation, including information on how to set up expectations,
 see [here][oglemock-docs].
 
 
-[controller-ref]: http://gopkgdoc.appspot.com/pkg/github.com/smartystreets/assertions/internal/oglemock#Controller
-[reporter-ref]: http://gopkgdoc.appspot.com/pkg/github.com/smartystreets/assertions/internal/oglemock#ErrorReporter
+[controller-ref]: http://godoc.org/github.com/smartystreets/assertions/internal/oglemock#Controller
+[reporter-ref]: http://godoc.org/github.com/smartystreets/assertions/internal/oglemock#ErrorReporter
 [golang-install]: http://golang.org/doc/install.html
 [google-js-test]: http://code.google.com/p/google-js-test/
 [googlemock]: http://code.google.com/p/googlemock/
 [oglematchers]: https://github.com/smartystreets/assertions/internal/oglematchers
-[oglemock-docs]: http://gopkgdoc.appspot.com/pkg/github.com/smartystreets/assertions/internal/oglemock
-[ogletest]: https://github.com/smartystreets/assertions/internal/oglematchers
-[ogletest-docs]: http://gopkgdoc.appspot.com/pkg/github.com/smartystreets/assertions/internal/ogletest
+[oglemock-docs]: http://godoc.org/github.com/smartystreets/assertions/internal/oglemock
+[ogletest]: https://github.com/smartystreets/assertions/internal/ogletest
+[ogletest-docs]: http://godoc.org/github.com/smartystreets/assertions/internal/ogletest

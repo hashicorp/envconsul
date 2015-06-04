@@ -24,14 +24,13 @@ var invalidRegexp = regexp.MustCompile(`[^a-zA-Z0-9_]`)
 
 // Config contains all of the parameters needed to run GetKeyPairs
 type Config struct {
-	Etcd              *util.EtcdConfig
-	Sanitize          bool
-	Upcase            bool
-	UseDefaultGateway bool
-	Prefix            string
-	System            string
-	Service           string
-	Hostname          string
+	Etcd     *util.EtcdConfig
+	Sanitize bool
+	Upcase   bool
+	Prefix   string
+	System   string
+	Service  string
+	Hostname string
 }
 
 var (
@@ -97,6 +96,8 @@ func Set(service string) error {
 
 	if gatewayIP != nil && useDefaultGateway && len(etcdEndpoint) == 0 {
 		etcdEndpoint = fmt.Sprintf("http://%s:4001", gatewayIP.String())
+	} else {
+		useDefaultGateway = false
 	}
 
 	if len(etcdEndpoint) == 0 {
@@ -106,15 +107,15 @@ func Set(service string) error {
 
 	config := &Config{
 		Etcd: &util.EtcdConfig{
-			Peers: []string{etcdEndpoint},
-			Sync:  useSync,
+			Peers:             strings.Split(etcdEndpoint, ","),
+			Sync:              useSync,
+			UseDefaultGateway: useDefaultGateway,
 		},
-		Sanitize:          true,
-		Upcase:            true,
-		UseDefaultGateway: useDefaultGateway,
-		Prefix:            os.Getenv("ETCD_PREFIX"),
-		Service:           service,
-		Hostname:          os.Getenv("HOSTNAME"),
+		Sanitize: true,
+		Upcase:   true,
+		Prefix:   os.Getenv("ETCD_PREFIX"),
+		Service:  service,
+		Hostname: os.Getenv("HOSTNAME"),
 	}
 
 	if len(config.Etcd.Peers[0]) == 0 {
@@ -200,8 +201,8 @@ func GetKeyPairs(config *Config) (KeyPairs, error) {
 		keyPairs["ENVETCD_HOSTNAME"] = config.Hostname
 	}
 
-	if config.UseDefaultGateway && gatewayIP != nil {
-		keyPairs["ENVETCD_DEFAULT_GATEWAY"] = gatewayIP.String()
+	if config.Etcd.UseDefaultGateway && len(config.Etcd.Peers) == 1 {
+		keyPairs["ENVETCD_DEFAULT_GATEWAY"] = config.Etcd.Peers[0]
 	}
 
 	var keys []string

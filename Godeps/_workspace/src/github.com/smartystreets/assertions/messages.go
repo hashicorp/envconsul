@@ -49,7 +49,7 @@ const ( // strings
 	shouldBothBeStrings             = "Both arguments to this assertion must be strings (you provided %v and %v)."
 	shouldBeString                  = "The argument to this assertion must be a string (you provided %v)."
 	shouldHaveContainedSubstring    = "Expected '%s' to contain substring '%s' (but it didn't)!"
-	shouldNotHaveContainedSubstring = "Expected '%s' NOT to contain substring '%s' (but it didn't)!"
+	shouldNotHaveContainedSubstring = "Expected '%s' NOT to contain substring '%s' (but it did)!"
 	shouldHaveBeenBlank             = "Expected '%s' to be blank (but it wasn't)!"
 	shouldNotHaveBeenBlank          = "Expected value to NOT be blank (but it was)!"
 )

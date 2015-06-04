@@ -7,13 +7,13 @@
 	"Deps": [
 		{
 			"ImportPath": "github.com/codegangsta/cli",
-			"Comment": "1.2.0-98-g30b361b",
-			"Rev": "30b361bf66a60174a9589458afbf494478bafd00"
+			"Comment": "1.2.0-107-g942282e",
+			"Rev": "942282e931e8286aa802a30b01fa7e16befb50f3"
 		},
 		{
 			"ImportPath": "github.com/coreos/etcd/pkg/transport",
-			"Comment": "v2.1.0-alpha.0-45-g0b082b7",
-			"Rev": "0b082b7bd452145057b9009665283aec167671b3"
+			"Comment": "v2.1.0-alpha.0-133-g7ad2b22",
+			"Rev": "7ad2b22498a0f7238d7840799795fee05f04657c"
 		},
 		{
 			"ImportPath": "github.com/coreos/go-etcd/etcd",
@@ -22,7 +22,7 @@
 		},
 		{
 			"ImportPath": "github.com/golang/protobuf/proto",
-			"Rev": "efd7476481382c195beb33acd8ec2f1527167fb4"
+			"Rev": "34a5f244f1c01cdfee8e60324258cfbb97a42aec"
 		},
 		{
 			"ImportPath": "github.com/hashicorp/logutils",
@@ -34,21 +34,21 @@
 		},
 		{
 			"ImportPath": "github.com/smartystreets/assertions",
-			"Comment": "1.5.0-380-g4727d76",
-			"Rev": "4727d767ce8a81811c40eedc2a836c85aebb4d09"
+			"Comment": "1.5.0-385-gf84dc26",
+			"Rev": "f84dc26dce9c465dec172485e01faf2e53517a13"
 		},
 		{
 			"ImportPath": "github.com/smartystreets/goconvey/convey",
-			"Comment": "1.5.0-388-g958443e",
-			"Rev": "958443eebb772fc6c1dcc2a44cdc6a59e1b3ff0d"
+			"Comment": "1.5.0-392-g68c2220",
+			"Rev": "68c22200a00354e2a63e1a0ade46eadd20e00333"
 		},
 		{
 			"ImportPath": "github.com/unrolled/render",
-			"Rev": "83f2ba57c12cec399ef137457b1957e41ef0bbe8"
+			"Rev": "20811297fc3c80743d1aad450c983c6df08ae436"
 		},
 		{
 			"ImportPath": "github.com/zvelo/zvelo-services/util",
-			"Rev": "534f33086395ce7253d13de598a9e5c71c47a25b"
+			"Rev": "e431b4bd4888365dc1d92411c23fa3271d954909"
 		}
 	]
 }

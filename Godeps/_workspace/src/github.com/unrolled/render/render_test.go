@@ -36,7 +36,7 @@ func TestRenderJSON(t *testing.T) {
 
 	expect(t, res.Code, 299)
 	expect(t, res.Header().Get(ContentType), ContentJSON+"; charset=UTF-8")
-	expect(t, res.Body.String(), `{"one":"hello","two":"world"}`)
+	expect(t, res.Body.String(), "{\"one\":\"hello\",\"two\":\"world\"}")
 }
 
 func TestRenderJSONPrefix(t *testing.T) {
@@ -55,7 +55,7 @@ func TestRenderJSONPrefix(t *testing.T) {
 
 	expect(t, res.Code, 300)
 	expect(t, res.Header().Get(ContentType), ContentJSON+"; charset=UTF-8")
-	expect(t, res.Body.String(), prefix+`{"one":"hello","two":"world"}`)
+	expect(t, res.Body.String(), prefix+"{\"one\":\"hello\",\"two\":\"world\"}")
 }
 
 func TestRenderIndentedJSON(t *testing.T) {
@@ -73,11 +73,7 @@ func TestRenderIndentedJSON(t *testing.T) {
 
 	expect(t, res.Code, http.StatusOK)
 	expect(t, res.Header().Get(ContentType), ContentJSON+"; charset=UTF-8")
-	expect(t, res.Body.String(), `{
-  "one": "hello",
-  "two": "world"
-}
-`)
+	expect(t, res.Body.String(), "{\n  \"one\": \"hello\",\n  \"two\": \"world\"\n}\n")
 }
 
 func TestRenderConsumeIndentedJSON(t *testing.T) {
@@ -141,7 +137,7 @@ func TestRenderJSONWithUnEscapeHTML(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/foo", nil)
 	h.ServeHTTP(res, req)
 
-	expect(t, res.Body.String(), `{"one":"<span>test&test</span>","two":"<div>test&test</div>"}`)
+	expect(t, res.Body.String(), "{\"one\":\"<span>test&test</span>\",\"two\":\"<div>test&test</div>\"}")
 }
 
 func TestRenderJSONP(t *testing.T) {
@@ -157,7 +153,7 @@ func TestRenderJSONP(t *testing.T) {
 
 	expect(t, res.Code, 299)
 	expect(t, res.Header().Get(ContentType), ContentJSONP+"; charset=UTF-8")
-	expect(t, res.Body.String(), `helloCallback({"one":"hello","two":"world"});`)
+	expect(t, res.Body.String(), "helloCallback({\"one\":\"hello\",\"two\":\"world\"});")
 }
 
 func TestRenderIndentedJSONP(t *testing.T) {
@@ -175,11 +171,7 @@ func TestRenderIndentedJSONP(t *testing.T) {
 
 	expect(t, res.Code, http.StatusOK)
 	expect(t, res.Header().Get(ContentType), ContentJSONP+"; charset=UTF-8")
-	expect(t, res.Body.String(), `helloCallback({
-  "one": "hello",
-  "two": "world"
-});
-`)
+	expect(t, res.Body.String(), "helloCallback({\n  \"one\": \"hello\",\n  \"two\": \"world\"\n});\n")
 }
 
 func TestRenderJSONPWithError(t *testing.T) {
@@ -194,6 +186,65 @@ func TestRenderJSONPWithError(t *testing.T) {
 	h.ServeHTTP(res, req)
 
 	expect(t, res.Code, 500)
+}
+
+func TestRenderStreamJSON(t *testing.T) {
+	render := New(Options{
+		StreamingJSON: true,
+	})
+
+	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		render.JSON(w, 299, Greeting{"hello", "world"})
+	})
+
+	res := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/foo", nil)
+	h.ServeHTTP(res, req)
+
+	expect(t, res.Code, 299)
+	expect(t, res.Header().Get(ContentType), ContentJSON+"; charset=UTF-8")
+	expect(t, res.Body.String(), "{\"one\":\"hello\",\"two\":\"world\"}\n")
+}
+
+func TestRenderStreamJSONPrefix(t *testing.T) {
+	prefix := ")]}',\n"
+	render := New(Options{
+		PrefixJSON:    []byte(prefix),
+		StreamingJSON: true,
+	})
+
+	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		render.JSON(w, 300, Greeting{"hello", "world"})
+	})
+
+	res := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/foo", nil)
+	h.ServeHTTP(res, req)
+
+	expect(t, res.Code, 300)
+	expect(t, res.Header().Get(ContentType), ContentJSON+"; charset=UTF-8")
+	expect(t, res.Body.String(), prefix+"{\"one\":\"hello\",\"two\":\"world\"}\n")
+}
+
+func TestRenderStreamJSONWithError(t *testing.T) {
+	render := New(Options{
+		StreamingJSON: true,
+	})
+
+	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		render.JSON(w, 299, math.NaN())
+	})
+
+	res := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/foo", nil)
+	h.ServeHTTP(res, req)
+
+	expect(t, res.Code, 299)
+
+	// Because this is streaming, we can not catch the error.
+	expect(t, res.Body.String(), "json: unsupported value: NaN\n")
+	// Also the header will be incorrect.
+	expect(t, res.Header().Get(ContentType), "text/plain; charset=utf-8")
 }
 
 func TestRenderXML(t *testing.T) {
@@ -211,7 +262,7 @@ func TestRenderXML(t *testing.T) {
 
 	expect(t, res.Code, 299)
 	expect(t, res.Header().Get(ContentType), ContentXML+"; charset=UTF-8")
-	expect(t, res.Body.String(), `<greeting one="hello" two="world"></greeting>`)
+	expect(t, res.Body.String(), "<greeting one=\"hello\" two=\"world\"></greeting>")
 }
 
 func TestRenderXMLPrefix(t *testing.T) {
@@ -230,7 +281,7 @@ func TestRenderXMLPrefix(t *testing.T) {
 
 	expect(t, res.Code, 300)
 	expect(t, res.Header().Get(ContentType), ContentXML+"; charset=UTF-8")
-	expect(t, res.Body.String(), prefix+`<greeting one="hello" two="world"></greeting>`)
+	expect(t, res.Body.String(), prefix+"<greeting one=\"hello\" two=\"world\"></greeting>")
 }
 
 func TestRenderIndentedXML(t *testing.T) {
@@ -248,8 +299,7 @@ func TestRenderIndentedXML(t *testing.T) {
 
 	expect(t, res.Code, http.StatusOK)
 	expect(t, res.Header().Get(ContentType), ContentXML+"; charset=UTF-8")
-	expect(t, res.Body.String(), `<greeting one="hello" two="world"></greeting>
-`)
+	expect(t, res.Body.String(), "<greeting one=\"hello\" two=\"world\"></greeting>\n")
 }
 
 func TestRenderXMLWithError(t *testing.T) {
@@ -503,7 +553,7 @@ func TestRenderCharsetJSON(t *testing.T) {
 
 	expect(t, res.Code, 300)
 	expect(t, res.Header().Get(ContentType), ContentJSON+"; charset=foobar")
-	expect(t, res.Body.String(), `{"one":"hello","two":"world"}`)
+	expect(t, res.Body.String(), "{\"one\":\"hello\",\"two\":\"world\"}")
 }
 
 func TestRenderDefaultCharsetHTML(t *testing.T) {
@@ -521,6 +571,7 @@ func TestRenderDefaultCharsetHTML(t *testing.T) {
 
 	expect(t, res.Code, 200)
 	expect(t, res.Header().Get(ContentType), ContentHTML+"; charset=UTF-8")
+
 	// ContentLength should be deferred to the ResponseWriter and not Render
 	expect(t, res.Header().Get(ContentLength), "")
 	expect(t, res.Body.String(), "<h1>Hello gophers</h1>\n")
@@ -610,9 +661,62 @@ func TestLoadFromAssets(t *testing.T) {
 	expect(t, res.Body.String(), "head\n<h1>gophers</h1>\n\nfoot\n")
 }
 
+func TestCompileTemplatesFromDir(t *testing.T) {
+	baseDir := "fixtures/template-dir-test"
+	fname0Rel := "0"
+	fname1Rel := "subdir/1"
+	fnameShouldParsedRel := "dedicated.tmpl/notbad"
+	dirShouldNotParsedRel := "dedicated"
+
+	r := New(Options{
+		Directory:  baseDir,
+		Extensions: []string{".tmpl", ".html"},
+	})
+	r.compileTemplatesFromDir()
+
+	expect(t, r.templates.Lookup(fname1Rel) != nil, true)
+	expect(t, r.templates.Lookup(fname0Rel) != nil, true)
+	expect(t, r.templates.Lookup(fnameShouldParsedRel) != nil, true)
+	expect(t, r.templates.Lookup(dirShouldNotParsedRel) == nil, true)
+
+}
+
+/* benchmarks */
+func BenchmarkNormalJSON(b *testing.B) {
+	render := New()
+
+	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		render.JSON(w, 200, Greeting{"hello", "world"})
+	})
+
+	res := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/foo", nil)
+
+	for i := 0; i < b.N; i++ {
+		h.ServeHTTP(res, req)
+	}
+}
+
+func BenchmarkStreamingJSON(b *testing.B) {
+	render := New(Options{
+		StreamingJSON: true,
+	})
+
+	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		render.JSON(w, 200, Greeting{"hello", "world"})
+	})
+
+	res := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/foo", nil)
+
+	for i := 0; i < b.N; i++ {
+		h.ServeHTTP(res, req)
+	}
+}
+
 /* Test Helpers */
 func expect(t *testing.T, a interface{}, b interface{}) {
 	if a != b {
-		t.Errorf("Expected %v (type %v) - Got %v (type %v)", b, reflect.TypeOf(b), a, reflect.TypeOf(a))
+		t.Errorf("Expected ||%#v|| (type %v) - Got ||%#v|| (type %v)", b, reflect.TypeOf(b), a, reflect.TypeOf(a))
 	}
 }

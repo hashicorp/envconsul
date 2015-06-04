@@ -17,7 +17,6 @@ package oglematchers_test
 
 import (
 	"errors"
-
 	. "github.com/smartystreets/assertions/internal/oglematchers"
 	. "github.com/smartystreets/assertions/internal/ogletest"
 )
@@ -27,9 +26,9 @@ import (
 ////////////////////////////////////////////////////////////////////////
 
 type PanicsTest struct {
-	matcherCalled     bool
+	matcherCalled bool
 	suppliedCandidate interface{}
-	wrappedError      error
+	wrappedError error
 
 	matcher Matcher
 }

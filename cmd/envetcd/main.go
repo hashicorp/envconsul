@@ -10,7 +10,7 @@ import (
 
 const (
 	name    = "envetcd"
-	version = "0.3.1"
+	version = "0.3.2"
 )
 
 type configT struct {
@@ -93,11 +93,6 @@ func init() {
 			EnvVar: "ENVETCD_NO_UPCASE",
 			Usage:  "don't convert all environment keys to uppercase",
 		},
-		cli.BoolFlag{
-			Name:   "use-default-gateway, d",
-			EnvVar: "ENVETCD_USE_DEFAULT_GATEWAY",
-			Usage:  "expose the default gateway as $ENVETCD_DEFAULT_GATEWAY",
-		},
 	}...)
 	app.Before = setup
 	app.Action = run
@@ -108,14 +103,13 @@ func setup(c *cli.Context) error {
 
 	config = configT{
 		EnvEtcd: &envetcd.Config{
-			Etcd:              util.NewEtcdConfig(c),
-			Hostname:          c.GlobalString("hostname"),
-			System:            c.GlobalString("system"),
-			Service:           c.GlobalString("service"),
-			Prefix:            c.GlobalString("prefix"),
-			Sanitize:          !c.GlobalBool("no-sanitize"),
-			Upcase:            !c.GlobalBool("no-upcase"),
-			UseDefaultGateway: c.GlobalBool("use-default-gateway"),
+			Etcd:     util.NewEtcdConfig(c),
+			Hostname: c.GlobalString("hostname"),
+			System:   c.GlobalString("system"),
+			Service:  c.GlobalString("service"),
+			Prefix:   c.GlobalString("prefix"),
+			Sanitize: !c.GlobalBool("no-sanitize"),
+			Upcase:   !c.GlobalBool("no-upcase"),
 		},
 		Templates: templates,
 		Output:    c.String("output"),

@@ -80,7 +80,7 @@ func TestShouldNotContainSubstring(t *testing.T) {
 	fail(t, so(123, ShouldNotContainSubstring, 23), "Both arguments to this assertion must be strings (you provided int and int).")
 
 	pass(t, so("qwer", ShouldNotContainSubstring, "sd"))
-	fail(t, so("asdf", ShouldNotContainSubstring, "sd"), "Expected 'asdf' NOT to contain substring 'sd' (but it didn't)!")
+	fail(t, so("asdf", ShouldNotContainSubstring, "sd"), "Expected 'asdf' NOT to contain substring 'sd' (but it did)!")
 }
 
 func TestShouldBeBlank(t *testing.T) {
