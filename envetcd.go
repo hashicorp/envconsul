@@ -177,34 +177,34 @@ func Set(service string) error {
 	return nil
 }
 
-func processTemplates(keyPairs KeyPairs, templateFiles []string) {
+func processTemplates(keyPairs KeyPairs, tplFiles []string) {
 	const ext = ".tmpl"
 
-	for _, tmpl := range templateFiles {
-		if filepath.Ext(tmpl) != ext {
-			log.Printf("[WARN] template file does not end with '.tmpl' (%s)", tmpl)
-			continue
+	for _, tplFile := range tplFiles {
+		if filepath.Ext(tplFile) != ext {
+			tplFile += ext
 		}
 
-		tpl, err := template.ParseFiles(tmpl)
+		tpl, err := template.ParseFiles(tplFile)
 		if err != nil {
-			log.Printf("[WARN] error parsing template (%s): %s", tmpl, err)
+			log.Printf("[WARN] error parsing template (%s): %s", tplFile, err)
 			continue
 		}
 
-		outFileName := tmpl[0 : len(tmpl)-len(ext)]
-		outFile, err := os.Create(outFileName)
+		fName := tplFile[0 : len(tplFile)-len(ext)]
+		f, err := os.Create(fName)
 		if err != nil {
-			log.Printf("[WARN] error creating file (%s): %s", outFileName, err)
+			log.Printf("[WARN] error creating file (%s): %s", fName, err)
 			continue
 		}
-		defer outFile.Close()
+		defer f.Close()
 
-		log.Printf("[INFO] updating template %s", tmpl)
-		if err := tpl.Execute(outFile, keyPairs); err != nil {
-			log.Printf("[WARN] error writing template file (%s): %s", outFileName, err)
+		if err := tpl.Execute(f, keyPairs); err != nil {
+			log.Printf("[WARN] error writing file (%s): %s", fName, err)
 			continue
 		}
+
+		log.Printf("[INFO] wrote file %s", fName)
 	}
 }
 
