@@ -180,6 +180,20 @@ func Set(service string) error {
 func processTemplates(keyPairs KeyPairs, tplFiles []string) {
 	const ext = ".tmpl"
 
+	data := map[string]interface{}{}
+	arrays := map[string][]string{}
+	for key, value := range keyPairs {
+		data[key] = value
+		arrays[key] = []string{}
+		for _, val := range strings.Split(value, ",") {
+			val = strings.TrimSpace(val)
+			if len(val) > 0 {
+				arrays[key] = append(arrays[key], val)
+			}
+		}
+	}
+	data["ARRAY"] = arrays
+
 	for _, tplFile := range tplFiles {
 		if filepath.Ext(tplFile) != ext {
 			tplFile += ext
@@ -199,7 +213,7 @@ func processTemplates(keyPairs KeyPairs, tplFiles []string) {
 		}
 		defer f.Close()
 
-		if err := tpl.Execute(f, keyPairs); err != nil {
+		if err := tpl.Execute(f, data); err != nil {
 			log.Printf("[WARN] error writing file (%s): %s", fName, err)
 			continue
 		}
