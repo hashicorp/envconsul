@@ -7,8 +7,10 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	dep "github.com/hashicorp/consul-template/dependency"
 	"github.com/hashicorp/consul-template/logging"
@@ -26,10 +28,8 @@ const (
 	ExitCodeInterrupt
 	ExitCodeLoggingError
 	ExitCodeParseFlagsError
-	ExitCodeParseConfigError
 	ExitCodeRunnerError
-	ExitCodeConsulAPIError
-	ExitCodeWatcherError
+	ExitCodeConfigError
 )
 
 /// ------------------------- ///
@@ -59,9 +59,21 @@ func NewCLI(out, err io.Writer) *CLI {
 // status from the command.
 func (cli *CLI) Run(args []string) int {
 	// Parse the flags and args
-	config, parsedArgs, once, version, err := cli.parseFlags(args[1:])
+	config, command, once, version, err := cli.parseFlags(args[1:])
 	if err != nil {
 		return cli.handleError(err, ExitCodeParseFlagsError)
+	}
+
+	// If a path was given, load the config from file
+	if config.Path != "" {
+		newConfig, err := ConfigFromPath(config.Path)
+		if err != nil {
+			return cli.handleError(err, ExitCodeConfigError)
+		}
+
+		// Merge ensuring that the CLI options still take precedence
+		newConfig.Merge(config)
+		config = newConfig
 	}
 
 	// Setup the logging
@@ -75,6 +87,9 @@ func (cli *CLI) Run(args []string) int {
 		return cli.handleError(err, ExitCodeLoggingError)
 	}
 
+	// Print version information for debugging
+	log.Printf("[INFO] envconsul v%s", Version)
+
 	// If the version was requested, return an "error" containing the version
 	// information. This might sound weird, but most *nix applications actually
 	// print their version on stderr anyway.
@@ -82,27 +97,6 @@ func (cli *CLI) Run(args []string) int {
 		log.Printf("[DEBUG] (cli) version flag was given, exiting now")
 		fmt.Fprintf(cli.errStream, "%s v%s\n", Name, Version)
 		return ExitCodeOK
-	}
-
-	var command []string
-	if len(config.Prefixes) > 0 {
-		command = parsedArgs
-	} else {
-		if len(parsedArgs) < 2 {
-			err := fmt.Errorf("cli: missing required arguments prefix and command")
-			return cli.handleError(err, ExitCodeParseFlagsError)
-		}
-
-		// TODO: Remove in an upcoming release
-		log.Printf("[WARN] specifying the consul key on the command line is " +
-			"deprecated, please use -prefix instead")
-		prefixRaw := parsedArgs[0]
-		command = parsedArgs[1:]
-		prefix, err := dep.ParseStoreKeyPrefix(prefixRaw)
-		if err != nil {
-			return cli.handleError(err, ExitCodeError)
-		}
-		config.Prefixes = append(config.Prefixes, prefix)
 	}
 
 	// Initial runner
@@ -172,35 +166,146 @@ func (cli *CLI) parseFlags(args []string) (*Config, []string, bool, bool, error)
 	// Parse the flags and options
 	flags := flag.NewFlagSet(Name, flag.ContinueOnError)
 	flags.SetOutput(cli.errStream)
-	flags.Usage = func() {
-		fmt.Fprintf(cli.errStream, usage, Name)
-	}
-	flags.StringVar(&config.Consul, "consul", config.Consul, "")
-	flags.StringVar(&config.Token, "token", config.Token, "")
-	flags.Var((*authVar)(config.Auth), "auth", "")
-	flags.BoolVar(&config.SSL.Enabled, "ssl", config.SSL.Enabled, "")
-	flags.BoolVar(&config.SSL.Verify, "ssl-verify", config.SSL.Verify, "")
-	flags.DurationVar(&config.MaxStale, "max-stale", config.MaxStale, "")
-	flags.BoolVar(&config.Syslog.Enabled, "syslog", config.Syslog.Enabled, "")
-	flags.StringVar(&config.Syslog.Facility, "syslog-facility", config.Syslog.Facility, "")
-	flags.Var((*watch.WaitVar)(config.Wait), "wait", "")
-	flags.DurationVar(&config.Retry, "retry", config.Retry, "")
-	flags.Var((*prefixVar)(&config.Prefixes), "prefix", "")
-	flags.BoolVar(&config.Sanitize, "sanitize", config.Sanitize, "")
-	flags.BoolVar(&config.Upcase, "upcase", config.Upcase, "")
-	flags.StringVar(&config.Path, "config", config.Path, "")
-	flags.StringVar(&config.LogLevel, "log-level", config.LogLevel, "")
+	flags.Usage = func() { fmt.Fprintf(cli.errStream, usage, Name) }
+
+	flags.Var((funcVar)(func(s string) error {
+		config.Consul = s
+		config.set("consul")
+		return nil
+	}), "consul", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		config.Token = s
+		config.set("token")
+		return nil
+	}), "token", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		s = strings.TrimPrefix(s, "/")
+		p, err := dep.ParseStoreKeyPrefix(s)
+		if err != nil {
+			return err
+		}
+		if config.Prefixes == nil {
+			config.Prefixes = make([]*dep.StoreKeyPrefix, 0, 1)
+		}
+		config.Prefixes = append(config.Prefixes, p)
+		return nil
+	}), "prefix", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		config.Auth.Enabled = true
+		config.set("auth.enabled")
+		if strings.Contains(s, ":") {
+			split := strings.SplitN(s, ":", 2)
+			config.Auth.Username = split[0]
+			config.set("auth.username")
+			config.Auth.Password = split[1]
+			config.set("auth.password")
+		} else {
+			config.Auth.Username = s
+			config.set("auth.username")
+		}
+		return nil
+	}), "auth", "")
+
+	flags.Var((funcBoolVar)(func(b bool) error {
+		config.SSL.Enabled = b
+		config.set("ssl.enabled")
+		return nil
+	}), "ssl", "")
+
+	flags.Var((funcBoolVar)(func(b bool) error {
+		config.SSL.Verify = b
+		config.set("ssl.verify")
+		return nil
+	}), "ssl-verify", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		config.SSL.Cert = s
+		config.set("ssl.cert")
+		return nil
+	}), "ssl-cert", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		config.SSL.CaCert = s
+		config.set("ssl.ca_cert")
+		return nil
+	}), "ssl-ca-cert", "")
+
+	flags.Var((funcDurationVar)(func(d time.Duration) error {
+		config.MaxStale = d
+		config.set("max_stale")
+		return nil
+	}), "max-stale", "")
+
+	flags.Var((funcBoolVar)(func(b bool) error {
+		config.Syslog.Enabled = b
+		config.set("syslog.enabled")
+		return nil
+	}), "syslog", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		config.Syslog.Facility = s
+		config.set("syslog.facility")
+		return nil
+	}), "syslog-facility", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		w, err := watch.ParseWait(s)
+		if err != nil {
+			return err
+		}
+		config.Wait.Min = w.Min
+		config.Wait.Max = w.Max
+		config.set("wait")
+		return nil
+	}), "wait", "")
+
+	flags.Var((funcDurationVar)(func(d time.Duration) error {
+		config.Retry = d
+		config.set("retry")
+		return nil
+	}), "retry", "")
+
+	flags.Var((funcBoolVar)(func(b bool) error {
+		config.Sanitize = b
+		config.set("sanitize")
+		return nil
+	}), "sanitize", "")
+
+	flags.Var((funcBoolVar)(func(b bool) error {
+		config.Upcase = b
+		config.set("upcase")
+		return nil
+	}), "upcase", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		config.Path = s
+		config.set("path")
+		return nil
+	}), "config", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		config.KillSignal = s
+		config.set("kill_signal")
+		return nil
+	}), "kill-signal", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		config.LogLevel = s
+		config.set("log_level")
+		return nil
+	}), "log-level", "")
+
 	flags.BoolVar(&once, "once", false, "")
+	flags.BoolVar(&version, "v", false, "")
 	flags.BoolVar(&version, "version", false, "")
-	flags.StringVar(&config.KillSigRaw, "killsig", config.KillSigRaw, "")
 
 	// If there was a parser error, stop
 	if err := flags.Parse(args); err != nil {
 		return nil, nil, false, false, err
 	}
-
-	// Verify and set the killsignal
-	config.verifyKillSig()
 
 	return config, flags.Args(), once, version, nil
 }
