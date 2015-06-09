@@ -1,6 +1,7 @@
+TEST?=./...
 NAME = $(shell awk -F\" '/^const Name/ { print $$2 }' main.go)
 VERSION = $(shell awk -F\" '/^const Version/ { print $$2 }' main.go)
-DEPS = $(go list -f '{{range .TestImports}}{{.}} {{end}}' ./...)
+DEPS = $(shell go list -f '{{range .TestImports}}{{.}} {{end}}' ./...)
 
 all: deps build
 
@@ -8,13 +9,14 @@ deps:
 	go get -d -v ./...
 	echo $(DEPS) | xargs -n1 go get -d
 
-build:
+build: deps
 	@mkdir -p bin/
 	go build -o bin/$(NAME)
 
-test: deps
-	go list ./... | xargs -n1 go test -timeout=5s
-	go list ./... | xargs -n1 go vet
+test:
+	go test $(TEST) $(TESTARGS) -timeout=30s -parallel=4
+	go test $(TEST) -race
+	go vet $(TEST)
 
 xcompile: deps test
 	@rm -rf build/
@@ -38,4 +40,4 @@ package: xcompile
 		echo $$f; \
 	done
 
-.PHONY: all deps updatedeps build test xcompile package ci
+.PHONY: all deps build test xcompile package
