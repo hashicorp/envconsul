@@ -192,11 +192,15 @@ func (cli *CLI) parseFlags(args []string) (*Config, []string, bool, bool, error)
 	flags.StringVar(&config.LogLevel, "log-level", config.LogLevel, "")
 	flags.BoolVar(&once, "once", false, "")
 	flags.BoolVar(&version, "version", false, "")
+	flags.StringVar(&config.KillSigRaw, "killsig", config.KillSigRaw, "")
 
 	// If there was a parser error, stop
 	if err := flags.Parse(args); err != nil {
 		return nil, nil, false, false, err
 	}
+
+	// Verify and set the killsignal
+	config.verifyKillSig()
 
 	return config, flags.Args(), once, version, nil
 }

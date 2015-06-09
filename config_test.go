@@ -5,6 +5,7 @@ import (
 	"path"
 	"reflect"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -145,6 +146,20 @@ func TestMerge_SyslogOptions(t *testing.T) {
 	}
 }
 
+func TestMerge_KillSig(t *testing.T) {
+	config := &Config{
+		KillSigRaw: "SIGQUIT",
+	}
+	otherConfig := &Config{
+		KillSigRaw: "SIGUSR1",
+	}
+	config.Merge(otherConfig)
+
+	if config.KillSig != syscall.SIGUSR1 {
+		t.Errorf("expected %+v to be %+v", config.KillSig, syscall.SIGUSR1)
+	}
+}
+
 // Test that file read errors are propagated up
 func TestParseConfig_readFileError(t *testing.T) {
 	_, err := ParseConfig(path.Join(os.TempDir(), "config.json"))
@@ -204,6 +219,7 @@ func TestParseConfig_correctValues(t *testing.T) {
     wait = "5s:10s"
     retry = "10s"
     log_level = "warn"
+    killsig = "SIGHUP"
 
     prefixes = ["global/config", "redis/config"]
 
@@ -290,6 +306,8 @@ func TestParseConfig_correctValues(t *testing.T) {
 		Retry:    10 * time.Second,
 		RetryRaw: "10s",
 		LogLevel: "warn",
+		KillSig: syscall.SIGHUP,
+		KillSigRaw: "SIGHUP",
 	}
 
 	if !reflect.DeepEqual(config, expected) {

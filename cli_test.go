@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"reflect"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -452,5 +453,20 @@ func TestRun_onceFlag(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Errorf("expected data, but nothing was returned")
+	}
+}
+
+func TestParseFlags_killsigFlag(t *testing.T) {
+	cli := NewCLI(ioutil.Discard, ioutil.Discard)
+	config, _, _, _, err := cli.parseFlags([]string{
+		"-killsig", "SIGHUP",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := syscall.SIGHUP
+	if config.KillSig != expected {
+		t.Errorf("expected %q to be %q", config.KillSig, expected)
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"syscall"
 	"time"
 
 	dep "github.com/hashicorp/consul-template/dependency"
@@ -72,6 +73,10 @@ type Config struct {
 
 	// LogLevel is the level with which to log for this config.
 	LogLevel string `mapstructure:"log_level"`
+
+	// KillSig is the signal to send to the child process on kill
+	KillSig os.Signal `mapstructure:"-"`
+	KillSigRaw string `mapstructure:"killsig"`
 }
 
 // Merge merges the values in config into this config object. Values in the
@@ -154,6 +159,11 @@ func (c *Config) Merge(config *Config) {
 
 	if config.LogLevel != "" {
 		c.LogLevel = config.LogLevel
+	}
+
+	if config.KillSigRaw != "" {
+		c.KillSigRaw = config.KillSigRaw
+		c.verifyKillSig()
 	}
 }
 
@@ -270,6 +280,11 @@ func ParseConfig(path string) (*Config, error) {
 		}
 	}
 
+	if raw := config.KillSigRaw; raw != "" {
+		config.KillSigRaw = raw
+		config.verifyKillSig()
+	}
+
 	return config, errs.ErrorOrNil()
 }
 
@@ -304,6 +319,21 @@ func DefaultConfig() *Config {
 			Max: 400 * time.Millisecond,
 		},
 		LogLevel: logLevel,
+		KillSig: syscall.SIGTERM,
+	}
+}
+
+
+// verifyKillSig will check the KillSigRaw value and set
+// a default of SIGTERM for the config KillSig if not found
+// or the proper signal in the SignalLookup var
+func (c *Config) verifyKillSig() {
+	sig, exists := SignalLookup[c.KillSigRaw]
+	if !exists {
+		// Default to SIGTERM if bad signal found
+		c.KillSig = syscall.SIGTERM
+	} else {
+		c.KillSig = sig
 	}
 }
 
