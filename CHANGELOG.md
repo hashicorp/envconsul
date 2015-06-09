@@ -3,6 +3,10 @@ envconsul Changelog
 
 ## v0.5.1.dev (Unreleased)
 
+BUG FIXES:
+
+  * Fix config merging (GH-49)
+
 ## v0.5.0 (February 19, 2015)
 
 DEPRECATIONS:
