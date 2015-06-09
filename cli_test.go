@@ -1,12 +1,9 @@
 package main
 
 import (
-	"bytes"
-	"fmt"
 	"io/ioutil"
 	"reflect"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
@@ -27,6 +24,9 @@ func TestParseFlags_consul(t *testing.T) {
 	if config.Consul != expected {
 		t.Errorf("expected %q to be %q", config.Consul, expected)
 	}
+	if !config.WasSet("consul") {
+		t.Errorf("expected consul to be set")
+	}
 }
 
 func TestParseFlags_token(t *testing.T) {
@@ -42,6 +42,27 @@ func TestParseFlags_token(t *testing.T) {
 	if config.Token != expected {
 		t.Errorf("expected %q to be %q", config.Token, expected)
 	}
+	if !config.WasSet("token") {
+		t.Errorf("expected token to be set")
+	}
+}
+
+func TestParseFlags_prefix(t *testing.T) {
+	cli := NewCLI(ioutil.Discard, ioutil.Discard)
+	config, _, _, _, err := cli.parseFlags([]string{
+		"-prefix", "global",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected, err := dep.ParseStoreKeyPrefix("global")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(config.Prefixes[0], expected) {
+		t.Errorf("expected %#v to be %#v", config.Prefixes[0], expected)
+	}
 }
 
 func TestParseFlags_authUsername(t *testing.T) {
@@ -56,10 +77,16 @@ func TestParseFlags_authUsername(t *testing.T) {
 	if config.Auth.Enabled != true {
 		t.Errorf("expected auth to be enabled")
 	}
+	if !config.WasSet("auth.enabled") {
+		t.Errorf("expected auth.enabled to be set")
+	}
 
 	expected := "test"
 	if config.Auth.Username != expected {
 		t.Errorf("expected %v to be %v", config.Auth.Username, expected)
+	}
+	if !config.WasSet("auth.username") {
+		t.Errorf("expected auth.username to be set")
 	}
 }
 
@@ -75,13 +102,22 @@ func TestParseFlags_authUsernamePassword(t *testing.T) {
 	if config.Auth.Enabled != true {
 		t.Errorf("expected auth to be enabled")
 	}
+	if !config.WasSet("auth.enabled") {
+		t.Errorf("expected auth.enabled to be set")
+	}
 
 	expected := "test"
 	if config.Auth.Username != expected {
 		t.Errorf("expected %v to be %v", config.Auth.Username, expected)
 	}
+	if !config.WasSet("auth.username") {
+		t.Errorf("expected auth.username to be set")
+	}
 	if config.Auth.Password != expected {
 		t.Errorf("expected %v to be %v", config.Auth.Password, expected)
+	}
+	if !config.WasSet("auth.password") {
+		t.Errorf("expected auth.password to be set")
 	}
 }
 
@@ -98,6 +134,9 @@ func TestParseFlags_SSL(t *testing.T) {
 	if config.SSL.Enabled != expected {
 		t.Errorf("expected %v to be %v", config.SSL.Enabled, expected)
 	}
+	if !config.WasSet("ssl.enabled") {
+		t.Errorf("expected ssl.enabled to be set")
+	}
 }
 
 func TestParseFlags_noSSL(t *testing.T) {
@@ -112,6 +151,9 @@ func TestParseFlags_noSSL(t *testing.T) {
 	expected := false
 	if config.SSL.Enabled != expected {
 		t.Errorf("expected %v to be %v", config.SSL.Enabled, expected)
+	}
+	if !config.WasSet("ssl.enabled") {
+		t.Errorf("expected ssl.enabled to be set")
 	}
 }
 
@@ -128,6 +170,9 @@ func TestParseFlags_SSLVerify(t *testing.T) {
 	if config.SSL.Verify != expected {
 		t.Errorf("expected %v to be %v", config.SSL.Verify, expected)
 	}
+	if !config.WasSet("ssl.verify") {
+		t.Errorf("expected ssl.verify to be set")
+	}
 }
 
 func TestParseFlags_noSSLVerify(t *testing.T) {
@@ -142,6 +187,45 @@ func TestParseFlags_noSSLVerify(t *testing.T) {
 	expected := false
 	if config.SSL.Verify != expected {
 		t.Errorf("expected %v to be %v", config.SSL.Verify, expected)
+	}
+	if !config.WasSet("ssl.verify") {
+		t.Errorf("expected ssl.verify to be set")
+	}
+}
+
+func TestParseFlags_SSLCert(t *testing.T) {
+	cli := NewCLI(ioutil.Discard, ioutil.Discard)
+	config, _, _, _, err := cli.parseFlags([]string{
+		"-ssl-cert", "/path/to/c1.pem",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := "/path/to/c1.pem"
+	if config.SSL.Cert != expected {
+		t.Errorf("expected %v to be %v", config.SSL.Cert, expected)
+	}
+	if !config.WasSet("ssl.cert") {
+		t.Errorf("expected ssl.cert to be set")
+	}
+}
+
+func TestParseFlags_SSLCaCert(t *testing.T) {
+	cli := NewCLI(ioutil.Discard, ioutil.Discard)
+	config, _, _, _, err := cli.parseFlags([]string{
+		"-ssl-ca-cert", "/path/to/c2.pem",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := "/path/to/c2.pem"
+	if config.SSL.CaCert != expected {
+		t.Errorf("expected %v to be %v", config.SSL.CaCert, expected)
+	}
+	if !config.WasSet("ssl.ca_cert") {
+		t.Errorf("expected ssl.ca_cert to be set")
 	}
 }
 
@@ -173,6 +257,9 @@ func TestParseFlags_syslog(t *testing.T) {
 	if config.Syslog.Enabled != expected {
 		t.Errorf("expected %v to be %v", config.Syslog.Enabled, expected)
 	}
+	if !config.WasSet("syslog.enabled") {
+		t.Errorf("expected syslog.enabled to be set")
+	}
 }
 
 func TestParseFlags_syslogFacility(t *testing.T) {
@@ -187,6 +274,9 @@ func TestParseFlags_syslogFacility(t *testing.T) {
 	expected := "LOCAL5"
 	if config.Syslog.Facility != expected {
 		t.Errorf("expected %v to be %v", config.Syslog.Facility, expected)
+	}
+	if !config.WasSet("syslog.facility") {
+		t.Errorf("expected syslog.facility to be set")
 	}
 }
 
@@ -206,6 +296,9 @@ func TestParseFlags_wait(t *testing.T) {
 	if !reflect.DeepEqual(config.Wait, expected) {
 		t.Errorf("expected %v to be %v", config.Wait, expected)
 	}
+	if !config.WasSet("wait") {
+		t.Errorf("expected wait to be set")
+	}
 }
 
 func TestParseFlags_waitError(t *testing.T) {
@@ -223,21 +316,6 @@ func TestParseFlags_waitError(t *testing.T) {
 	}
 }
 
-func TestParseFlags_config(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	config, _, _, _, err := cli.parseFlags([]string{
-		"-config", "/path/to/file",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := "/path/to/file"
-	if config.Path != expected {
-		t.Errorf("expected %v to be %v", config.Path, expected)
-	}
-}
-
 func TestParseFlags_retry(t *testing.T) {
 	cli := NewCLI(ioutil.Discard, ioutil.Discard)
 	config, _, _, _, err := cli.parseFlags([]string{
@@ -251,30 +329,8 @@ func TestParseFlags_retry(t *testing.T) {
 	if config.Retry != expected {
 		t.Errorf("expected %v to be %v", config.Retry, expected)
 	}
-}
-
-func TestParseFlags_prefixes(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	config, _, _, _, err := cli.parseFlags([]string{
-		"-prefix", "config/global", "-prefix", "config/redis",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	globalDep, err := dep.ParseStoreKeyPrefix("config/global")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	redisDep, err := dep.ParseStoreKeyPrefix("config/redis")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := []*dep.StoreKeyPrefix{globalDep, redisDep}
-	if !reflect.DeepEqual(config.Prefixes, expected) {
-		t.Errorf("expected %v to be %v", config.Prefixes, expected)
+	if !config.WasSet("retry") {
+		t.Errorf("expected retry to be set")
 	}
 }
 
@@ -289,7 +345,10 @@ func TestParseFlags_sanitize(t *testing.T) {
 
 	expected := true
 	if config.Sanitize != expected {
-		t.Errorf("expected %t to be %t", config.Sanitize, expected)
+		t.Errorf("expected %v to be %v", config.Sanitize, expected)
+	}
+	if !config.WasSet("sanitize") {
+		t.Errorf("expected sanitize to be set")
 	}
 }
 
@@ -304,7 +363,64 @@ func TestParseFlags_upcase(t *testing.T) {
 
 	expected := true
 	if config.Upcase != expected {
-		t.Errorf("expected %t to be %t", config.Upcase, expected)
+		t.Errorf("expected %v to be %v", config.Upcase, expected)
+	}
+	if !config.WasSet("upcase") {
+		t.Errorf("expected upcase to be set")
+	}
+}
+
+func TestParseFlags_config(t *testing.T) {
+	cli := NewCLI(ioutil.Discard, ioutil.Discard)
+	config, _, _, _, err := cli.parseFlags([]string{
+		"-config", "/path/to/file",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := "/path/to/file"
+	if config.Path != expected {
+		t.Errorf("expected %v to be %v", config.Path, expected)
+	}
+	if !config.WasSet("path") {
+		t.Errorf("expected path to be set")
+	}
+}
+
+func TestParseFlags_kill_signal(t *testing.T) {
+	cli := NewCLI(ioutil.Discard, ioutil.Discard)
+	config, _, _, _, err := cli.parseFlags([]string{
+		"-kill-signal", "SIGHUP",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := "SIGHUP"
+	if config.KillSignal != expected {
+		t.Errorf("expected %v to be %v", config.KillSignal, expected)
+	}
+	if !config.WasSet("kill_signal") {
+		t.Errorf("expected kill_signal to be set")
+	}
+}
+
+func TestParseFlags_logLevel(t *testing.T) {
+	cli := NewCLI(ioutil.Discard, ioutil.Discard)
+	config, _, _, _, err := cli.parseFlags([]string{
+		"-log-level", "debug",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := "debug"
+	if config.LogLevel != expected {
+		t.Errorf("expected %v to be %v", config.LogLevel, expected)
+	}
+	if !config.WasSet("log_level") {
+		t.Errorf("expected log_level to be set")
 	}
 }
 
@@ -336,33 +452,17 @@ func TestParseFlags_version(t *testing.T) {
 	}
 }
 
-func TestParseFlags_logLevel(t *testing.T) {
+func TestParseFlags_v(t *testing.T) {
 	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	config, _, _, _, err := cli.parseFlags([]string{
-		"-log-level", "debug",
+	_, _, _, version, err := cli.parseFlags([]string{
+		"-v",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	expected := "debug"
-	if config.LogLevel != expected {
-		t.Errorf("expected %v to be %v", config.LogLevel, expected)
-	}
-}
-
-func TestParseFlags_args(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	_, args, _, _, err := cli.parseFlags([]string{
-		"redis/config", "/etc/init.d/redis restart",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := []string{"redis/config", "/etc/init.d/redis restart"}
-	if !reflect.DeepEqual(args, expected) {
-		t.Errorf("expected %v to be %v", args, expected)
+	if version != true {
+		t.Errorf("expected version to be true")
 	}
 }
 
@@ -374,99 +474,5 @@ func TestParseFlags_errors(t *testing.T) {
 
 	if err == nil {
 		t.Fatal("expected error, but nothing was returned")
-	}
-}
-
-func TestRun_printsErrors(t *testing.T) {
-	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
-	cli := NewCLI(outStream, errStream)
-	args := strings.Split("envconsul -bacon delicious", " ")
-
-	status := cli.Run(args)
-	defer cli.stop()
-
-	if status == ExitCodeOK {
-		t.Fatal("expected not OK exit code")
-	}
-
-	expected := "flag provided but not defined: -bacon"
-	if !strings.Contains(errStream.String(), expected) {
-		t.Errorf("expected %q to eq %q", errStream.String(), expected)
-	}
-}
-
-func TestRun_versionFlag(t *testing.T) {
-	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
-	cli := NewCLI(outStream, errStream)
-	args := strings.Split("envconsul -version", " ")
-
-	status := cli.Run(args)
-	defer cli.stop()
-
-	if status != ExitCodeOK {
-		t.Errorf("expected %q to eq %q", status, ExitCodeOK)
-	}
-
-	expected := fmt.Sprintf("envconsul v%s", Version)
-	if !strings.Contains(errStream.String(), expected) {
-		t.Errorf("expected %q to eq %q", errStream.String(), expected)
-	}
-}
-
-func TestRun_parseError(t *testing.T) {
-	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
-	cli := NewCLI(outStream, errStream)
-	args := strings.Split("envconsul -bacon delicious", " ")
-
-	status := cli.Run(args)
-	defer cli.stop()
-
-	if status != ExitCodeParseFlagsError {
-		t.Errorf("expected %q to eq %q", status, ExitCodeParseFlagsError)
-	}
-
-	expected := "flag provided but not defined: -bacon"
-	if !strings.Contains(errStream.String(), expected) {
-		t.Fatalf("expected %q to contain %q", errStream.String(), expected)
-	}
-}
-
-func TestRun_onceFlag(t *testing.T) {
-	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
-	cli := NewCLI(outStream, errStream)
-
-	command := "envconsul -consul demo.consul.io -once -prefix global/time env"
-	args := strings.Split(command, " ")
-
-	ch := make(chan int, 1)
-
-	go func() {
-		ch <- cli.Run(args)
-	}()
-	defer cli.stop()
-
-	select {
-	case status := <-ch:
-		if status != ExitCodeOK {
-			t.Errorf("expected %d to eq %d", status, ExitCodeOK)
-			t.Errorf("stderr: %s", errStream.String())
-		}
-	case <-time.After(5 * time.Second):
-		t.Errorf("expected data, but nothing was returned")
-	}
-}
-
-func TestParseFlags_killsigFlag(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	config, _, _, _, err := cli.parseFlags([]string{
-		"-killsig", "SIGHUP",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := syscall.SIGHUP
-	if config.KillSig != expected {
-		t.Errorf("expected %q to be %q", config.KillSig, expected)
 	}
 }

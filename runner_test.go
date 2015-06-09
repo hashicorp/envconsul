@@ -15,7 +15,7 @@ import (
 )
 
 func TestNewRunner(t *testing.T) {
-	config := DefaultConfig()
+	config := testConfig("", t)
 	command := []string{"env"}
 	runner, err := NewRunner(config, command, true)
 	if err != nil {
@@ -73,8 +73,9 @@ func TestReceive_receivesData(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	config := DefaultConfig()
-	config.Prefixes = append(config.Prefixes, prefix)
+	config := testConfig(`
+		prefixes = ["foo/bar"]
+	`, t)
 
 	runner, err := NewRunner(config, []string{"env"}, true)
 	if err != nil {
@@ -96,9 +97,10 @@ func TestRun_sanitize(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	config := DefaultConfig()
-	config.Sanitize = true
-	config.Prefixes = append(config.Prefixes, prefix)
+	config := testConfig(`
+		sanitize = true
+		prefixes = ["foo/bar"]
+	`, t)
 
 	runner, err := NewRunner(config, []string{"env"}, true)
 	if err != nil {
@@ -140,9 +142,10 @@ func TestRun_upcase(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	config := DefaultConfig()
-	config.Upcase = true
-	config.Prefixes = append(config.Prefixes, prefix)
+	config := testConfig(`
+		upcase = true
+		prefixes = ["foo/bar"]
+	`, t)
 
 	runner, err := NewRunner(config, []string{"env"}, true)
 	if err != nil {
@@ -184,8 +187,9 @@ func TestRun_exitCh(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	config := DefaultConfig()
-	config.Prefixes = append(config.Prefixes, prefix)
+	config := testConfig(`
+		prefixes = ["foo/bar"]
+	`, t)
 
 	runner, err := NewRunner(config, []string{"env"}, true)
 	if err != nil {
@@ -229,10 +233,10 @@ func TestRun_merges(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	config := DefaultConfig()
-	config.Upcase = true
-	config.Prefixes = append(config.Prefixes, globalPrefix)
-	config.Prefixes = append(config.Prefixes, redisPrefix)
+	config := testConfig(`
+		upcase = true
+		prefixes = ["config/global", "config/redis"]
+	`, t)
 
 	runner, err := NewRunner(config, []string{"env"}, true)
 	if err != nil {
@@ -287,13 +291,9 @@ func TestRun_merges(t *testing.T) {
 }
 
 func TestStart_noRunMissingData(t *testing.T) {
-	prefix, err := dep.ParseStoreKeyPrefix("foo/bar")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	config := DefaultConfig()
-	config.Prefixes = append(config.Prefixes, prefix)
+	config := testConfig(`
+		prefixes = ["foo/bar"]
+	`, t)
 
 	runner, err := NewRunner(config, []string{"sh", "-c", "echo $BAR"}, true)
 	if err != nil {
@@ -329,8 +329,9 @@ func TestStart_runsCommandOnChange(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	config := DefaultConfig()
-	config.Prefixes = append(config.Prefixes, prefix)
+	config := testConfig(`
+		prefixes = ["foo/bar"]
+	`, t)
 
 	runner, err := NewRunner(config, []string{"sh", "-c", "echo $BAR"}, true)
 	if err != nil {
@@ -398,7 +399,9 @@ func TestSignal_sendsToChild(t *testing.T) {
 	`), t)
 	defer test.DeleteTempfile(script, t)
 
-	runner, err := NewRunner(DefaultConfig(), []string{"bash", script.Name()}, false)
+	config := testConfig("", t)
+
+	runner, err := NewRunner(config, []string{"bash", script.Name()}, false)
 	if err != nil {
 		t.Fatal(err)
 	}

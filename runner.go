@@ -2,16 +2,16 @@ package main
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"reflect"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"syscall"
@@ -69,6 +69,9 @@ type Runner struct {
 	// of the running command.
 	command []string
 	cmd     *exec.Cmd
+
+	// killSignal is the signal to send to kill the process.
+	killSignal os.Signal
 }
 
 // NewRunner accepts a config, command, and boolean value for once mode.
@@ -306,16 +309,31 @@ func (r *Runner) Run() (<-chan int, error) {
 // init creates the Runner's underlying data structures and returns an error if
 // any problems occur.
 func (r *Runner) init() error {
-	// Merge multiple configs if given
-	if r.config.Path != "" {
-		err := buildConfig(r.config, r.config.Path)
-		if err != nil {
-			return fmt.Errorf("runner: %s", err)
-		}
-	}
+	// Ensure we have defaults
+	config := DefaultConfig()
+	config.Merge(r.config)
+	r.config = config
 
-	// Add default values for the config
-	r.config.Merge(DefaultConfig())
+	// Print the final config for debugging
+	result, err := json.MarshalIndent(r.config, "", "  ")
+	if err != nil {
+		return err
+	}
+	log.Printf("[DEBUG] (runner) final config (tokens suppressed):\n\n%s\n\n",
+		result)
+
+	// Setup the kill signal
+	signal, ok := SignalLookup[r.config.KillSignal]
+	if !ok {
+		valid := make([]string, 0, len(SignalLookup))
+		for k, _ := range SignalLookup {
+			valid = append(valid, k)
+		}
+		sort.Strings(valid)
+		return fmt.Errorf("runner: unknown signal %q - valid signals are %q",
+			r.config.KillSignal, valid)
+	}
+	r.killSignal = signal
 
 	// Create the client
 	client, err := newAPIClient(r.config)
@@ -349,7 +367,7 @@ func (r *Runner) killProcess() {
 	// Kill the process
 	exited := false
 
-	if err := r.cmd.Process.Signal(r.config.KillSig); err == nil {
+	if err := r.cmd.Process.Signal(r.killSignal); err == nil {
 		// Wait a few seconds for it to exit
 		killCh := make(chan struct{})
 		go func() {
@@ -440,70 +458,4 @@ func newWatcher(config *Config, client *api.Client, once bool) (*watch.Watcher, 
 	}
 
 	return watcher, err
-}
-
-// buildConfig iterates and merges all configuration files in a given directory.
-// The config parameter will be modified and merged with subsequent configs
-// found in the directory.
-func buildConfig(config *Config, path string) error {
-	log.Printf("[DEBUG] merging with config at %s", path)
-
-	// Ensure the given filepath exists
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return fmt.Errorf("config: missing file/folder: %s", path)
-	}
-
-	// Check if a file was given or a path to a directory
-	stat, err := os.Stat(path)
-	if err != nil {
-		return fmt.Errorf("config: error stating file: %s", err)
-	}
-
-	// Recursively parse directories, single load files
-	if stat.Mode().IsDir() {
-		// Ensure the given filepath has at least one config file
-		files, err := ioutil.ReadDir(path)
-		if err != nil {
-			return fmt.Errorf("config: error listing directory: %s", err)
-		}
-		if len(files) == 0 {
-			return fmt.Errorf("config: must contain at least one configuration file")
-		}
-
-		// Potential bug: Walk does not follow symlinks!
-		err = filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
-			// If WalkFunc had an error, just return it
-			if err != nil {
-				return err
-			}
-
-			// Do nothing for directories
-			if info.IsDir() {
-				return nil
-			}
-
-			// Parse and merge the config
-			newConfig, err := ParseConfig(path)
-			if err != nil {
-				return err
-			}
-			config.Merge(newConfig)
-
-			return nil
-		})
-
-		if err != nil {
-			return fmt.Errorf("config: walk error: %s", err)
-		}
-	} else if stat.Mode().IsRegular() {
-		newConfig, err := ParseConfig(path)
-		if err != nil {
-			return err
-		}
-		config.Merge(newConfig)
-	} else {
-		return fmt.Errorf("config: unknown filetype: %s", stat.Mode().String())
-	}
-
-	return nil
 }
