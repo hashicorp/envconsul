@@ -41,6 +41,7 @@ Usage
 | `syslog`          | Send log output to syslog (in addition to stdout and stderr). The default value is false.
 | `syslog-facility` | The facility to use when sending to syslog. This requires the use of `-syslog`. The default value is `LOCAL0`.
 | `token`           | The [Consul API token][Consul ACLs]. There is no default value.
+| `killsig`         | Kill signal to send to child process. Defaults to `SIGTERM` but can be one of `SIGHUP,SIGTERM,SIGINT,SIGQUIT,SIGUSR1,SIGUSR2`
 | `wait`            | The `minimum(:maximum)` to wait before rendering a command to fire, separated by a colon (`:`). If the optional maximum value is omitted, it is assumed to be 4x the required minimum value. There is no default value.
 | `retry`           | The amount of time to wait if Consul returns an error when communicating with the API. The default value is 5 seconds.
 | `prefix`          | A prefix to watch in Consul. This may be specified multiple times.
@@ -79,6 +80,13 @@ B=1
 C=1
 ```
 
+#### Custom Kill Signal
+
+Envconsul by default will send the `SIGTERM` signal to the child process. If you
+want to override this to pass in a custom signal use the `killsig` config option.
+This option takes one of `SIGHUP,SIGTERM,SIGINT,SIGQUIT,SIGUSR1,SIGUSR2` or
+for windows `SIGINT,SIGTERM,SIGQUIT`.
+
 ### Command Line
 The CLI interface supports all of the options detailed above.
 
@@ -112,6 +120,7 @@ max_stale = "10m"
 timeout = "5s"
 retry = "10s"
 sanitize = true
+killsig = "SIGHUP"
 
 prefixes = ["config/global", "config/redis"]
 
