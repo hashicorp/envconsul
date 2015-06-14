@@ -351,6 +351,7 @@ Options:
                            precedence
   -sanitize                Replace invalid characters in keys to underscores
   -upcase                  Convert all environment variable keys to uppercase
+  -kill-signal             The signal to send to kill the process
 
 
   -config=<path>           Sets the path to a configuration file on disk
