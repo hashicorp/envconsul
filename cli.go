@@ -211,6 +211,7 @@ func (cli *CLI) parseFlags(args []string) (*Config, []string, bool, bool, error)
 
 	flags.Var((funcBoolVar)(func(b bool) error {
 		config.SSL.Enabled = b
+		config.set("ssl")
 		config.set("ssl.enabled")
 		return nil
 	}), "ssl", "")
