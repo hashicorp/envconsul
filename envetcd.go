@@ -209,7 +209,9 @@ func GetKeyPairs(config *Config) (KeyPairs, error) {
 	}
 	sort.Strings(keys)
 
-	util.InitLogger(keyPairs["LOG_LEVEL"])
+	if len(os.Getenv("LOG_LEVEL")) == 0 {
+		util.InitLogger(keyPairs["LOG_LEVEL"])
+	}
 
 	for _, key := range keys {
 		log.Printf("[DEBUG] envetcd: %v => %v\n", key, keyPairs[key])
