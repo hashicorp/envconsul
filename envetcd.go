@@ -25,7 +25,7 @@ var invalidRegexp = regexp.MustCompile(`[^a-zA-Z0-9_]`)
 
 // Config contains all of the parameters needed to run GetKeyPairs
 type Config struct {
-	Etcd             *util.EtcdConfig
+	Etcd              *util.EtcdConfig
 	Sanitize          bool
 	Upcase            bool
 	UseDefaultGateway bool
@@ -287,8 +287,8 @@ func GetKeyPairs(config *Config) (KeyPairs, error) {
 		keyPairs["ENVETCD_HOSTNAME"] = config.Hostname
 	}
 
-	if config.Etcd.UseDefaultGateway && len(config.Etcd.Peers) == 1 {
-		keyPairs["ENVETCD_DEFAULT_GATEWAY"] = config.Etcd.Peers[0]
+	if config.Etcd.UseDefaultGateway && gatewayIP != nil {
+		keyPairs["ENVETCD_DEFAULT_GATEWAY"] = gatewayIP.String()
 	}
 
 	var keys []string
