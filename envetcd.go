@@ -43,6 +43,7 @@ var (
 	}
 
 	gatewayIP *net.IP
+	setRun    = false
 )
 
 // KeyPairs is a slice of KeyPair pointers
@@ -73,7 +74,16 @@ func init() {
 // that it has been configured properly through other means such as environment
 // variables or command line flags.
 func Set(service string) error {
-	util.InitLogger("WARN")
+	if setRun {
+		log.Println("[DEBUG] envetcd.Set was already run.")
+		return nil
+	}
+	setRun = true
+	logLevel := os.Getenv("LOG_LEVEL")
+	if logLevel == "" {
+		logLevel = "WARN"
+	}
+	util.InitLogger(logLevel)
 
 	etcdEndpoint := os.Getenv("ETCD_ENDPOINT")
 
@@ -205,7 +215,9 @@ func GetKeyPairs(config *Config) (KeyPairs, error) {
 	}
 	sort.Strings(keys)
 
-	util.InitLogger(keyPairs["LOG_LEVEL"])
+	if len(os.Getenv("LOG_LEVEL")) == 0 {
+		util.InitLogger(keyPairs["LOG_LEVEL"])
+	}
 
 	for _, key := range keys {
 		log.Printf("[DEBUG] envetcd: %v => %v\n", key, keyPairs[key])
