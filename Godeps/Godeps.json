@@ -1,54 +1,58 @@
 {
 	"ImportPath": "github.com/zvelo/envetcd",
-	"GoVersion": "go1.4.2",
+	"GoVersion": "go1.4rc2",
 	"Packages": [
 		"./..."
 	],
 	"Deps": [
 		{
+			"ImportPath": "github.com/afex/hystrix-go/hystrix",
+			"Rev": "23bcdd65fcfb77be1984edccc3de7cfcc84b4d3c"
+		},
+		{
 			"ImportPath": "github.com/codegangsta/cli",
-			"Comment": "1.2.0-98-g30b361b",
-			"Rev": "30b361bf66a60174a9589458afbf494478bafd00"
+			"Comment": "1.2.0-97-g6786c1e",
+			"Rev": "6786c1e3c821299d87712f2940e5937de4e41737"
 		},
 		{
 			"ImportPath": "github.com/coreos/etcd/pkg/transport",
-			"Comment": "v2.1.0-alpha.0-45-g0b082b7",
-			"Rev": "0b082b7bd452145057b9009665283aec167671b3"
+			"Comment": "v0.5.0-alpha.4-233-g2e9f6f7",
+			"Rev": "2e9f6f70d64d2758068d36255698de3cdc49f846"
 		},
 		{
 			"ImportPath": "github.com/coreos/go-etcd/etcd",
-			"Comment": "v2.0.0-7-g73a8ef7",
-			"Rev": "73a8ef737e8ea002281a28b4cb92a1de121ad4c6"
+			"Comment": "v0.4.6-3-g441f1a1",
+			"Rev": "441f1a1a60ef3f700b6f4b4099e0c35527a25031"
 		},
 		{
 			"ImportPath": "github.com/golang/protobuf/proto",
-			"Rev": "efd7476481382c195beb33acd8ec2f1527167fb4"
+			"Rev": "16256d3ce6929458613798ee44b7914a3f59f5c6"
 		},
 		{
 			"ImportPath": "github.com/hashicorp/logutils",
-			"Rev": "367a65d59043b4f846d179341d138f01f988c186"
+			"Rev": "23b0af5510a2d1442103ef83ffcf53eb82f3debc"
 		},
 		{
 			"ImportPath": "github.com/jtolds/gls",
-			"Rev": "9a4a02dbe491bef4bab3c24fd9f3087d6c4c6690"
+			"Rev": "f1ac7f4f24f50328e6bc838ca4437d1612a0243c"
 		},
 		{
 			"ImportPath": "github.com/smartystreets/assertions",
-			"Comment": "1.5.0-380-g4727d76",
-			"Rev": "4727d767ce8a81811c40eedc2a836c85aebb4d09"
+			"Comment": "1.5.0-379-g75acd40",
+			"Rev": "75acd402ca38dc205641a826bb58b9de014926dd"
 		},
 		{
 			"ImportPath": "github.com/smartystreets/goconvey/convey",
-			"Comment": "1.5.0-388-g958443e",
-			"Rev": "958443eebb772fc6c1dcc2a44cdc6a59e1b3ff0d"
+			"Comment": "1.5.0-387-g43652d6",
+			"Rev": "43652d6f5820494c94d44658c1c0ae1a0ace403a"
 		},
 		{
 			"ImportPath": "github.com/unrolled/render",
-			"Rev": "83f2ba57c12cec399ef137457b1957e41ef0bbe8"
+			"Rev": "4af7c600639360d65cae54f24fbc3e1366489843"
 		},
 		{
 			"ImportPath": "github.com/zvelo/zvelo-services/util",
-			"Rev": "b66a61028a50fd2f9b1df29b4b5e575f67ae7772"
+			"Rev": "adbd13eb6bb3bf7956fd179fa0ca5159456ee837"
 		}
 	]
 }

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
+	"net"
 	"net/http"
 	"net/url"
 	"path"
@@ -38,8 +40,14 @@ func NewRawRequest(method, relativePath string, values url.Values, cancel <-chan
 // getCancelable issues a cancelable GET request
 func (c *Client) getCancelable(key string, options Options,
 	cancel <-chan bool) (*RawResponse, error) {
-	logger.Debugf("get %s [%s]", key, c.cluster.pick())
+	logger.Debugf("get %s [%s]", key, c.cluster.Leader)
 	p := keyToPath(key)
+
+	// If consistency level is set to STRONG, append
+	// the `consistent` query string.
+	if c.config.Consistency == STRONG_CONSISTENCY {
+		options["consistent"] = true
+	}
 
 	str, err := options.toParameters(VALID_GET_OPTIONS)
 	if err != nil {
@@ -66,7 +74,7 @@ func (c *Client) get(key string, options Options) (*RawResponse, error) {
 func (c *Client) put(key string, value string, ttl uint64,
 	options Options) (*RawResponse, error) {
 
-	logger.Debugf("put %s, %s, ttl: %d, [%s]", key, value, ttl, c.cluster.pick())
+	logger.Debugf("put %s, %s, ttl: %d, [%s]", key, value, ttl, c.cluster.Leader)
 	p := keyToPath(key)
 
 	str, err := options.toParameters(VALID_PUT_OPTIONS)
@@ -87,7 +95,7 @@ func (c *Client) put(key string, value string, ttl uint64,
 
 // post issues a POST request
 func (c *Client) post(key string, value string, ttl uint64) (*RawResponse, error) {
-	logger.Debugf("post %s, %s, ttl: %d, [%s]", key, value, ttl, c.cluster.pick())
+	logger.Debugf("post %s, %s, ttl: %d, [%s]", key, value, ttl, c.cluster.Leader)
 	p := keyToPath(key)
 
 	req := NewRawRequest("POST", p, buildValues(value, ttl), nil)
@@ -102,7 +110,7 @@ func (c *Client) post(key string, value string, ttl uint64) (*RawResponse, error
 
 // delete issues a DELETE request
 func (c *Client) delete(key string, options Options) (*RawResponse, error) {
-	logger.Debugf("delete %s [%s]", key, c.cluster.pick())
+	logger.Debugf("delete %s [%s]", key, c.cluster.Leader)
 	p := keyToPath(key)
 
 	str, err := options.toParameters(VALID_DELETE_OPTIONS)
@@ -123,6 +131,7 @@ func (c *Client) delete(key string, options Options) (*RawResponse, error) {
 
 // SendRequest sends a HTTP request and returns a Response as defined by etcd
 func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
+
 	var req *http.Request
 	var resp *http.Response
 	var httpPath string
@@ -188,9 +197,13 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 
 		logger.Debug("Connecting to etcd: attempt ", attempt+1, " for ", rr.RelativePath)
 
-		// get httpPath if not set
-		if httpPath == "" {
-			httpPath = c.getHttpPath(rr.RelativePath)
+		if rr.Method == "GET" && c.config.Consistency == WEAK_CONSISTENCY {
+			// If it's a GET and consistency level is set to WEAK,
+			// then use a random machine.
+			httpPath = c.getHttpPath(true, rr.RelativePath)
+		} else {
+			// Else use the leader.
+			httpPath = c.getHttpPath(false, rr.RelativePath)
 		}
 
 		// Return a cURL command if curlChan is set
@@ -198,9 +211,6 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 			command := fmt.Sprintf("curl -X %s %s", rr.Method, httpPath)
 			for key, value := range rr.Values {
 				command += fmt.Sprintf(" -d %s=%s", key, value[0])
-			}
-			if c.credentials != nil {
-				command += fmt.Sprintf(" -u %s", c.credentials.username)
 			}
 			c.sendCURL(command)
 		}
@@ -231,13 +241,7 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 			return nil, err
 		}
 
-		if c.credentials != nil {
-			req.SetBasicAuth(c.credentials.username, c.credentials.password)
-		}
-
 		resp, err = c.httpClient.Do(req)
-		// clear previous httpPath
-		httpPath = ""
 		defer func() {
 			if resp != nil {
 				resp.Body.Close()
@@ -261,7 +265,7 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 				return nil, checkErr
 			}
 
-			c.cluster.failure()
+			c.cluster.switchLeader(attempt % len(c.cluster.Machines))
 			continue
 		}
 
@@ -292,14 +296,17 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 			}
 		}
 
+		// if resp is TemporaryRedirect, set the new leader and retry
 		if resp.StatusCode == http.StatusTemporaryRedirect {
 			u, err := resp.Location()
 
 			if err != nil {
 				logger.Warning(err)
 			} else {
-				// set httpPath for following redirection
-				httpPath = u.String()
+				// Update cluster leader based on redirect location
+				// because it should point to the leader address
+				c.cluster.updateLeaderFromURL(u)
+				logger.Debug("recv.response.relocate ", u.String())
 			}
 			resp.Body.Close()
 			continue
@@ -327,16 +334,11 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 func DefaultCheckRetry(cluster *Cluster, numReqs int, lastResp http.Response,
 	err error) error {
 
-	if numReqs > 2*len(cluster.Machines) {
-		errStr := fmt.Sprintf("failed to propose on members %v twice [last error: %v]", cluster.Machines, err)
-		return newError(ErrCodeEtcdNotReachable, errStr, 0)
-	}
-
 	if isEmptyResponse(lastResp) {
-		// always retry if it failed to get response from one machine
-		return nil
-	}
-	if !shouldRetry(lastResp) {
+		if !isConnectionError(err) {
+			return err
+		}
+	} else if !shouldRetry(lastResp) {
 		body := []byte("nil")
 		if lastResp.Body != nil {
 			if b, err := ioutil.ReadAll(lastResp.Body); err == nil {
@@ -346,13 +348,26 @@ func DefaultCheckRetry(cluster *Cluster, numReqs int, lastResp http.Response,
 		errStr := fmt.Sprintf("unhandled http status [%s] with body [%s]", http.StatusText(lastResp.StatusCode), body)
 		return newError(ErrCodeUnhandledHTTPStatus, errStr, 0)
 	}
-	// sleep some time and expect leader election finish
-	time.Sleep(time.Millisecond * 200)
+
+	if numReqs > 2*len(cluster.Machines) {
+		errStr := fmt.Sprintf("failed to propose on members %v twice [last error: %v]", cluster.Machines, err)
+		return newError(ErrCodeEtcdNotReachable, errStr, 0)
+	}
+	if shouldRetry(lastResp) {
+		// sleep some time and expect leader election finish
+		time.Sleep(time.Millisecond * 200)
+	}
+
 	logger.Warning("bad response status code", lastResp.StatusCode)
 	return nil
 }
 
 func isEmptyResponse(r http.Response) bool { return r.StatusCode == 0 }
+
+func isConnectionError(err error) bool {
+	_, ok := err.(*net.OpError)
+	return ok
+}
 
 // shouldRetry returns whether the reponse deserves retry.
 func shouldRetry(r http.Response) bool {
@@ -361,11 +376,19 @@ func shouldRetry(r http.Response) bool {
 	return r.StatusCode == http.StatusInternalServerError
 }
 
-func (c *Client) getHttpPath(s ...string) string {
-	fullPath := c.cluster.pick() + "/" + version
+func (c *Client) getHttpPath(random bool, s ...string) string {
+	var machine string
+	if random {
+		machine = c.cluster.Machines[rand.Intn(len(c.cluster.Machines))]
+	} else {
+		machine = c.cluster.Leader
+	}
+
+	fullPath := machine + "/" + version
 	for _, seg := range s {
 		fullPath = fullPath + "/" + seg
 	}
+
 	return fullPath
 }
 

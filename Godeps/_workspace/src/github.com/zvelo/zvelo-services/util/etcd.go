@@ -2,6 +2,7 @@ package util
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net/url"
 	"strings"
@@ -40,22 +41,29 @@ var (
 			EnvVar: "ETCD_NO_SYNC",
 			Usage:  "don't synchronize etcd cluster information before watching",
 		},
+		cli.BoolFlag{
+			Name:   "use-default-gateway, d",
+			EnvVar: "ETCD_USE_DEFAULT_GATEWAY",
+			Usage:  "expose the default gateway as $ETCD_DEFAULT_GATEWAY",
+		},
 	}
 )
 
 // EtcdConfig includes a peers list and any TLS info.
 type EtcdConfig struct {
-	TLS   *transport.TLSInfo
-	Peers []string
-	Sync  bool
+	TLS               *transport.TLSInfo
+	Peers             []string
+	Sync              bool
+	UseDefaultGateway bool
 }
 
 // NewEtcdConfig creates an etcdConfig declaration from the command line context
 // provided by cli.  This includes potential TLS files.
 func NewEtcdConfig(c *cli.Context) *EtcdConfig {
 	ret := &EtcdConfig{
-		Sync:  !c.GlobalBool("no-sync"),
-		Peers: c.GlobalStringSlice("peers"),
+		Sync:              !c.GlobalBool("no-sync"),
+		Peers:             c.GlobalStringSlice("peers"),
+		UseDefaultGateway: c.GlobalBool("use-default-gateway"),
 		TLS: &transport.TLSInfo{
 			CAFile:   c.GlobalString("ca-file"),
 			CertFile: c.GlobalString("cert-file"),
@@ -63,8 +71,22 @@ func NewEtcdConfig(c *cli.Context) *EtcdConfig {
 		},
 	}
 
-	if len(ret.Peers) == 0 {
-		ret.Peers = append(ret.Peers, "127.0.0.1:4001")
+	if len(ret.Peers) > 0 {
+		ret.UseDefaultGateway = false
+	} else {
+		if ret.UseDefaultGateway {
+			ip, err := DefaultRoute()
+			if err != nil {
+				log.Printf("[INFO] etcd error getting default gateway: %v\n", err)
+			} else {
+				ret.Peers = []string{fmt.Sprintf("http://%s:4001", ip.String())}
+			}
+		}
+
+		if len(ret.Peers) == 0 {
+			ret.UseDefaultGateway = false
+			ret.Peers = append(ret.Peers, "127.0.0.1:4001")
+		}
 	}
 
 	return ret

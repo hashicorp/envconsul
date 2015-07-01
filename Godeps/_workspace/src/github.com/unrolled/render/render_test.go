@@ -3,7 +3,6 @@ package render
 import (
 	"encoding/json"
 	"encoding/xml"
-	"errors"
 	"html/template"
 	"math"
 	"net/http"
@@ -112,36 +111,6 @@ func TestRenderJSONWithError(t *testing.T) {
 	h.ServeHTTP(res, req)
 
 	expect(t, res.Code, 500)
-}
-
-func TestRenderJSONWithOutUnEscapeHTML(t *testing.T) {
-	render := New(Options{
-		UnEscapeHTML: false,
-	})
-	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		render.JSON(w, http.StatusOK, Greeting{"<span>test&test</span>", "<div>test&test</div>"})
-	})
-
-	res := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/foo", nil)
-	h.ServeHTTP(res, req)
-
-	expect(t, res.Body.String(), `{"one":"\u003cspan\u003etest\u0026test\u003c/span\u003e","two":"\u003cdiv\u003etest\u0026test\u003c/div\u003e"}`)
-}
-
-func TestRenderJSONWithUnEscapeHTML(t *testing.T) {
-	render := New(Options{
-		UnEscapeHTML: true,
-	})
-	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		render.JSON(w, http.StatusOK, Greeting{"<span>test&test</span>", "<div>test&test</div>"})
-	})
-
-	res := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/foo", nil)
-	h.ServeHTTP(res, req)
-
-	expect(t, res.Body.String(), `{"one":"<span>test&test</span>","two":"<div>test&test</div>"}`)
 }
 
 func TestRenderJSONP(t *testing.T) {
@@ -576,38 +545,6 @@ func TestRenderNoRace(t *testing.T) {
 	go doreq()
 	<-done
 	<-done
-}
-
-func TestLoadFromAssets(t *testing.T) {
-	render := New(Options{
-		Asset: func(file string) ([]byte, error) {
-			switch file {
-			case "templates/test.tmpl":
-				return []byte("<h1>gophers</h1>\n"), nil
-			case "templates/layout.tmpl":
-				return []byte("head\n{{ yield }}\nfoot\n"), nil
-			default:
-				return nil, errors.New("file not found: " + file)
-			}
-		},
-		AssetNames: func() []string {
-			return []string{"templates/test.tmpl", "templates/layout.tmpl"}
-		},
-	})
-
-	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		render.HTML(w, http.StatusOK, "test", "gophers", HTMLOptions{
-			Layout: "layout",
-		})
-	})
-
-	res := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/foo", nil)
-	h.ServeHTTP(res, req)
-
-	expect(t, res.Code, 200)
-	expect(t, res.Header().Get(ContentType), ContentHTML+"; charset=UTF-8")
-	expect(t, res.Body.String(), "head\n<h1>gophers</h1>\n\nfoot\n")
 }
 
 /* Test Helpers */
