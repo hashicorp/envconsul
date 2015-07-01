@@ -8,7 +8,6 @@ import (
 
 	"github.com/codegangsta/cli"
 	"github.com/zvelo/envetcd"
-	"github.com/zvelo/zvelo-services/util"
 )
 
 // Exit codes are int values that represent an exit code for a particular error.
@@ -23,28 +22,6 @@ const (
 	exitCodeRunnerError
 	exitCodeEnvEtcdError
 )
-
-func setup(c *cli.Context) error {
-	util.InitLogger(c.GlobalString("log-level"))
-
-	config = configT{
-		EnvEtcd: &envetcd.Config{
-			Etcd:              util.NewEtcdConfig(c),
-			Hostname:          c.GlobalString("hostname"),
-			System:            c.GlobalString("system"),
-			Service:           c.GlobalString("service"),
-			Prefix:            c.GlobalString("prefix"),
-			Sanitize:          !c.GlobalBool("no-sanitize"),
-			Upcase:            !c.GlobalBool("no-upcase"),
-			UseDefaultGateway: c.GlobalBool("use-default-gateway"),
-		},
-		Output:   c.String("output"),
-		WriteEnv: c.GlobalString("write-env"),
-		CleanEnv: c.GlobalBool("clean-env"),
-	}
-
-	return nil
-}
 
 // Run accepts a slice of arguments and returns an int representing the exit
 // status from the command.

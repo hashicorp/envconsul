@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -24,7 +25,7 @@ var invalidRegexp = regexp.MustCompile(`[^a-zA-Z0-9_]`)
 
 // Config contains all of the parameters needed to run GetKeyPairs
 type Config struct {
-	Etcd              *util.EtcdConfig
+	Etcd             *util.EtcdConfig
 	Sanitize          bool
 	Upcase            bool
 	UseDefaultGateway bool
@@ -32,6 +33,7 @@ type Config struct {
 	System            string
 	Service           string
 	Hostname          string
+	TemplateFiles     []string
 }
 
 var (
@@ -57,16 +59,66 @@ func init() {
 	}
 }
 
+func getEnvSlice(key string) []string {
+	ret := []string{}
+
+	vals := os.Getenv(key)
+	if len(vals) == 0 {
+		return ret
+	}
+
+	for _, val := range strings.Split(vals, ",") {
+		val = strings.TrimSpace(val)
+		if len(val) > 0 {
+			ret = append(ret, val)
+		}
+	}
+
+	return ret
+}
+
+func getEnvBool(key string, dflt bool) bool {
+	val := os.Getenv(key)
+	if len(val) == 0 {
+		return dflt
+	}
+
+	ret, err := strconv.ParseBool(val)
+	if err != nil {
+		log.Printf("[WARN] error parsing environment bool ($%s): %s", key, err)
+		return dflt
+	}
+
+	return ret
+}
+
+func getEnvDefault(key, dflt string) string {
+	ret := os.Getenv(key)
+	if len(ret) == 0 {
+		return dflt
+	}
+	return ret
+}
+
+func initLogger() {
+	logLevel := "WARN"
+	if val := os.Getenv("LOG_LEVEL"); len(val) > 0 {
+		logLevel = val
+	}
+
+	util.InitLogger(logLevel)
+}
+
 // Set modifies the current environment with variables retrieved from etcd. Set
 // will not overwrite existing variables.
 // On linux systems, the default gateway will be automatically used as the etcd
 // endpoint.
-// If $ETCD_ENDPOINT is set, it will override the default gateway.
-// $ETCD_ENDPOINT should look like "http://127.0.0.1:4001".
+// If $ETCD_PEERS is set, it will override the default gateway.
+// $ETCD_PEERS should look like "http://127.0.0.1:4001".
 // service should be set by the application calling Set and not derived from
 // an environment variable.
 // Set will also use some other environment variables if they exist.
-// $ETCD_PREFIX defaults to "/config"
+// $ENVETCD_PREFIX defaults to "/config"
 // $HOSTNAME will be honored if it is set.
 // An error is returned only if there was an actual error. Inability to
 // determine the etcd endpoint as tolerated and not considered an error. In this
@@ -79,55 +131,39 @@ func Set(service string) error {
 		return nil
 	}
 	setRun = true
-	logLevel := os.Getenv("LOG_LEVEL")
-	if logLevel == "" {
-		logLevel = "WARN"
-	}
-	util.InitLogger(logLevel)
+	initLogger()
 
-	etcdEndpoint := os.Getenv("ETCD_ENDPOINT")
+	useDefaultGateway := getEnvBool("ETCD_USE_DEFAULT_GATEWAY", true)
 
-	useSync := true
-	if len(os.Getenv("ETCD_NO_SYNC")) > 0 {
-		useSync = false
-	}
-	useDefaultGateway := true
-	if len(os.Getenv("ENVETCD_USE_DEFAULT_GATEWAY")) > 0 {
-		if val, err := strconv.ParseBool(os.Getenv("ENVETCD_USE_DEFAULT_GATEWAY")); err != nil {
-			log.Printf("[INFO] envetcd.Set could not parse $ENVETCD_USE_DEFAULT_GATEWAY, defaulting to true: %v\n", err)
-		} else {
-			useDefaultGateway = val
-		}
+	peers := getEnvSlice("ETCD_PEERS")
+
+	if gatewayIP != nil && useDefaultGateway && len(peers) == 0 {
+		peers = []string{fmt.Sprintf("http://%s:4001", gatewayIP.String())}
+	} else {
+		useDefaultGateway = false
 	}
 
-	if gatewayIP != nil && useDefaultGateway && len(etcdEndpoint) == 0 {
-		etcdEndpoint = fmt.Sprintf("http://%s:4001", gatewayIP.String())
-	}
-
-	if len(etcdEndpoint) == 0 {
+	if len(peers) == 0 {
 		log.Println("[INFO] envetcd.Set returned after it could not determine the etcd endpoint")
 		return nil
 	}
 
 	config := &Config{
 		Etcd: &util.EtcdConfig{
-			Peers: []string{etcdEndpoint},
-			Sync:  useSync,
+			Peers:             peers,
+			Sync:              !getEnvBool("ETCD_NO_SYNC", false),
+			UseDefaultGateway: useDefaultGateway,
 		},
-		Sanitize:          true,
-		Upcase:            true,
-		UseDefaultGateway: useDefaultGateway,
-		Prefix:            os.Getenv("ETCD_PREFIX"),
-		Service:           service,
-		Hostname:          os.Getenv("HOSTNAME"),
+		Sanitize:      true,
+		Upcase:        true,
+		Prefix:        getEnvDefault("ENVETCD_PREFIX", "/config"),
+		Service:       service,
+		Hostname:      os.Getenv("HOSTNAME"),
+		TemplateFiles: getEnvSlice("ENVETCD_TEMPLATES"),
 	}
 
 	if len(config.Etcd.Peers[0]) == 0 {
 		config.Etcd.Peers[0] = "http://127.0.0.1:4001"
-	}
-
-	if len(config.Prefix) == 0 {
-		config.Prefix = "/config"
 	}
 
 	keyPairs, err := GetKeyPairs(config)
@@ -135,8 +171,9 @@ func Set(service string) error {
 		return err
 	}
 
-	log.Printf("[DEBUG] envetcd: %v => %v\n", "ETCD_ENDPOINT", etcdEndpoint)
-	keyPairs["ETCD_ENDPOINT"] = etcdEndpoint
+	etcdPeers := strings.Join(peers, ", ")
+	log.Printf("[DEBUG] envetcd: %v => %v\n", "ETCD_PEERS", etcdPeers)
+	keyPairs["ETCD_PEERS"] = etcdPeers
 
 	for key, value := range keyPairs {
 		if len(os.Getenv(key)) == 0 {
@@ -145,6 +182,51 @@ func Set(service string) error {
 	}
 
 	return nil
+}
+
+func processTemplates(keyPairs KeyPairs, tplFiles []string) {
+	const ext = ".tmpl"
+
+	data := map[string]interface{}{}
+	arrays := map[string][]string{}
+	for key, value := range keyPairs {
+		data[key] = value
+		arrays[key] = []string{}
+		for _, val := range strings.Split(value, ",") {
+			val = strings.TrimSpace(val)
+			if len(val) > 0 {
+				arrays[key] = append(arrays[key], val)
+			}
+		}
+	}
+	data["ARRAY"] = arrays
+
+	for _, tplFile := range tplFiles {
+		if filepath.Ext(tplFile) != ext {
+			tplFile += ext
+		}
+
+		tpl, err := template.ParseFiles(tplFile)
+		if err != nil {
+			log.Printf("[WARN] error parsing template (%s): %s", tplFile, err)
+			continue
+		}
+
+		fName := tplFile[0 : len(tplFile)-len(ext)]
+		f, err := os.Create(fName)
+		if err != nil {
+			log.Printf("[WARN] error creating file (%s): %s", fName, err)
+			continue
+		}
+		defer f.Close()
+
+		if err := tpl.Execute(f, data); err != nil {
+			log.Printf("[WARN] error writing file (%s): %s", fName, err)
+			continue
+		}
+
+		log.Printf("[INFO] wrote file %s", fName)
+	}
 }
 
 // GetKeyPairs takes a given config and client, and returns all key pairs
@@ -205,8 +287,8 @@ func GetKeyPairs(config *Config) (KeyPairs, error) {
 		keyPairs["ENVETCD_HOSTNAME"] = config.Hostname
 	}
 
-	if config.UseDefaultGateway && gatewayIP != nil {
-		keyPairs["ENVETCD_DEFAULT_GATEWAY"] = gatewayIP.String()
+	if config.Etcd.UseDefaultGateway && len(config.Etcd.Peers) == 1 {
+		keyPairs["ENVETCD_DEFAULT_GATEWAY"] = config.Etcd.Peers[0]
 	}
 
 	var keys []string
@@ -222,6 +304,8 @@ func GetKeyPairs(config *Config) (KeyPairs, error) {
 	for _, key := range keys {
 		log.Printf("[DEBUG] envetcd: %v => %v\n", key, keyPairs[key])
 	}
+
+	processTemplates(keyPairs, config.TemplateFiles)
 
 	return keyPairs, nil
 }

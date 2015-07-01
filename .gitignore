@@ -5,3 +5,4 @@
 /.coveralls-stamp
 /release/
 /profile.out
+/cmd/envetcd/envetcd

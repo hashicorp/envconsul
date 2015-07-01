@@ -66,6 +66,7 @@ release-linux-amd64: $(EXECUTABLE) $(EXECUTABLE)-linux-amd64
 	@mkdir -p release
 	@tar czf release/$(EXECUTABLE)-$(VERSION)-linux-amd64.tgz $(EXECUTABLE)-$(VERSION)-linux-amd64
 	@rm -rf $(EXECUTABLE)-$(VERSION)-linux-amd64
+	@cp $(EXECUTABLE)-linux-amd64 release/
 
 release-darwin-amd64: $(EXECUTABLE) $(EXECUTABLE)-darwin-amd64
 	$(eval VERSION=$(shell ./$(EXECUTABLE) -v | awk '{print $$3}'))
@@ -79,6 +80,7 @@ release-darwin-amd64: $(EXECUTABLE) $(EXECUTABLE)-darwin-amd64
 	@mkdir -p release
 	@tar czf release/$(EXECUTABLE)-$(VERSION)-darwin-amd64.tgz $(EXECUTABLE)-$(VERSION)-darwin-amd64
 	@rm -rf $(EXECUTABLE)-$(VERSION)-darwin-amd64
+	@cp $(EXECUTABLE)-darwin-amd64 release/
 
 clean:
 	@rm -rf \
