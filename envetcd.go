@@ -43,6 +43,7 @@ var (
 	}
 
 	gatewayIP *net.IP
+	setRun    = false
 )
 
 // KeyPairs is a slice of KeyPair pointers
@@ -73,6 +74,11 @@ func init() {
 // that it has been configured properly through other means such as environment
 // variables or command line flags.
 func Set(service string) error {
+	if setRun {
+		log.Println("[DEBUG] envetcd.Set was already run.")
+		return nil
+	}
+	setRun = true
 	logLevel := os.Getenv("LOG_LEVEL")
 	if logLevel == "" {
 		logLevel = "WARN"
