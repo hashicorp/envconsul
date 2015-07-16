@@ -211,7 +211,6 @@ func processTemplates(keyPairs KeyPairs, tplFiles []string) {
 		}
 		key := v[:i]
 		value := v[i+1:]
-		fmt.Println("adding env", key, value)
 		addData(data, arrays, key, value)
 	}
 
