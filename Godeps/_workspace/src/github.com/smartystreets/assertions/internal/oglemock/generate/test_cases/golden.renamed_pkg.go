@@ -8,11 +8,10 @@ package some_pkg
 
 import (
 	fmt "fmt"
-	runtime "runtime"
-	unsafe "unsafe"
-
 	oglemock "github.com/smartystreets/assertions/internal/oglemock"
 	tony "github.com/smartystreets/assertions/internal/oglemock/generate/test_cases/renamed_pkg"
+	runtime "runtime"
+	unsafe "unsafe"
 )
 
 type MockSomeInterface interface {

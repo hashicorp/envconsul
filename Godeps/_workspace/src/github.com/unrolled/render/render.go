@@ -54,6 +54,10 @@ type Delims struct {
 type Options struct {
 	// Directory to load templates. Default is "templates".
 	Directory string
+	// Asset function to use in place of directory. Defaults to nil.
+	Asset func(name string) ([]byte, error)
+	// AssetNames function to use in place of directory. Defaults to nil.
+	AssetNames func() []string
 	// Layout template name. Will not render a layout if blank (""). Defaults to blank ("").
 	Layout string
 	// Extensions to parse template files from. Defaults to [".tmpl"].
@@ -66,16 +70,20 @@ type Options struct {
 	Charset string
 	// Outputs human readable JSON.
 	IndentJSON bool
-	// Outputs human readable XML.
+	// Outputs human readable XML. Default is false.
 	IndentXML bool
-	// Prefixes the JSON output with the given bytes.
+	// Prefixes the JSON output with the given bytes. Default is false.
 	PrefixJSON []byte
 	// Prefixes the XML output with the given bytes.
 	PrefixXML []byte
 	// Allows changing of output to XHTML instead of HTML. Default is "text/html"
 	HTMLContentType string
-	// If IsDevelopment is set to true, this will recompile the templates on every request. Default if false.
+	// If IsDevelopment is set to true, this will recompile the templates on every request. Default is false.
 	IsDevelopment bool
+	// Unescape HTML characters "&<>" to their original values. Default is false.
+	UnEscapeHTML bool
+	// Streams JSON responses instead of marshalling prior to sending. Default is false.
+	StreamingJSON bool
 }
 
 // HTMLOptions is a struct for overriding some rendering Options for specific HTML call.
@@ -131,12 +139,29 @@ func (r *Render) prepareOptions() {
 }
 
 func (r *Render) compileTemplates() {
+	if r.opt.Asset == nil || r.opt.AssetNames == nil {
+		r.compileTemplatesFromDir()
+		return
+	}
+	r.compileTemplatesFromAsset()
+}
+
+func (r *Render) compileTemplatesFromDir() {
 	dir := r.opt.Directory
 	r.templates = template.New(dir)
 	r.templates.Delims(r.opt.Delims.Left, r.opt.Delims.Right)
 
 	// Walk the supplied directory and compile any files that match our extension list.
 	filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		// fmt.Println("path: ", path)
+		// Fix same-extension-dirs bug: some dir might be named to: "users.tmpl", "local.html"
+		// These dirs should be excluded as they are not valid golang templates, but files under
+		// them should be treat as normal.
+		// if is a dir, return immediately.(dir is not a valid golang template)
+		if info == nil || info.IsDir() {
+			return nil
+		}
+
 		rel, err := filepath.Rel(dir, path)
 		if err != nil {
 			return err
@@ -144,12 +169,11 @@ func (r *Render) compileTemplates() {
 
 		ext := ""
 		if strings.Index(rel, ".") != -1 {
-			ext = "." + strings.Join(strings.Split(rel, ".")[1:], ".")
+			ext = filepath.Ext(rel)
 		}
 
 		for _, extension := range r.opt.Extensions {
 			if ext == extension {
-
 				buf, err := ioutil.ReadFile(path)
 				if err != nil {
 					panic(err)
@@ -168,9 +192,52 @@ func (r *Render) compileTemplates() {
 				break
 			}
 		}
-
 		return nil
 	})
+}
+
+func (r *Render) compileTemplatesFromAsset() {
+	dir := r.opt.Directory
+	r.templates = template.New(dir)
+	r.templates.Delims(r.opt.Delims.Left, r.opt.Delims.Right)
+
+	for _, path := range r.opt.AssetNames() {
+		if !strings.HasPrefix(path, dir) {
+			continue
+		}
+
+		rel, err := filepath.Rel(dir, path)
+		if err != nil {
+			panic(err)
+		}
+
+		ext := ""
+		if strings.Index(rel, ".") != -1 {
+			ext = "." + strings.Join(strings.Split(rel, ".")[1:], ".")
+		}
+
+		for _, extension := range r.opt.Extensions {
+			if ext == extension {
+
+				buf, err := r.opt.Asset(path)
+				if err != nil {
+					panic(err)
+				}
+
+				name := (rel[0 : len(rel)-len(ext)])
+				tmpl := r.templates.New(filepath.ToSlash(name))
+
+				// Add our funcmaps.
+				for _, funcs := range r.opt.Funcs {
+					tmpl.Funcs(funcs)
+				}
+
+				// Break out if this parsing fails. We don't want any silent server starts.
+				template.Must(tmpl.Funcs(helperFuncs).Parse(string(buf)))
+				break
+			}
+		}
+	}
 }
 
 // Render is the generic function called by XML, JSON, Data, HTML, and can be called by custom implementations.
@@ -205,9 +272,11 @@ func (r *Render) JSON(w http.ResponseWriter, status int, v interface{}) {
 	}
 
 	j := JSON{
-		Head:   head,
-		Indent: r.opt.IndentJSON,
-		Prefix: r.opt.PrefixJSON,
+		Head:          head,
+		Indent:        r.opt.IndentJSON,
+		Prefix:        r.opt.PrefixJSON,
+		UnEscapeHTML:  r.opt.UnEscapeHTML,
+		StreamingJSON: r.opt.StreamingJSON,
 	}
 
 	r.Render(w, j, v)

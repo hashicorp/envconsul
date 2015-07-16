@@ -17,19 +17,17 @@ package oglematchers_test
 
 import (
 	"errors"
-	"testing"
-
 	. "github.com/smartystreets/assertions/internal/oglematchers"
 	. "github.com/smartystreets/assertions/internal/ogletest"
+	"testing"
 )
 
 ////////////////////////////////////////////////////////////////////////
 // Helpers
 ////////////////////////////////////////////////////////////////////////
 
-type PointeeTest struct{}
-
-func init() { RegisterTestSuite(&PointeeTest{}) }
+type PointeeTest struct {}
+func init()                     { RegisterTestSuite(&PointeeTest{}) }
 
 func TestPointee(t *testing.T) { RunTests(t) }
 

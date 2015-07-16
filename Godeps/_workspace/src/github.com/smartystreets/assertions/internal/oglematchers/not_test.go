@@ -17,10 +17,9 @@ package oglematchers_test
 
 import (
 	"errors"
-	"testing"
-
 	. "github.com/smartystreets/assertions/internal/oglematchers"
 	. "github.com/smartystreets/assertions/internal/ogletest"
+	"testing"
 )
 
 ////////////////////////////////////////////////////////////////////////
@@ -41,6 +40,7 @@ func (m *fakeMatcher) Description() string {
 }
 
 type NotTest struct {
+
 }
 
 func init()                     { RegisterTestSuite(&NotTest{}) }

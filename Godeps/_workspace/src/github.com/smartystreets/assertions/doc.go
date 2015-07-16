@@ -24,7 +24,26 @@ func GoConveyMode(yes bool) {
 	}
 }
 
-// So is a convenience function
+type testingT interface {
+	Error(args ...interface{})
+}
+
+type Assertion struct{ t testingT }
+
+func New(t testingT) *Assertion {
+	return &Assertion{t}
+}
+
+func (this *Assertion) So(actual interface{}, assert assertion, expected ...interface{}) bool {
+	if result := so(actual, assert, expected...); len(result) > 0 {
+		this.t.Error("\n" + result)
+		return false
+	} else {
+		return true
+	}
+}
+
+// So is a convenience function (as opposed to an inconvenience function?)
 // for running assertions on arbitrary arguments in any context, be it for testing or even
 // application logging. It allows you to perform assertion-like behavior (and get nicely
 // formatted messages detailing discrepancies) but without the program blowing up or panicking.

@@ -16,13 +16,12 @@
 package oglematchers_test
 
 import (
-	"image/color"
-	"testing"
-
 	. "github.com/smartystreets/assertions/internal/oglematchers"
 	"github.com/smartystreets/assertions/internal/oglemock"
 	. "github.com/smartystreets/assertions/internal/ogletest"
 	"github.com/smartystreets/assertions/internal/ogletest/test_cases/mock_image"
+	"image/color"
+	"testing"
 )
 
 ////////////////////////////////////////////////////////////////////////

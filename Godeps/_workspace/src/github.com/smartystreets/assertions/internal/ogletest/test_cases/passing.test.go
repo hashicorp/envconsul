@@ -16,6 +16,7 @@
 package oglematchers_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -23,19 +24,16 @@ import (
 	. "github.com/smartystreets/assertions/internal/ogletest"
 )
 
+func TestPassingTest(t *testing.T) { RunTests(t) }
+
 ////////////////////////////////////////////////////////////////////////
-// Helpers
+// PassingTest
 ////////////////////////////////////////////////////////////////////////
 
 type PassingTest struct {
 }
 
-func init()                        { RegisterTestSuite(&PassingTest{}) }
-func TestPassingTest(t *testing.T) { RunTests(t) }
-
-////////////////////////////////////////////////////////////////////////
-// Tests
-////////////////////////////////////////////////////////////////////////
+func init() { RegisterTestSuite(&PassingTest{}) }
 
 func (t *PassingTest) EmptyTestMethod() {
 }
@@ -86,4 +84,37 @@ func (t *PassingTest) AssertAliases() {
 
 func (t *PassingTest) SlowTest() {
 	time.Sleep(37 * time.Millisecond)
+}
+
+////////////////////////////////////////////////////////////////////////
+// PassingTestWithHelpers
+////////////////////////////////////////////////////////////////////////
+
+type PassingTestWithHelpers struct {
+}
+
+var _ SetUpTestSuiteInterface = &PassingTestWithHelpers{}
+var _ SetUpInterface = &PassingTestWithHelpers{}
+var _ TearDownInterface = &PassingTestWithHelpers{}
+var _ TearDownTestSuiteInterface = &PassingTestWithHelpers{}
+
+func init() { RegisterTestSuite(&PassingTestWithHelpers{}) }
+
+func (t *PassingTestWithHelpers) SetUpTestSuite() {
+	fmt.Println("SetUpTestSuite ran.")
+}
+
+func (t *PassingTestWithHelpers) SetUp(ti *TestInfo) {
+	fmt.Println("SetUp ran.")
+}
+
+func (t *PassingTestWithHelpers) TearDown() {
+	fmt.Println("TearDown ran.")
+}
+
+func (t *PassingTestWithHelpers) TearDownTestSuite() {
+	fmt.Println("TearDownTestSuite ran.")
+}
+
+func (t *PassingTestWithHelpers) EmptyTestMethod() {
 }

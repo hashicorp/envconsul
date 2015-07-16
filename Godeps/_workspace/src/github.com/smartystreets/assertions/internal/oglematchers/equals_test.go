@@ -17,11 +17,10 @@ package oglematchers_test
 
 import (
 	"fmt"
-	"math"
-	"unsafe"
-
 	. "github.com/smartystreets/assertions/internal/oglematchers"
 	. "github.com/smartystreets/assertions/internal/ogletest"
+	"math"
+	"unsafe"
 )
 
 var someInt int = -17
@@ -45,7 +44,10 @@ type equalsTestCase struct {
 func (t *EqualsTest) checkTestCases(matcher Matcher, cases []equalsTestCase) {
 	for i, c := range cases {
 		err := matcher.Matches(c.candidate)
-		ExpectEq(c.expectedResult, (err == nil), "Result for case %d: %v", i, c)
+		ExpectEq(
+			c.expectedResult,
+			(err == nil),
+			"Result for case %d: %v (Error: %v)", i, c, err)
 
 		if err == nil {
 			continue
@@ -3200,13 +3202,68 @@ func (t *EqualsTest) Complex128WithNonZeroImaginaryPart() {
 }
 
 ////////////////////////////////////////////////////////////////////////
-// array
+// Arrays
 ////////////////////////////////////////////////////////////////////////
 
-func (t *EqualsTest) Array() {
-	var someArray [3]int
-	f := func() { Equals(someArray) }
-	ExpectThat(f, Panics(HasSubstr("unsupported kind array")))
+func (t *EqualsTest) ArrayOfComparableType() {
+	expected := [3]uint{17, 19, 23}
+
+	matcher := Equals(expected)
+	ExpectEq("[17 19 23]", matcher.Description())
+
+	// To defeat constant de-duping by the compiler.
+	makeArray := func(i, j, k uint) [3]uint { return [3]uint{ i, j, k} }
+
+	type arrayAlias [3]uint
+	type uintAlias uint
+
+	cases := []equalsTestCase{
+		// Correct types, equal.
+		equalsTestCase{expected, true, false, ""},
+		equalsTestCase{[3]uint{17, 19, 23}, true, false, ""},
+		equalsTestCase{makeArray(17, 19, 23), true, false, ""},
+
+		// Correct types, not equal.
+		equalsTestCase{[3]uint{0, 0, 0}, false, false, ""},
+		equalsTestCase{[3]uint{18, 19, 23}, false, false, ""},
+		equalsTestCase{[3]uint{17, 20, 23}, false, false, ""},
+		equalsTestCase{[3]uint{17, 19, 22}, false, false, ""},
+
+		// Other types.
+		equalsTestCase{0, false, true, "which is not [3]uint"},
+		equalsTestCase{bool(false), false, true, "which is not [3]uint"},
+		equalsTestCase{int(0), false, true, "which is not [3]uint"},
+		equalsTestCase{int8(0), false, true, "which is not [3]uint"},
+		equalsTestCase{int16(0), false, true, "which is not [3]uint"},
+		equalsTestCase{int32(0), false, true, "which is not [3]uint"},
+		equalsTestCase{int64(0), false, true, "which is not [3]uint"},
+		equalsTestCase{uint(0), false, true, "which is not [3]uint"},
+		equalsTestCase{uint8(0), false, true, "which is not [3]uint"},
+		equalsTestCase{uint16(0), false, true, "which is not [3]uint"},
+		equalsTestCase{uint32(0), false, true, "which is not [3]uint"},
+		equalsTestCase{uint64(0), false, true, "which is not [3]uint"},
+		equalsTestCase{true, false, true, "which is not [3]uint"},
+		equalsTestCase{[...]int{}, false, true, "which is not [3]uint"},
+		equalsTestCase{func() {}, false, true, "which is not [3]uint"},
+		equalsTestCase{map[int]int{}, false, true, "which is not [3]uint"},
+		equalsTestCase{equalsTestCase{}, false, true, "which is not [3]uint"},
+		equalsTestCase{[2]uint{17, 19}, false, true, "which is not [3]uint"},
+		equalsTestCase{[4]uint{17, 19, 23, 0}, false, true, "which is not [3]uint"},
+		equalsTestCase{arrayAlias{17, 19, 23}, false, true, "which is not [3]uint"},
+		equalsTestCase{[3]uintAlias{17, 19, 23}, false, true, "which is not [3]uint"},
+		equalsTestCase{[3]int32{17, 19, 23}, false, true, "which is not [3]uint"},
+	}
+
+	t.checkTestCases(matcher, cases)
+}
+
+func (t *EqualsTest) ArrayOfNonComparableType() {
+	type nonComparableArray [2]map[string]string
+	f := func() {
+		ExpectEq(nonComparableArray{}, nonComparableArray{})
+	}
+
+	ExpectThat(f, Panics(MatchesRegexp("uncomparable.*nonComparableArray")))
 }
 
 ////////////////////////////////////////////////////////////////////////

@@ -18,10 +18,9 @@ package oglemock
 import (
 	"errors"
 	"fmt"
+	"github.com/smartystreets/assertions/internal/oglematchers"
 	"reflect"
 	"sync"
-
-	"github.com/smartystreets/assertions/internal/oglematchers"
 )
 
 // InternalExpectation is exported for purposes of testing only. You should not

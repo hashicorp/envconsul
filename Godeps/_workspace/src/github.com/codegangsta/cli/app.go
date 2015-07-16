@@ -5,10 +5,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"os/signal"
-	"strings"
-	"text/tabwriter"
-	"text/template"
 	"time"
 )
 
@@ -41,8 +37,6 @@ type App struct {
 	After func(context *Context) error
 	// The action to execute when no subcommands are specified
 	Action func(context *Context)
-	// A function to run when shutdown signals are received
-	Shutdown func(context *Context)
 	// Execute this function if the proper command cannot be found
 	CommandNotFound func(context *Context, command string)
 	// Compilation date
@@ -84,26 +78,6 @@ func NewApp() *App {
 func (a *App) Run(arguments []string) (err error) {
 	if a.Author != "" || a.Email != "" {
 		a.Authors = append(a.Authors, Author{Name: a.Author, Email: a.Email})
-	}
-
-	if HelpPrinter == nil {
-		defer func() {
-			HelpPrinter = nil
-		}()
-
-		HelpPrinter = func(templ string, data interface{}) {
-			funcMap := template.FuncMap{
-				"join": strings.Join,
-			}
-
-			w := tabwriter.NewWriter(a.Writer, 0, 8, 1, '\t', 0)
-			t := template.Must(template.New("help").Funcs(funcMap).Parse(templ))
-			err := t.Execute(w, data)
-			if err != nil {
-				panic(err)
-			}
-			w.Flush()
-		}
 	}
 
 	// append help to commands
@@ -170,10 +144,6 @@ func (a *App) Run(arguments []string) (err error) {
 		if err != nil {
 			return err
 		}
-	}
-
-	if a.Shutdown != nil {
-		go watchForShutdown(a.Shutdown, context)
 	}
 
 	args := context.Args()
@@ -325,11 +295,4 @@ func (a Author) String() string {
 	}
 
 	return fmt.Sprintf("%v %v", a.Name, e)
-}
-
-func watchForShutdown(f func(*Context), context *Context) {
-	c := make(chan os.Signal, 2)
-	signal.Notify(c)
-	<-c
-	f(context)
 }

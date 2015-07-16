@@ -1,4 +1,4 @@
-# Render [![GoDoc](http://godoc.org/github.com/unrolled/render?status.svg)](http://godoc.org/github.com/unrolled/render)
+# Render [![GoDoc](http://godoc.org/github.com/unrolled/render?status.svg)](http://godoc.org/github.com/unrolled/render) [![Build Status](https://travis-ci.org/unrolled/render.svg)](https://travis-ci.org/unrolled/render)
 
 Render is a package that provides functionality for easily rendering JSON, XML, binary data, and HTML templates. This package is based on the [Martini](https://github.com/go-martini/martini) [render](https://github.com/martini-contrib/render) work.
 
@@ -73,6 +73,12 @@ Render comes with a variety of configuration options _(Note: these are not the d
 // ...
 r := render.New(render.Options{
     Directory: "templates", // Specify what path to load the templates from.
+    Asset: func(name string) ([]byte, error) { // Load from an Asset function instead of file.
+      return []byte("template content"), nil
+    },
+    AssetNames: func() []string { // Return a list of asset names for the Asset function
+      return []string{"filename.tmpl"}
+    },
     Layout: "layout", // Specify a layout template. Layouts can call {{ yield }} to render the current template.
     Extensions: []string{".tmpl", ".html"}, // Specify extensions to load for templates.
     Funcs: []template.FuncMap{AppHelpers}, // Specify helper function maps for templates to access.
@@ -84,6 +90,8 @@ r := render.New(render.Options{
     PrefixXML: []byte("<?xml version='1.0' encoding='UTF-8'?>"), // Prefixes XML responses with the given bytes.
     HTMLContentType: "application/xhtml+xml", // Output XHTML content type instead of default "text/html".
     IsDevelopment: true, // Render will now recompile the templates on every HTML response.
+    UnEscapeHTML: true, // Replace ensure '&<>' are output correctly (JSON only).
+    StreamingJSON: true, // Streams the JSON response via json.Encoder.
 })
 // ...
 ~~~
@@ -98,6 +106,8 @@ r := render.New()
 
 r := render.New(render.Options{
     Directory: "templates",
+    Asset: nil,
+    AssetNames: nil,
     Layout: "",
     Extensions: []string{".tmpl"},
     Funcs: []template.FuncMap{},
@@ -109,8 +119,15 @@ r := render.New(render.Options{
     PrefixXML: []byte(""),
     HTMLContentType: "text/html",
     IsDevelopment: false,
+    UnEscapeHTML: false,
+    StreamingJSON: false,
 })
 ~~~
+
+### JSON vs Streaming JSON
+By default, Render does **not** stream JSON to the `http.ResponseWriter`. It instead marshalls your object into a byte array, and if no errors occurred, writes that byte array to the `http.ResponseWriter`. This is ideal as you can catch errors before sending any data.
+
+If however you have the need to stream your JSON response (ie: dealing with massive objects), you can set the `StreamingJSON` option to true. This will use the `json.Encoder` to stream the output to the `http.ResponseWriter`. If an error occurs, you will receive the error in your code, but the response will have already been sent. Also note that streaming is only implemented in `render.JSON` and not `render.JSONP`, and the `UnEscapeHTML` and `Indent` options are ignored when streaming.
 
 ### Loading Templates
 By default Render will attempt to load templates with a '.tmpl' extension from the "templates" directory. Templates are found by traversing the templates directory and are named by path and basename. For instance, the following directory structure:
@@ -133,6 +150,9 @@ admin/index
 admin/edit
 home
 ~~~
+
+You can also load templates from memory by providing the Asset and AssetNames options,
+e.g. when generating an asset file using [go-bindata](https://github.com/jteeuwen/go-bindata).
 
 ### Layouts
 Render provides a `yield` function for layouts to access:
@@ -272,6 +292,34 @@ func main() {
 ~~~
 
 ## Integration Examples
+
+### [Echo](https://github.com/labstack/echo)
+~~~ go
+// main.go
+package main
+
+import (
+	"net/http"
+
+	"github.com/labstack/echo"
+	"github.com/unrolled/render" // or "gopkg.in/unrolled/render.v1"
+)
+
+func main() {
+	r := render.New(render.Options{
+		IndentJSON: true,
+	})
+
+	e := echo.New()
+
+	// Routes
+	e.Get("/", func(c *echo.Context) {
+		r.JSON(c.Response, http.StatusOK, map[string]string{"welcome": "This is rendered JSON!"})
+	})
+
+	e.Run(":3000")
+}
+~~~
 
 ### [Gin](https://github.com/gin-gonic/gin)
 ~~~ go

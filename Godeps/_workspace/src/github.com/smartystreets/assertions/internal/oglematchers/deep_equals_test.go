@@ -16,19 +16,17 @@
 package oglematchers_test
 
 import (
-	"bytes"
-	"testing"
-
 	. "github.com/smartystreets/assertions/internal/oglematchers"
 	. "github.com/smartystreets/assertions/internal/ogletest"
+	"bytes"
+	"testing"
 )
 
 ////////////////////////////////////////////////////////////////////////
 // Helpers
 ////////////////////////////////////////////////////////////////////////
 
-type DeepEqualsTest struct{}
-
+type DeepEqualsTest struct {}
 func init() { RegisterTestSuite(&DeepEqualsTest{}) }
 
 ////////////////////////////////////////////////////////////////////////

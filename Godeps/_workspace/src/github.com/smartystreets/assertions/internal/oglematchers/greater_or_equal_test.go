@@ -16,10 +16,9 @@
 package oglematchers_test
 
 import (
-	"math"
-
 	. "github.com/smartystreets/assertions/internal/oglematchers"
 	. "github.com/smartystreets/assertions/internal/ogletest"
+	"math"
 )
 
 ////////////////////////////////////////////////////////////////////////

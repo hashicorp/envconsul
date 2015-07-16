@@ -27,7 +27,7 @@ import (
 type ElementsAreTest struct {
 }
 
-func init() { RegisterTestSuite(&ElementsAreTest{}) }
+func init()                     { RegisterTestSuite(&ElementsAreTest{}) }
 
 ////////////////////////////////////////////////////////////////////////
 // Tests

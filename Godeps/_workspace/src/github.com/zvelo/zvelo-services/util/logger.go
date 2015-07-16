@@ -43,15 +43,13 @@ func InitLogger(minLevel string) {
 
 		log.SetFlags(0)
 		log.SetOutput(logFilter)
+		log.Printf("[INFO] log level set to %s", minLevel)
 	})
-	// For when InitLogger is called twice.
-	ChangeLogLevel(minLevel)
 }
 
 // ChangeLogLevel updates the minimum log level
 func ChangeLogLevel(minLevel string) {
-	logFilter.(*logutils.LevelFilter).SetMinLevel(logutils.LogLevel(minLevel))
-	log.Printf("[INFO] log level set to %s", minLevel)
+	logFilter.(*logutils.LevelFilter).MinLevel = logutils.LogLevel(minLevel)
 }
 
 // InitLoggerCli should be called once at the start of each application to enable

@@ -24,8 +24,9 @@ import (
 
 // Equals(x) returns a matcher that matches values v such that v and x are
 // equivalent. This includes the case when the comparison v == x using Go's
-// built-in comparison operator is legal, but for convenience the following
-// rules also apply:
+// built-in comparison operator is legal (except for structs, which this
+// matcher does not support), but for convenience the following rules also
+// apply:
 //
 //  *  Type checking is done based on underlying types rather than actual
 //     types, so that e.g. two aliases for string can be compared:
@@ -49,11 +50,16 @@ import (
 //
 // If you want a stricter matcher that contains no such cleverness, see
 // IdenticalTo instead.
+//
+// Arrays are supported by this matcher, but do not participate in the
+// exceptions above. Two arrays compared with this matcher must have identical
+// types, and their element type must itself be comparable according to Go's ==
+// operator.
 func Equals(x interface{}) Matcher {
 	v := reflect.ValueOf(x)
 
-	// The == operator is not defined for array or struct types.
-	if v.Kind() == reflect.Array || v.Kind() == reflect.Struct {
+	// This matcher doesn't support structs.
+	if v.Kind() == reflect.Struct {
 		panic(fmt.Sprintf("oglematchers.Equals: unsupported kind %v", v.Kind()))
 	}
 
@@ -417,6 +423,25 @@ func checkAgainstString(e reflect.Value, c reflect.Value) (err error) {
 	return
 }
 
+func checkAgainstArray(e reflect.Value, c reflect.Value) (err error) {
+	// Create a description of e's type, e.g. "[2]int".
+	typeStr := fmt.Sprintf("%v", e.Type())
+
+	// Make sure c is the correct type.
+	if c.Type() != e.Type() {
+		err = NewFatalError(fmt.Sprintf("which is not %s", typeStr))
+		return
+	}
+
+	// Check for equality.
+	if e.Interface() != c.Interface() {
+		err = errors.New("")
+		return
+	}
+
+	return
+}
+
 func checkAgainstUnsafePointer(e reflect.Value, c reflect.Value) (err error) {
 	// Make sure c is a pointer.
 	if c.Kind() != reflect.UnsafePointer {
@@ -508,6 +533,9 @@ func (m *equalsMatcher) Matches(candidate interface{}) error {
 
 	case ek == reflect.String:
 		return checkAgainstString(e, c)
+
+	case ek == reflect.Array:
+		return checkAgainstArray(e, c)
 
 	case ek == reflect.UnsafePointer:
 		return checkAgainstUnsafePointer(e, c)
