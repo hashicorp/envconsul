@@ -184,21 +184,37 @@ func Set(service string) error {
 	return nil
 }
 
+func addData(data map[string]interface{}, arrays map[string][]string, key, value string) {
+	data[key] = value
+	arrays[key] = []string{}
+	for _, val := range strings.Split(value, ",") {
+		val = strings.TrimSpace(val)
+		if len(val) > 0 {
+			arrays[key] = append(arrays[key], val)
+		}
+	}
+}
+
 func processTemplates(keyPairs KeyPairs, tplFiles []string) {
 	const ext = ".tmpl"
 
 	data := map[string]interface{}{}
 	arrays := map[string][]string{}
 	for key, value := range keyPairs {
-		data[key] = value
-		arrays[key] = []string{}
-		for _, val := range strings.Split(value, ",") {
-			val = strings.TrimSpace(val)
-			if len(val) > 0 {
-				arrays[key] = append(arrays[key], val)
-			}
-		}
+		addData(data, arrays, key, value)
 	}
+
+	for _, v := range os.Environ() {
+		i := strings.Index(v, "=")
+		if i == -1 || len(v) <= i+1 {
+			continue
+		}
+		key := v[:i]
+		value := v[i+1:]
+		fmt.Println("adding env", key, value)
+		addData(data, arrays, key, value)
+	}
+
 	data["ARRAY"] = arrays
 
 	for _, tplFile := range tplFiles {
