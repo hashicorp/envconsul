@@ -6,6 +6,8 @@ import (
 	"github.com/codegangsta/cli"
 	"github.com/zvelo/envetcd"
 	"github.com/zvelo/zvelo-services/util"
+	"github.com/zvelo/zvelo-services/zenv"
+	"github.com/zvelo/zvelo-services/zlog"
 )
 
 const (
@@ -34,7 +36,7 @@ func init() {
 	app.Authors = []cli.Author{
 		{Name: "Joshua Rubin", Email: "jrubin@zvelo.com"},
 	}
-	app.Flags = append(util.EtcdFlags, []cli.Flag{
+	app.Flags = append(append(append(zlog.Flags, zenv.Flag), util.EtcdFlags...), []cli.Flag{
 		cli.StringFlag{
 			Name:   "hostname",
 			EnvVar: "HOSTNAME",
@@ -57,7 +59,6 @@ func init() {
 			Value:  "/config",
 			Usage:  "etcd prefix for all keys",
 		},
-		util.LogLevelFlag,
 		cli.StringFlag{
 			Name:   "write-env, w",
 			EnvVar: "ENVETCD_WRITE_ENV",
@@ -98,7 +99,7 @@ func init() {
 }
 
 func setup(c *cli.Context) error {
-	util.InitLogger(c.GlobalString("log-level"))
+	zlog.Init(c, zenv.Init(c))
 
 	config = configT{
 		EnvEtcd: &envetcd.Config{

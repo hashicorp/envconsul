@@ -16,8 +16,6 @@ var (
 )
 
 func init() {
-	util.InitLogger("WARN")
-
 	// $ETCD_ENDPOINT should look like "http://127.0.0.1:4001"
 
 	config = &Config{

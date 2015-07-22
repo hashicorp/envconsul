@@ -4,9 +4,9 @@ import (
 	"os"
 	"testing"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/coreos/etcd/pkg/transport"
 	"github.com/coreos/go-etcd/etcd"
-
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -15,7 +15,7 @@ var (
 )
 
 func init() {
-	InitLogger("WARN")
+	log.SetLevel(log.ErrorLevel)
 
 	// $ETCD_ENDPOINT should look like "http://127.0.0.1:4001"
 

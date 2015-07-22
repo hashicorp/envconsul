@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strings"
+
+	log "github.com/Sirupsen/logrus"
 
 	"github.com/codegangsta/cli"
 	"github.com/zvelo/envetcd"
@@ -28,7 +29,7 @@ const (
 func run(c *cli.Context) {
 	args := c.Args()
 	if len(config.WriteEnv) > 0 && len(args) > 0 {
-		log.Println("[WARN] command not executed when --write-env is used")
+		log.Warnln("command not executed when --write-env is used")
 	} else if len(config.WriteEnv) == 0 && len(args) < 1 {
 		err := fmt.Errorf("cli: missing command")
 		cli.ShowAppHelp(c)
@@ -38,7 +39,7 @@ func run(c *cli.Context) {
 
 	exitCode, err := start(args[0:]...)
 	if err != nil {
-		log.Printf("[ERR] %s", err.Error())
+		log.Errorf("%s", err.Error())
 	}
 
 	os.Exit(exitCode)
@@ -65,13 +66,13 @@ func writeEnvFile() (int, error) {
 }
 
 func start(command ...string) (int, error) {
-	log.Printf("[DEBUG] (cli) getting data from etcd")
+	log.Debugf("(cli) getting data from etcd")
 
 	if len(config.WriteEnv) > 0 {
 		return writeEnvFile()
 	}
 
-	log.Printf("[DEBUG] (cli) creating Runner")
+	log.Debugf("(cli) creating Runner")
 	runner, err := newRunner(command...)
 	if err != nil {
 		return exitCodeParseFlagsError, err
@@ -82,7 +83,7 @@ func start(command ...string) (int, error) {
 		return exitCodeEnvEtcdError, err
 	}
 
-	log.Printf("[INFO] (cli) invoking Runner")
+	log.Infof("(cli) invoking Runner")
 	if err := runner.run(); err != nil {
 		return exitCodeRunnerError, err
 	}
@@ -90,7 +91,7 @@ func start(command ...string) (int, error) {
 	for {
 		select {
 		case exitCode := <-runner.exitCh:
-			log.Printf("[INFO] (cli) subprocess exited")
+			log.Infof("(cli) subprocess exited")
 
 			if exitCode == exitCodeOK {
 				return exitCodeOK, nil
