@@ -3,7 +3,6 @@ package envetcd
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"path/filepath"
@@ -13,8 +12,11 @@ import (
 	"strings"
 	"text/template"
 
+	log "github.com/Sirupsen/logrus"
+
 	"github.com/coreos/go-etcd/etcd"
 	"github.com/zvelo/zvelo-services/util"
+	"github.com/zvelo/zvelo-services/zlog"
 )
 
 // order of precedence:
@@ -53,7 +55,7 @@ type KeyPairs map[string]string
 
 func init() {
 	if ip, err := util.DefaultRoute(); err != nil {
-		log.Printf("[INFO] envetcd error getting default gateway: %v\n", err)
+		log.Infof("envetcd error getting default gateway: %v\n", err)
 	} else {
 		gatewayIP = &ip
 	}
@@ -85,7 +87,7 @@ func getEnvBool(key string, dflt bool) bool {
 
 	ret, err := strconv.ParseBool(val)
 	if err != nil {
-		log.Printf("[WARN] error parsing environment bool ($%s): %s", key, err)
+		log.Warnf("error parsing environment bool ($%s): %s", key, err)
 		return dflt
 	}
 
@@ -106,7 +108,7 @@ func initLogger() {
 		logLevel = val
 	}
 
-	util.InitLogger(logLevel)
+	zlog.ChangeLogLevel(logLevel)
 }
 
 // Set modifies the current environment with variables retrieved from etcd. Set
@@ -127,7 +129,7 @@ func initLogger() {
 // variables or command line flags.
 func Set(service string) error {
 	if setRun {
-		log.Println("[DEBUG] envetcd.Set was already run.")
+		log.Debugln("envetcd.Set was already run.")
 		return nil
 	}
 	setRun = true
@@ -144,7 +146,7 @@ func Set(service string) error {
 	}
 
 	if len(peers) == 0 {
-		log.Println("[INFO] envetcd.Set returned after it could not determine the etcd endpoint")
+		log.Infoln("envetcd.Set returned after it could not determine the etcd endpoint")
 		return nil
 	}
 
@@ -172,7 +174,7 @@ func Set(service string) error {
 	}
 
 	etcdPeers := strings.Join(peers, ", ")
-	log.Printf("[DEBUG] envetcd: %v => %v\n", "ETCD_PEERS", etcdPeers)
+	log.Debugf("envetcd: %v => %v\n", "ETCD_PEERS", etcdPeers)
 	keyPairs["ETCD_PEERS"] = etcdPeers
 
 	for key, value := range keyPairs {
@@ -223,24 +225,24 @@ func processTemplates(keyPairs KeyPairs, tplFiles []string) {
 
 		tpl, err := template.ParseFiles(tplFile)
 		if err != nil {
-			log.Printf("[WARN] error parsing template (%s): %s", tplFile, err)
+			log.Warnf("error parsing template (%s): %s", tplFile, err)
 			continue
 		}
 
 		fName := tplFile[0 : len(tplFile)-len(ext)]
 		f, err := os.Create(fName)
 		if err != nil {
-			log.Printf("[WARN] error creating file (%s): %s", fName, err)
+			log.Warnf("error creating file (%s): %s", fName, err)
 			continue
 		}
 		defer f.Close()
 
 		if err := tpl.Execute(f, data); err != nil {
-			log.Printf("[WARN] error writing file (%s): %s", fName, err)
+			log.Warnf("error writing file (%s): %s", fName, err)
 			continue
 		}
 
-		log.Printf("[INFO] wrote file %s", fName)
+		log.Infof("wrote file %s", fName)
 	}
 }
 
@@ -313,11 +315,11 @@ func GetKeyPairs(config *Config) (KeyPairs, error) {
 	sort.Strings(keys)
 
 	if len(os.Getenv("LOG_LEVEL")) == 0 {
-		util.InitLogger(keyPairs["LOG_LEVEL"])
+		zlog.ChangeLogLevel(keyPairs["LOG_LEVEL"])
 	}
 
 	for _, key := range keys {
-		log.Printf("[DEBUG] envetcd: %v => %v\n", key, keyPairs[key])
+		log.Debugf("envetcd: %v => %v\n", key, keyPairs[key])
 	}
 
 	processTemplates(keyPairs, config.TemplateFiles)
