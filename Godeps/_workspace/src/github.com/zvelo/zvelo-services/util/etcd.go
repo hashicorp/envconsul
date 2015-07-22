@@ -3,10 +3,10 @@ package util
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net/url"
 	"strings"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
 	"github.com/coreos/etcd/pkg/transport"
 	"github.com/coreos/go-etcd/etcd"
@@ -77,7 +77,7 @@ func NewEtcdConfig(c *cli.Context) *EtcdConfig {
 		if ret.UseDefaultGateway {
 			ip, err := DefaultRoute()
 			if err != nil {
-				log.Printf("[INFO] etcd error getting default gateway: %v\n", err)
+				log.Infof("etcd error getting default gateway: %v\n", err)
 			} else {
 				ret.Peers = []string{fmt.Sprintf("http://%s:4001", ip.String())}
 			}
@@ -137,12 +137,12 @@ func GetEtcdClient(c *EtcdConfig) (*etcd.Client, error) {
 
 	// Perform an initial cluster sync unless configured not to
 	if c.Sync {
-		log.Printf("[DEBUG] (etcd) synchronizing cluster")
+		log.Debugf("(etcd) synchronizing cluster")
 		if ok := client.SyncCluster(); !ok {
 			return nil, errors.New("[ERR] cannot sync with the cluster using endpoints \"" + strings.Join(c.Peers, "\", \"") + "\"")
 		}
 	}
 
-	log.Printf("[DEBUG] (etcd) Cluster-Endpoints: %s\n", strings.Join(client.GetCluster(), ", "))
+	log.Debugf("(etcd) Cluster-Endpoints: %s\n", strings.Join(client.GetCluster(), ", "))
 	return client, nil
 }
