@@ -6,6 +6,15 @@
 	],
 	"Deps": [
 		{
+			"ImportPath": "github.com/Sirupsen/logrus",
+			"Comment": "v0.8.3-3-g07d998d",
+			"Rev": "07d998d174c4e2dc90e2f1989a20724220bca1ff"
+		},
+		{
+			"ImportPath": "github.com/afex/hystrix-go/hystrix",
+			"Rev": "6656046bf35de1147db8314d906fc10cac81f135"
+		},
+		{
 			"ImportPath": "github.com/codegangsta/cli",
 			"Comment": "1.2.0-107-g942282e",
 			"Rev": "942282e931e8286aa802a30b01fa7e16befb50f3"
@@ -25,10 +34,6 @@
 			"Rev": "ab974be44dc3b7b8a1fb306fb32fe9b9f3864b3d"
 		},
 		{
-			"ImportPath": "github.com/hashicorp/logutils",
-			"Rev": "367a65d59043b4f846d179341d138f01f988c186"
-		},
-		{
 			"ImportPath": "github.com/jtolds/gls",
 			"Rev": "9a4a02dbe491bef4bab3c24fd9f3087d6c4c6690"
 		},
@@ -43,11 +48,23 @@
 			"Rev": "68c22200a00354e2a63e1a0ade46eadd20e00333"
 		},
 		{
+			"ImportPath": "github.com/ugorji/go/codec",
+			"Rev": "03e33114d4d60a1f37150325e15f51b0fa6fc4f6"
+		},
+		{
 			"ImportPath": "github.com/unrolled/render",
 			"Rev": "20811297fc3c80743d1aad450c983c6df08ae436"
 		},
 		{
 			"ImportPath": "github.com/zvelo/zvelo-services/util",
+			"Rev": "730eb0561494a13028fb8692f440113899ac385d"
+		},
+		{
+			"ImportPath": "github.com/zvelo/zvelo-services/zenv",
+			"Rev": "730eb0561494a13028fb8692f440113899ac385d"
+		},
+		{
+			"ImportPath": "github.com/zvelo/zvelo-services/zlog",
 			"Rev": "730eb0561494a13028fb8692f440113899ac385d"
 		}
 	]
