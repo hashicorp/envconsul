@@ -16,9 +16,9 @@ var Signals = []os.Signal{
 	syscall.SIGUSR2, // User-defined signal 2
 }
 
-var SignalLookup = map[string]os.Signal {
-	"SIGHUP": syscall.SIGHUP,
-	"SIGINT": syscall.SIGINT,
+var SignalLookup = map[string]os.Signal{
+	"SIGHUP":  syscall.SIGHUP,
+	"SIGINT":  syscall.SIGINT,
 	"SIGQUIT": syscall.SIGQUIT,
 	"SIGTERM": syscall.SIGTERM,
 	"SIGUSR1": syscall.SIGUSR1,

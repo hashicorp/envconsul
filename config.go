@@ -69,9 +69,9 @@ type Config struct {
 	// LogLevel is the level with which to log for this config.
 	LogLevel string `mapstructure:"log_level"`
 
-    // Pristine indicates that we want a clean environment only 
-    // composed of consul config variables, not inheriting from exising
-    // environment
+	// Pristine indicates that we want a clean environment only
+	// composed of consul config variables, not inheriting from exising
+	// environment
 	Pristine bool `json:"pristine" mapstructure:"pristine"`
 
 	// setKeys is the list of config keys that were set by the user.
@@ -422,7 +422,7 @@ func DefaultConfig() *Config {
 		Wait:       &watch.Wait{},
 		LogLevel:   logLevel,
 		KillSignal: "SIGTERM",
-        Pristine: false,
+		Pristine:   false,
 		setKeys:    make(map[string]struct{}),
 	}
 
