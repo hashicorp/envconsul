@@ -299,6 +299,12 @@ func (cli *CLI) parseFlags(args []string) (*Config, []string, bool, bool, error)
 		return nil
 	}), "log-level", "")
 
+	flags.Var((funcBoolVar)(func(b bool) error {
+		config.Pristine = b
+		config.set("pristine")
+		return nil
+	}), "pristine", "")
+
 	flags.BoolVar(&once, "once", false, "")
 	flags.BoolVar(&version, "v", false, "")
 	flags.BoolVar(&version, "version", false, "")
@@ -359,6 +365,9 @@ Options:
 
   -log-level=<level>       Set the logging level - valid values are "debug",
                            "info", "warn" (default), and "err"
+
+  -pristine                Only use variables retrieved from consul, do not inherit
+                           existing environment variables
 
   -once                    Do not run the process as a daemon
   -version                 Print the version of this daemon

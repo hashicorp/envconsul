@@ -452,6 +452,24 @@ func TestParseFlags_version(t *testing.T) {
 	}
 }
 
+func TestParseFlags_pristine(t *testing.T) {
+	cli := NewCLI(ioutil.Discard, ioutil.Discard)
+	config, _, _, _, err := cli.parseFlags([]string{
+		"-pristine",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := true
+	if config.Pristine != expected {
+		t.Errorf("expected %v to be %v", config.Pristine, expected)
+	}
+	if !config.WasSet("pristine") {
+		t.Errorf("expected pristine to be set")
+	}
+}
+
 func TestParseFlags_v(t *testing.T) {
 	cli := NewCLI(ioutil.Discard, ioutil.Discard)
 	_, _, _, version, err := cli.parseFlags([]string{

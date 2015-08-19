@@ -181,6 +181,51 @@ func TestRun_upcase(t *testing.T) {
 	}
 }
 
+func TestRun_pristine(t *testing.T) {
+	prefix, err := dep.ParseStoreKeyPrefix("foo/bar")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	config := testConfig(`
+        pristine = true
+		prefixes = ["foo/bar"]
+	`, t)
+
+	runner, err := NewRunner(config, []string{"env"}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
+	runner.outStream, runner.errStream = outStream, errStream
+
+	pair := []*dep.KeyPair{
+		&dep.KeyPair{
+			Path:  "foo/bar",
+			Key:   "bar",
+			Value: "baz",
+		},
+	}
+
+	runner.Receive(prefix, pair)
+
+	exitCh, err := runner.Run()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case err := <-runner.ErrCh:
+		t.Fatal(err)
+	case <-exitCh:
+		notExpected := "HOME="
+		if strings.Contains(outStream.String(), notExpected) {
+			t.Fatalf("did not expect %q to include %q", outStream.String(), notExpected)
+		}
+	}
+}
+
 func TestRun_exitCh(t *testing.T) {
 	prefix, err := dep.ParseStoreKeyPrefix("foo/bar")
 	if err != nil {
