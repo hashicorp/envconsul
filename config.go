@@ -69,6 +69,11 @@ type Config struct {
 	// LogLevel is the level with which to log for this config.
 	LogLevel string `mapstructure:"log_level"`
 
+    // Pristine indicates that we want a clean environment only 
+    // composed of consul config variables, not inheriting from exising
+    // environment
+	Pristine bool `json:"pristine" mapstructure:"pristine"`
+
 	// setKeys is the list of config keys that were set by the user.
 	setKeys map[string]struct{}
 }
@@ -181,6 +186,10 @@ func (c *Config) Merge(config *Config) {
 
 	if config.WasSet("kill_signal") {
 		c.KillSignal = config.KillSignal
+	}
+
+	if config.WasSet("pristine") {
+		c.Pristine = config.Pristine
 	}
 
 	if c.setKeys == nil {
@@ -413,6 +422,7 @@ func DefaultConfig() *Config {
 		Wait:       &watch.Wait{},
 		LogLevel:   logLevel,
 		KillSignal: "SIGTERM",
+        Pristine: false,
 		setKeys:    make(map[string]struct{}),
 	}
 
