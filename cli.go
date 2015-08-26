@@ -30,6 +30,12 @@ const (
 	ExitCodeParseFlagsError
 	ExitCodeRunnerError
 	ExitCodeConfigError
+	ExitCodeUsageError
+)
+
+var (
+	// Error returned when no command is specified.
+	ErrMissingCommand = fmt.Errorf("No command given")
 )
 
 /// ------------------------- ///
@@ -62,6 +68,11 @@ func (cli *CLI) Run(args []string) int {
 	config, command, once, version, err := cli.parseFlags(args[1:])
 	if err != nil {
 		return cli.handleError(err, ExitCodeParseFlagsError)
+	}
+
+	// Return an error if no command was given
+	if len(command) == 0 {
+		return cli.handleError(ErrMissingCommand, ExitCodeUsageError)
 	}
 
 	// If a path was given, load the config from file
@@ -320,12 +331,12 @@ func (cli *CLI) parseFlags(args []string) (*Config, []string, bool, bool, error)
 // handleError outputs the given error's Error() to the errStream and returns
 // the given exit status.
 func (cli *CLI) handleError(err error, status int) int {
-	log.Printf("[ERR] %s", err.Error())
+	cli.errStream.Write([]byte(err.Error() + "\n"))
 	return status
 }
 
 const usage = `
-Usage: %s [options]
+Usage: %s [options] <command>
 
   Watches values from Consul's K/V store and sets environment variables when
   Consul values are changed.

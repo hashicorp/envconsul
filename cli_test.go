@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"io/ioutil"
 	"reflect"
 	"strings"
@@ -492,5 +493,21 @@ func TestParseFlags_errors(t *testing.T) {
 
 	if err == nil {
 		t.Fatal("expected error, but nothing was returned")
+	}
+}
+
+func TestRun_errors(t *testing.T) {
+	buf := new(bytes.Buffer)
+
+	// Returns the right exit code if no command is given
+	cli := NewCLI(ioutil.Discard, buf)
+	if code := cli.Run([]string{"envconsul"}); code != ExitCodeUsageError {
+		t.Fatalf("expected %d, got: %d", ExitCodeUsageError, code)
+	}
+
+	// Output reflects the returned error
+	out := buf.String()
+	if !strings.Contains(out, ErrMissingCommand.Error()) {
+		t.Fatalf("expected to find %q, got: %q", ErrMissingCommand.Error(), out)
 	}
 }
