@@ -510,4 +510,9 @@ func TestRun_errors(t *testing.T) {
 	if !strings.Contains(out, ErrMissingCommand.Error()) {
 		t.Fatalf("expected to find %q, got: %q", ErrMissingCommand.Error(), out)
 	}
+
+	// Version flag still works
+	if code := cli.Run([]string{"envconsul", "-v"}); code != 0 {
+		t.Fatalf("version command exited %d", code)
+	}
 }

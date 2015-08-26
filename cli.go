@@ -70,11 +70,6 @@ func (cli *CLI) Run(args []string) int {
 		return cli.handleError(err, ExitCodeParseFlagsError)
 	}
 
-	// Return an error if no command was given
-	if len(command) == 0 {
-		return cli.handleError(ErrMissingCommand, ExitCodeUsageError)
-	}
-
 	// If a path was given, load the config from file
 	if config.Path != "" {
 		newConfig, err := ConfigFromPath(config.Path)
@@ -96,6 +91,11 @@ func (cli *CLI) Run(args []string) int {
 		Writer:         cli.errStream,
 	}); err != nil {
 		return cli.handleError(err, ExitCodeLoggingError)
+	}
+
+	// Return an error if no command was given
+	if len(command) == 0 && !version {
+		return cli.handleError(ErrMissingCommand, ExitCodeUsageError)
 	}
 
 	// Print version information for debugging
@@ -331,7 +331,7 @@ func (cli *CLI) parseFlags(args []string) (*Config, []string, bool, bool, error)
 // handleError outputs the given error's Error() to the errStream and returns
 // the given exit status.
 func (cli *CLI) handleError(err error, status int) int {
-	cli.errStream.Write([]byte(err.Error() + "\n"))
+	log.Printf("[ERR] %s", err.Error())
 	return status
 }
 
