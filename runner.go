@@ -264,8 +264,10 @@ func (r *Runner) Run() (<-chan int, error) {
 
 	// Create a new environment
 	var cmdEnv []string
-	
-	if ! r.config.Pristine {
+
+	if r.config.Pristine {
+		cmdEnv = make([]string, len(r.env), len(r.env))
+	} else {
 		processEnv := os.Environ()
 		cmdEnv = make([]string, len(processEnv), len(r.env)+len(processEnv))
 		copy(cmdEnv, processEnv)
