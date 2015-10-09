@@ -35,10 +35,6 @@ func TestNewRunner(t *testing.T) {
 		t.Error("expected once to be true")
 	}
 
-	if runner.client == nil {
-		t.Error("expected client to exist")
-	}
-
 	if runner.watcher == nil {
 		t.Error("expected watcher to exist")
 	}
