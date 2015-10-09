@@ -119,7 +119,19 @@ retry = "10s"
 sanitize = true
 kill_signal = "SIGHUP"
 
-prefixes = ["config/global", "config/redis"]
+prefix {
+  path = "config/global"
+}
+
+prefix {
+  path   = "secret/creds"
+  source = "vault"
+}
+
+prefix {
+  path   = "config/redis"
+  source = "consul" // default
+}
 
 auth {
   enabled = true

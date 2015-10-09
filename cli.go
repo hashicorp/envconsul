@@ -12,7 +12,6 @@ import (
 	"syscall"
 	"time"
 
-	dep "github.com/hashicorp/consul-template/dependency"
 	"github.com/hashicorp/consul-template/logging"
 	"github.com/hashicorp/consul-template/watch"
 )
@@ -193,16 +192,27 @@ func (cli *CLI) parseFlags(args []string) (*Config, []string, bool, bool, error)
 
 	flags.Var((funcVar)(func(s string) error {
 		s = strings.TrimPrefix(s, "/")
-		p, err := dep.ParseStoreKeyPrefix(s)
-		if err != nil {
-			return err
-		}
 		if config.Prefixes == nil {
-			config.Prefixes = make([]*dep.StoreKeyPrefix, 0, 1)
+			config.Prefixes = make([]*Prefix, 0, 1)
 		}
-		config.Prefixes = append(config.Prefixes, p)
+		config.Prefixes = append(config.Prefixes, &Prefix{
+			Path:   s,
+			Source: PrefixSourceConsul,
+		})
 		return nil
 	}), "prefix", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		s = strings.TrimPrefix(s, "/")
+		if config.Prefixes == nil {
+			config.Prefixes = make([]*Prefix, 0, 1)
+		}
+		config.Prefixes = append(config.Prefixes, &Prefix{
+			Path:   s,
+			Source: PrefixSourceVault,
+		})
+		return nil
+	}), "secret", "")
 
 	flags.Var((funcVar)(func(s string) error {
 		config.Auth.Enabled = true
@@ -393,7 +403,12 @@ Options:
 
   -prefix                  A prefix to watch, multiple prefixes are merged from
                            left to right, with the right-most result taking
-                           precedence
+                           precedence, including any values specified with
+                           -secret
+  -secret                  A secret path to watch in Vault, multiple prefixes
+                           are merged from left to right, with the right-most
+                           result taking precedence, including any values
+                           specified with -prefix
   -sanitize                Replace invalid characters in keys to underscores
   -upcase                  Convert all environment variable keys to uppercase
   -kill-signal             The signal to send to kill the process

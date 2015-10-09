@@ -8,12 +8,14 @@ import (
 	"path/filepath"
 	"time"
 
-	dep "github.com/hashicorp/consul-template/dependency"
 	"github.com/hashicorp/consul-template/watch"
 	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/hcl"
 	"github.com/mitchellh/mapstructure"
 )
+
+const PrefixSourceConsul = "consul"
+const PrefixSourceVault = "vault"
 
 // Config is used to configure Consul ENV
 type Config struct {
@@ -29,8 +31,14 @@ type Config struct {
 	// Token is the Consul API token.
 	Token string `json:"-" mapstructure:"token"`
 
-	// Prefixes is the list of key prefix dependencies.
-	Prefixes []*dep.StoreKeyPrefix `json:"prefixes" mapstructure:"prefixes"`
+	// PrefixesOld is the list of key prefix dependencies. This is deprecated and
+	// is only used for backwards compatability purposes. Please use "prefix" and
+	// the Prefixes struct key instead.
+	PrefixesOld []string `json:"prefixes" mapstructure:"prefixes"`
+
+	// Prefixes is the list of all prefix dependencies (consul and vault)
+	// in merge order.
+	Prefixes []*Prefix `json:"prefix" mapstructure:"prefix"`
 
 	// Auth is the HTTP basic authentication for communicating with Consul.
 	Auth *AuthConfig `json:"auth" mapstructure:"auth"`
@@ -98,7 +106,7 @@ func (c *Config) Merge(config *Config) {
 
 	if len(config.Prefixes) > 0 {
 		if c.Prefixes == nil {
-			c.Prefixes = make([]*dep.StoreKeyPrefix, 0, 1)
+			c.Prefixes = make([]*Prefix, 0, 1)
 		}
 		for _, prefix := range config.Prefixes {
 			c.Prefixes = append(c.Prefixes, prefix)
@@ -280,52 +288,6 @@ func ParseConfig(path string) (*Config, error) {
 	}
 	flattenKeys(parsed, []string{"auth", "ssl", "syslog", "vault"})
 
-	// Parse the prefixes
-	if raw, ok := parsed["prefixes"]; ok {
-		if typed, ok := raw.([]interface{}); !ok {
-			err = fmt.Errorf("error converting prefixes to []interface{} at %q, was %T", path, raw)
-			errs = multierror.Append(errs, err)
-			delete(parsed, "prefixes")
-		} else {
-			prefixes := make([]*dep.StoreKeyPrefix, 0, len(typed))
-			for _, p := range typed {
-				if s, ok := p.(string); ok {
-					if prefix, err := dep.ParseStoreKeyPrefix(s); err != nil {
-						err = fmt.Errorf("error parsing prefix %q at %q: %s", p, path, err)
-						errs = multierror.Append(errs, err)
-					} else {
-						prefixes = append(prefixes, prefix)
-					}
-				} else {
-					err = fmt.Errorf("error converting %T to string", p)
-					errs = multierror.Append(errs, err)
-					delete(parsed, "prefixes")
-				}
-			}
-			parsed["prefixes"] = prefixes
-		}
-	}
-
-	// Parse the wait component
-	if raw, ok := parsed["wait"]; ok {
-		if typed, ok := raw.(string); !ok {
-			err = fmt.Errorf("error converting wait to string at %q", path)
-			errs = multierror.Append(errs, err)
-			delete(parsed, "wait")
-		} else {
-			if wait, err := watch.ParseWait(typed); err != nil {
-				err = fmt.Errorf("error parsing wait at %q: %s", path, err)
-				errs = multierror.Append(errs, err)
-				delete(parsed, "wait")
-			} else {
-				parsed["wait"] = map[string]time.Duration{
-					"min": wait.Min,
-					"max": wait.Max,
-				}
-			}
-		}
-	}
-
 	// Create a new, empty config
 	config := new(Config)
 
@@ -333,6 +295,7 @@ func ParseConfig(path string) (*Config, error) {
 	metadata := new(mapstructure.Metadata)
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		DecodeHook: mapstructure.ComposeDecodeHookFunc(
+			watch.StringToWaitDurationHookFunc(),
 			mapstructure.StringToSliceHookFunc(","),
 			mapstructure.StringToTimeDurationHookFunc(),
 		),
@@ -351,6 +314,29 @@ func ParseConfig(path string) (*Config, error) {
 
 	// Store a reference to the path where this config was read from
 	config.Path = path
+
+	// Handle deprecations
+	if len(config.PrefixesOld) > 0 {
+		log.Printf(`[WARN] Specifying the key "prefixes" in the configuration is `+
+			`no longer supported. Please specify each prefix individually using `+
+			`the key "prefix" (config at %s)`, path)
+		prefixes := make([]*Prefix, 0, len(config.PrefixesOld))
+		for _, prefix := range config.PrefixesOld {
+			prefixes = append(prefixes, &Prefix{
+				Path:   prefix,
+				Source: PrefixSourceConsul,
+			})
+		}
+		config.Prefixes = append(prefixes, config.Prefixes...)
+		config.PrefixesOld = nil
+	}
+
+	// Ensure the default source value is "consul"
+	for _, prefix := range config.Prefixes {
+		if prefix.Source == "" {
+			prefix.Source = PrefixSourceConsul
+		}
+	}
 
 	// Update the list of set keys
 	if config.setKeys == nil {
@@ -497,6 +483,12 @@ func DefaultConfig() *Config {
 	}
 
 	return config
+}
+
+//
+type Prefix struct {
+	Path   string `json:"path" mapstructure:"path"`
+	Source string `json:"source" mapstructure:"source"`
 }
 
 // AuthConfig is the HTTP basic authentication data.

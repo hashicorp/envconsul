@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	dep "github.com/hashicorp/consul-template/dependency"
 	"github.com/hashicorp/consul-template/watch"
 )
 
@@ -57,10 +56,22 @@ func TestParseFlags_prefix(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected, err := dep.ParseStoreKeyPrefix("global")
+	expected := &Prefix{Path: "global", Source: "consul"}
+	if !reflect.DeepEqual(config.Prefixes[0], expected) {
+		t.Errorf("expected %#v to be %#v", config.Prefixes[0], expected)
+	}
+}
+
+func TestParseFlags_secret(t *testing.T) {
+	cli := NewCLI(ioutil.Discard, ioutil.Discard)
+	config, _, _, _, err := cli.parseFlags([]string{
+		"-secret", "global",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	expected := &Prefix{Path: "global", Source: "vault"}
 	if !reflect.DeepEqual(config.Prefixes[0], expected) {
 		t.Errorf("expected %#v to be %#v", config.Prefixes[0], expected)
 	}

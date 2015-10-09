@@ -59,8 +59,11 @@ type Runner struct {
 	// watcher is the watcher this runner is using.
 	watcher *watch.Watcher
 
+	// dependencies is the list of dependencies for this runner.
+	dependencies []dep.Dependency
+
 	// data is the latest representation of the data from Consul.
-	data map[string][]*dep.KeyPair
+	data map[string]interface{}
 
 	// env is the last compiled environment.
 	env map[string]string
@@ -96,9 +99,34 @@ func NewRunner(config *Config, command []string, once bool) (*Runner, error) {
 func (r *Runner) Start() {
 	log.Printf("[INFO] (runner) starting")
 
-	// Add the dependencies to the watcher
+	// Parse out each dependency
 	for _, prefix := range r.config.Prefixes {
-		r.watcher.Add(prefix)
+		log.Printf("looking at %#v", prefix)
+
+		switch prefix.Source {
+		case PrefixSourceConsul:
+			d, err := dep.ParseStoreKeyPrefix(prefix.Path)
+			if err != nil {
+				r.ErrCh <- err
+				return
+			}
+			r.dependencies = append(r.dependencies, d)
+		case PrefixSourceVault:
+			d, err := dep.ParseVaultSecret(prefix.Path)
+			if err != nil {
+				r.ErrCh <- err
+				return
+			}
+			r.dependencies = append(r.dependencies, d)
+		default:
+			r.ErrCh <- fmt.Errorf("unknown source %q for %q", prefix.Source, prefix.Path)
+			return
+		}
+	}
+
+	// Add each dependency to the watcher
+	for _, d := range r.dependencies {
+		r.watcher.Add(d)
 	}
 
 	var err error
@@ -144,6 +172,10 @@ func (r *Runner) Start() {
 			//   errCh <- err
 			// }
 			log.Printf("[ERR] (runner) watcher reported error: %s", err)
+			if r.once {
+				r.ErrCh <- err
+				return
+			}
 		case <-r.watcher.FinishCh:
 			log.Printf("[INFO] (runner) watcher reported finish")
 			return
@@ -185,7 +217,7 @@ func (r *Runner) Stop() {
 func (r *Runner) Receive(d dep.Dependency, data interface{}) {
 	r.Lock()
 	defer r.Unlock()
-	r.data[d.HashCode()] = data.([]*dep.KeyPair)
+	r.data[d.HashCode()] = data
 }
 
 // Signal sends a signal to the child process, if it exists. Any errors that
@@ -219,39 +251,20 @@ func (r *Runner) Run() (<-chan int, error) {
 	//
 	// We iterate over the list of config prefixes so that order is maintained,
 	// since order in a map is not deterministic.
-	for _, dep := range r.config.Prefixes {
-		data, ok := r.data[dep.HashCode()]
+	for _, d := range r.dependencies {
+		data, ok := r.data[d.HashCode()]
 		if !ok {
-			log.Printf("[INFO] (runner) missing data for %s", dep.Display())
+			log.Printf("[INFO] (runner) missing data for %s", d.Display())
 			return nil, nil
 		}
 
-		// For each pair, update the environment hash. Subsequent runs could
-		// overwrite an existing key.
-		for _, pair := range data {
-			key, value := pair.Key, string(pair.Value)
-
-			// It is not possible to have an environment variable that is blank, but
-			// it is possible to have an environment variable _value_ that is blank.
-			if strings.TrimSpace(key) == "" {
-				continue
-			}
-
-			if r.config.Sanitize {
-				key = InvalidRegexp.ReplaceAllString(key, "_")
-			}
-
-			if r.config.Upcase {
-				key = strings.ToUpper(key)
-			}
-
-			if current, ok := env[key]; ok {
-				log.Printf("[DEBUG] (runner) overwriting %s=%q (was %q)", key, value, current)
-				env[key] = value
-			} else {
-				log.Printf("[DEBUG] (runner) setting %s=%q", key, value)
-				env[key] = value
-			}
+		switch typed := d.(type) {
+		case *dep.StoreKeyPrefix:
+			r.appendPrefixes(env, typed, data)
+		case *dep.VaultSecret:
+			r.appendSecrets(env, typed, data)
+		default:
+			return nil, fmt.Errorf("unknown dependency type %T", typed)
 		}
 	}
 
@@ -327,6 +340,49 @@ func (r *Runner) Run() (<-chan int, error) {
 	return exitCh, nil
 }
 
+func (r *Runner) appendPrefixes(
+	env map[string]string, d *dep.StoreKeyPrefix, data interface{}) error {
+	typed, ok := data.([]*dep.KeyPair)
+	if !ok {
+		return fmt.Errorf("error converting to keypair %s", d.Display())
+	}
+
+	// For each pair, update the environment hash. Subsequent runs could
+	// overwrite an existing key.
+	for _, pair := range typed {
+		key, value := pair.Key, string(pair.Value)
+
+		// It is not possible to have an environment variable that is blank, but
+		// it is possible to have an environment variable _value_ that is blank.
+		if strings.TrimSpace(key) == "" {
+			continue
+		}
+
+		if r.config.Sanitize {
+			key = InvalidRegexp.ReplaceAllString(key, "_")
+		}
+
+		if r.config.Upcase {
+			key = strings.ToUpper(key)
+		}
+
+		if current, ok := env[key]; ok {
+			log.Printf("[DEBUG] (runner) overwriting %s=%q (was %q)", key, value, current)
+			env[key] = value
+		} else {
+			log.Printf("[DEBUG] (runner) setting %s=%q", key, value)
+			env[key] = value
+		}
+	}
+
+	return nil
+}
+
+func (r *Runner) appendSecrets(
+	env map[string]string, d *dep.VaultSecret, data interface{}) error {
+	return nil
+}
+
 // init creates the Runner's underlying data structures and returns an error if
 // any problems occur.
 func (r *Runner) init() error {
@@ -369,7 +425,7 @@ func (r *Runner) init() error {
 	}
 	r.watcher = watcher
 
-	r.data = make(map[string][]*dep.KeyPair)
+	r.data = make(map[string]interface{})
 
 	r.outStream = os.Stdout
 	r.errStream = os.Stderr
