@@ -1,43 +1,45 @@
 TEST?=./...
-NAME = $(shell awk -F\" '/^const Name/ { print $$2 }' main.go)
-VERSION = $(shell awk -F\" '/^const Version/ { print $$2 }' main.go)
-DEPS = $(shell go list -f '{{range .TestImports}}{{.}} {{end}}' ./...)
+NAME = $(shell awk -F\" '/^const Name/ { print $$2; exit }' main.go)
+VERSION = $(shell awk -F\" '/^const Version/ { print $$2; exit }' main.go)
 
-all: deps build
+default: test
 
-deps:
-	go get -d -v ./...
-	echo $(DEPS) | xargs -n1 go get -d
+# bin generates the releasable binaries for Consul Template
+bin: generate
+	@sh -c "'$(CURDIR)/scripts/build.sh'"
 
-build: deps
-	@mkdir -p bin/
-	go build -o bin/$(NAME)
+# dev creates binares for testing locally. There are put into ./bin and $GOPAHT
+dev: generate
+	@CT_DEV=1 sh -c "'$(CURDIR)/scripts/build.sh'"
 
-test:
+# dist creates the binaries for distibution
+dist: bin
+	@sh -c "'$(CURDIR)/scripts/dist.sh' $(VERSION)"
+
+# test runs the test suite and vets the code
+test: generate
 	go test $(TEST) $(TESTARGS) -timeout=30s -parallel=4
-	go test $(TEST) -race
-	go vet $(TEST)
 
-xcompile: deps test
-	@rm -rf build/
-	@mkdir -p build
-	gox \
-		-os="darwin" \
-		-os="dragonfly" \
-		-os="freebsd" \
-		-os="linux" \
-		-os="netbsd" \
-		-os="openbsd" \
-		-os="solaris" \
-		-os="windows" \
-		-output="build/{{.Dir}}_$(VERSION)_{{.OS}}_{{.Arch}}/$(NAME)"
+# testrace runs the race checker
+testrace: generate
+	go test -race $(TEST) $(TESTARGS)
 
-package: xcompile
-	$(eval FILES := $(shell ls build))
-	@mkdir -p build/tgz
-	for f in $(FILES); do \
-		(cd $(shell pwd)/build && tar -zcvf tgz/$$f.tar.gz $$f); \
-		echo $$f; \
-	done
+# updatedeps installs all the dependencies Consul Template needs to run and
+# build
+updatedeps:
+	go get -u github.com/mitchellh/gox
+	go get -f -t -u ./...
+	go list ./... \
+		| xargs go list -f '{{join .Deps "\n"}}' \
+		| grep -v github.com/hashicorp/envconsul \
+		| grep -v '/internal/' \
+		| sort -u \
+		| xargs go get -f -u
 
-.PHONY: all deps build test xcompile package
+# generate runs `go generate` to build the dynamically generated
+# source files.
+generate:
+	find . -type f -name '.DS_Store' -delete
+	go generate ./...
+
+.PHONY: default bin dev dist test testrace updatedeps vet generate
