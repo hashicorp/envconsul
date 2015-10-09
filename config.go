@@ -35,6 +35,9 @@ type Config struct {
 	// Auth is the HTTP basic authentication for communicating with Consul.
 	Auth *AuthConfig `json:"auth" mapstructure:"auth"`
 
+	// Vault is the configuration for connecting to a vault server.
+	Vault *VaultConfig `json:"vault" mapstructure:"vault"`
+
 	// SSL indicates we should use a secure connection while talking to
 	// Consul. This requires Consul to be configured to serve HTTPS.
 	SSL *SSLConfig `json:"ssl" mapstructure:"ssl"`
@@ -116,6 +119,41 @@ func (c *Config) Merge(config *Config) {
 		}
 		if config.WasSet("auth.enabled") {
 			c.Auth.Enabled = config.Auth.Enabled
+		}
+	}
+
+	if config.WasSet("vault") {
+		if c.Vault == nil {
+			c.Vault = &VaultConfig{}
+		}
+		if config.WasSet("vault.address") {
+			c.Vault.Address = config.Vault.Address
+		}
+		if config.WasSet("vault.token") {
+			c.Vault.Token = config.Vault.Token
+		}
+		if config.WasSet("vault.renew") {
+			c.Vault.Renew = config.Vault.Renew
+		}
+		if config.WasSet("vault.ssl") {
+			if c.Vault.SSL == nil {
+				c.Vault.SSL = &SSLConfig{}
+			}
+			if config.WasSet("vault.ssl.verify") {
+				c.Vault.SSL.Verify = config.Vault.SSL.Verify
+				c.Vault.SSL.Enabled = true
+			}
+			if config.WasSet("vault.ssl.cert") {
+				c.Vault.SSL.Cert = config.Vault.SSL.Cert
+				c.Vault.SSL.Enabled = true
+			}
+			if config.WasSet("vault.ssl.ca_cert") {
+				c.Vault.SSL.CaCert = config.Vault.SSL.CaCert
+				c.Vault.SSL.Enabled = true
+			}
+			if config.WasSet("vault.ssl.enabled") {
+				c.Vault.SSL.Enabled = config.Vault.SSL.Enabled
+			}
 		}
 	}
 
@@ -240,7 +278,7 @@ func ParseConfig(path string) (*Config, error) {
 	if !ok {
 		return nil, fmt.Errorf("error converting config at %q", path)
 	}
-	flattenKeys(parsed, []string{"auth", "ssl", "syslog"})
+	flattenKeys(parsed, []string{"auth", "ssl", "syslog", "vault"})
 
 	// Parse the prefixes
 	if raw, ok := parsed["prefixes"]; ok {
@@ -407,6 +445,13 @@ func DefaultConfig() *Config {
 		Auth: &AuthConfig{
 			Enabled: false,
 		},
+		Vault: &VaultConfig{
+			Renew: true,
+			SSL: &SSLConfig{
+				Enabled: true,
+				Verify:  true,
+			},
+		},
 		SSL: &SSLConfig{
 			Enabled: false,
 			Verify:  true,
@@ -435,6 +480,22 @@ func DefaultConfig() *Config {
 		config.Token = v
 	}
 
+	if v := os.Getenv("VAULT_ADDR"); v != "" {
+		config.Vault.Address = v
+	}
+
+	if v := os.Getenv("VAULT_CAPATH"); v != "" {
+		config.Vault.SSL.Cert = v
+	}
+
+	if v := os.Getenv("VAULT_CACERT"); v != "" {
+		config.Vault.SSL.CaCert = v
+	}
+
+	if v := os.Getenv("VAULT_SKIP_VERIFY"); v != "" {
+		config.Vault.SSL.Verify = false
+	}
+
 	return config
 }
 
@@ -458,6 +519,16 @@ func (a *AuthConfig) String() string {
 	}
 
 	return a.Username
+}
+
+// VaultConfig is the configuration for connecting to a vault server.
+type VaultConfig struct {
+	Address string `json:"address,omitempty" mapstructure:"address"`
+	Token   string `json:"-" mapstructure:"token"`
+	Renew   bool   `json:"renew" mapstructure:"renew"`
+
+	// SSL indicates we should use a secure connection while talking to Vault.
+	SSL *SSLConfig `json:"ssl" mapstructure:"ssl"`
 }
 
 // SSLConfig is the configuration for SSL.

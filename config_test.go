@@ -92,6 +92,71 @@ func TestMerge_auth(t *testing.T) {
 	}
 }
 
+func TestMerge_vault(t *testing.T) {
+	config := testConfig(`
+		vault {
+			address = "1.1.1.1"
+			token = "1"
+			renew = true
+		}
+	`, t)
+	config.Merge(testConfig(`
+		vault {
+			address = "2.2.2.2"
+			renew = false
+		}
+	`, t))
+
+	expected := &VaultConfig{
+		Address: "2.2.2.2",
+		Token:   "1",
+		Renew:   false,
+		SSL: &SSLConfig{
+			Enabled: true,
+			Verify:  true,
+			Cert:    "",
+			CaCert:  "",
+		},
+	}
+
+	if !reflect.DeepEqual(config.Vault, expected) {
+		t.Errorf("expected \n\n%#v\n\n to be \n\n%#v\n\n", config.Vault, expected)
+	}
+}
+
+func TestMerge_vaultSSL(t *testing.T) {
+	config := testConfig(`
+		vault {
+			ssl {
+				enabled = true
+				verify = true
+				cert = "1.pem"
+				ca_cert = "ca-1.pem"
+			}
+		}
+	`, t)
+	config.Merge(testConfig(`
+		vault {
+			ssl {
+				enabled = false
+			}
+		}
+	`, t))
+
+	expected := &VaultConfig{
+		SSL: &SSLConfig{
+			Enabled: false,
+			Verify:  true,
+			Cert:    "1.pem",
+			CaCert:  "ca-1.pem",
+		},
+	}
+
+	if !reflect.DeepEqual(config.Vault.SSL, expected.SSL) {
+		t.Errorf("expected \n\n%#v\n\n to be \n\n%#v\n\n", config.Vault.SSL, expected.SSL)
+	}
+}
+
 func TestMerge_SSL(t *testing.T) {
 	config := testConfig(`
 		ssl {
@@ -240,6 +305,15 @@ func TestParseConfig_correctValues(t *testing.T) {
 			password = "test"
 		}
 
+		vault {
+			address = "vault.service.consul"
+			token = "efgh5678"
+			renew = true
+			ssl {
+				enabled = false
+			}
+		}
+
 		ssl {
 			enabled = true
 			verify = false
@@ -270,6 +344,17 @@ func TestParseConfig_correctValues(t *testing.T) {
 			Enabled:  true,
 			Username: "test",
 			Password: "test",
+		},
+		Vault: &VaultConfig{
+			Address: "vault.service.consul",
+			Token:   "efgh5678",
+			Renew:   true,
+			SSL: &SSLConfig{
+				Enabled: false,
+				Verify:  true,
+				Cert:    "",
+				CaCert:  "",
+			},
 		},
 		SSL: &SSLConfig{
 			Enabled: true,
