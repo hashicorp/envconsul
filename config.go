@@ -419,6 +419,7 @@ func DefaultConfig() *Config {
 		Upcase:     false,
 		Timeout:    5 * time.Second,
 		Retry:      5 * time.Second,
+		MaxStale:   1 * time.Second,
 		Wait:       &watch.Wait{},
 		LogLevel:   logLevel,
 		KillSignal: "SIGTERM",
