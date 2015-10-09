@@ -166,6 +166,9 @@ func (r *Runner) Start() {
 
 // Stop halts the execution of this runner and its subprocesses.
 func (r *Runner) Stop() {
+	r.Lock()
+	defer r.Unlock()
+
 	log.Printf("[INFO] (runner) stopping")
 	r.watcher.Stop()
 
@@ -188,6 +191,9 @@ func (r *Runner) Receive(d dep.Dependency, data interface{}) {
 // Signal sends a signal to the child process, if it exists. Any errors that
 // occur are returned.
 func (r *Runner) Signal(sig os.Signal) error {
+	r.Lock()
+	defer r.Unlock()
+
 	if r.cmd == nil || r.cmd.Process == nil {
 		log.Printf("[WARN] (runner) attempted to send %s to subprocess, "+
 			"but it does not exist ", sig.String())
@@ -200,6 +206,9 @@ func (r *Runner) Signal(sig os.Signal) error {
 // Run executes and manages the child process with the correct environment. The
 // current enviornment is also copied into the child process environment.
 func (r *Runner) Run() (<-chan int, error) {
+	r.Lock()
+	defer r.Unlock()
+
 	log.Printf("[INFO] (runner) running")
 
 	env := make(map[string]string)
@@ -374,7 +383,8 @@ func (r *Runner) init() error {
 }
 
 // Restart the current process in the Runner by sending a SIGTERM. It is
-// assumed that the process is set on the Runner!
+// assumed that the process is set on the Runner! It is the caller's
+// responsibility to lock the runner.
 func (r *Runner) killProcess() {
 	// Kill the process
 	exited := false

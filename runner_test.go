@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"io/ioutil"
+	"os"
 	"reflect"
 	"strings"
 	"syscall"
@@ -378,13 +379,34 @@ func TestStart_runsCommandOnChange(t *testing.T) {
 		prefixes = ["foo/bar"]
 	`, t)
 
-	runner, err := NewRunner(config, []string{"sh", "-c", "echo $BAR"}, true)
+	f := test.CreateTempfile(nil, t)
+	defer os.Remove(f.Name())
+	os.Remove(f.Name())
+
+	readFile := func(path string, ch chan string) {
+		for {
+			contents, err := ioutil.ReadFile(path)
+			if err != nil {
+				if os.IsNotExist(err) {
+					time.Sleep(50 * time.Millisecond)
+					continue
+				} else {
+					t.Fatal(err)
+					return
+				}
+			}
+
+			ch <- string(contents)
+			return
+		}
+	}
+
+	runner, err := NewRunner(config, []string{"sh", "-c", "echo $BAR > " + f.Name()}, true)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
-	runner.outStream, runner.errStream = outStream, errStream
+	runner.outStream, runner.errStream = ioutil.Discard, ioutil.Discard
 
 	go runner.Start()
 	defer runner.Stop()
@@ -404,18 +426,24 @@ func TestStart_runsCommandOnChange(t *testing.T) {
 	}
 	runner.watcher.DataCh <- &watch.View{Dependency: prefix, Data: pair}
 
+	contentCh := make(chan string)
+	go readFile(f.Name(), contentCh)
+
 	select {
 	case err := <-runner.ErrCh:
 		t.Fatal(err)
-	case <-time.After(200 * time.Millisecond):
+	case content := <-contentCh:
 		expected := "one\n"
-		if outStream.String() != expected {
-			t.Fatalf("expected %q to be %q", outStream.String(), expected)
+		if content != expected {
+			t.Fatalf("expected %q to be %q", content, expected)
 		}
+	case <-time.After(1 * time.Second):
+		t.Fatal("expected file to be rendered by now")
 	}
 
-	outStream.Reset()
-	errStream.Reset()
+	// Delete the file - otherwise the next read could have a false-positive since
+	// the file already exists
+	os.Remove(f.Name())
 
 	pair = []*dep.KeyPair{
 		&dep.KeyPair{
@@ -426,14 +454,19 @@ func TestStart_runsCommandOnChange(t *testing.T) {
 	}
 	runner.watcher.DataCh <- &watch.View{Dependency: prefix, Data: pair}
 
+	contentCh = make(chan string)
+	go readFile(f.Name(), contentCh)
+
 	select {
 	case err := <-runner.ErrCh:
 		t.Fatal(err)
-	case <-time.After(200 * time.Millisecond):
+	case content := <-contentCh:
 		expected := "two\n"
-		if outStream.String() != expected {
-			t.Fatalf("expected %q to be %q", outStream.String(), expected)
+		if content != expected {
+			t.Fatalf("expected %q to be %q", content, expected)
 		}
+	case <-time.After(1 * time.Second):
+		t.Fatal("expected file to be rendered by now")
 	}
 }
 
