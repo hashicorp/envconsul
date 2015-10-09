@@ -222,22 +222,20 @@ func (r *Runner) Run() (<-chan int, error) {
 		for _, pair := range data {
 			key, value := pair.Key, string(pair.Value)
 
-			if (key != "" && value != "") {
-				if r.config.Sanitize {
-					key = InvalidRegexp.ReplaceAllString(key, "_")
-				}
+			if r.config.Sanitize {
+				key = InvalidRegexp.ReplaceAllString(key, "_")
+			}
 
-				if r.config.Upcase {
-					key = strings.ToUpper(key)
-				}
+			if r.config.Upcase {
+				key = strings.ToUpper(key)
+			}
 
-				if current, ok := env[key]; ok {
-					log.Printf("[DEBUG] (runner) overwriting %s=%q (was %q)", key, value, current)
-					env[key] = value
-				} else {
-					log.Printf("[DEBUG] (runner) setting %s=%q", key, value)
-					env[key] = value
-				}
+			if current, ok := env[key]; ok {
+				log.Printf("[DEBUG] (runner) overwriting %s=%q (was %q)", key, value, current)
+				env[key] = value
+			} else {
+				log.Printf("[DEBUG] (runner) setting %s=%q", key, value)
+				env[key] = value
 			}
 		}
 	}
