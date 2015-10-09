@@ -34,11 +34,9 @@ const (
 )
 
 var (
-	// Error returned when no command is specified.
+	// ErrMissingCommand is returned when no command is specified.
 	ErrMissingCommand = fmt.Errorf("No command given")
 )
-
-/// ------------------------- ///
 
 // CLI is the main entry point for envconsul.
 type CLI struct {
@@ -53,6 +51,7 @@ type CLI struct {
 	stopped bool
 }
 
+// NewCLI creates a new command line interface with the given streams.
 func NewCLI(out, err io.Writer) *CLI {
 	return &CLI{
 		outStream: out,
@@ -70,32 +69,13 @@ func (cli *CLI) Run(args []string) int {
 		return cli.handleError(err, ExitCodeParseFlagsError)
 	}
 
-	// If a path was given, load the config from file
-	if config.Path != "" {
-		newConfig, err := ConfigFromPath(config.Path)
-		if err != nil {
-			return cli.handleError(err, ExitCodeConfigError)
-		}
+	// Save original config (defaults + parsed flags) for handling reloads
+	baseConfig := config
 
-		// Merge ensuring that the CLI options still take precedence
-		newConfig.Merge(config)
-		config = newConfig
-	}
-
-	// Setup the logging
-	if err := logging.Setup(&logging.Config{
-		Name:           Name,
-		Level:          config.LogLevel,
-		Syslog:         config.Syslog.Enabled,
-		SyslogFacility: config.Syslog.Facility,
-		Writer:         cli.errStream,
-	}); err != nil {
-		return cli.handleError(err, ExitCodeLoggingError)
-	}
-
-	// Return an error if no command was given
-	if len(command) == 0 && !version {
-		return cli.handleError(ErrMissingCommand, ExitCodeUsageError)
+	// Setup the config and logging
+	config, err = cli.setup(config)
+	if err != nil {
+		return cli.handleError(err, ExitCodeConfigError)
 	}
 
 	// Print version information for debugging
@@ -108,6 +88,11 @@ func (cli *CLI) Run(args []string) int {
 		log.Printf("[DEBUG] (cli) version flag was given, exiting now")
 		fmt.Fprintf(cli.errStream, "%s\n", formattedVersion())
 		return ExitCodeOK
+	}
+
+	// Return an error if no command was given
+	if len(command) == 0 {
+		return cli.handleError(ErrMissingCommand, ExitCodeUsageError)
 	}
 
 	// Initial runner
@@ -146,6 +131,21 @@ func (cli *CLI) Run(args []string) int {
 				fmt.Fprintf(cli.errStream, "Received interrupt, cleaning up...\n")
 				runner.Stop()
 				return ExitCodeInterrupt
+			case syscall.SIGHUP:
+				fmt.Fprintf(cli.errStream, "Received HUP, reloading configuration...\n")
+				runner.Stop()
+
+				// Load the new configuration from disk
+				config, err = cli.setup(baseConfig)
+				if err != nil {
+					return cli.handleError(err, ExitCodeConfigError)
+				}
+
+				runner, err = NewRunner(config, command, once)
+				if err != nil {
+					return cli.handleError(err, ExitCodeRunnerError)
+				}
+				go runner.Start()
 			}
 		case <-cli.stopCh:
 			return ExitCodeOK
@@ -333,6 +333,33 @@ func (cli *CLI) parseFlags(args []string) (*Config, []string, bool, bool, error)
 func (cli *CLI) handleError(err error, status int) int {
 	log.Printf("[ERR] %s", err.Error())
 	return status
+}
+
+// setup sets up the CLI with the configuration from disk.
+func (cli *CLI) setup(config *Config) (*Config, error) {
+	if config.Path != "" {
+		newConfig, err := ConfigFromPath(config.Path)
+		if err != nil {
+			return nil, err
+		}
+
+		// Merge ensuring that the CLI options still take precedence
+		newConfig.Merge(config)
+		config = newConfig
+	}
+
+	// Setup the logging
+	if err := logging.Setup(&logging.Config{
+		Name:           Name,
+		Level:          config.LogLevel,
+		Syslog:         config.Syslog.Enabled,
+		SyslogFacility: config.Syslog.Facility,
+		Writer:         cli.errStream,
+	}); err != nil {
+		return nil, err
+	}
+
+	return config, nil
 }
 
 const usage = `
