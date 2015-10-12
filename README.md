@@ -45,6 +45,7 @@ Usage
 | `wait`            | The `minimum(:maximum)` to wait before rendering a command to fire, separated by a colon (`:`). If the optional maximum value is omitted, it is assumed to be 4x the required minimum value. There is no default value.
 | `retry`           | The amount of time to wait if Consul returns an error when communicating with the API. The default value is 5 seconds.
 | `prefix`          | A prefix to watch in Consul. This may be specified multiple times.
+| `secret`          | A secret to watch in Vault. This may be specified multiple times.
 | `sanitize`        | Replace invalid characters in keys to underscores .
 | `upcase`          | Convert all environment variable keys to uppercase.
 | `config`          | The path to a configuration file or directory of configuration files on disk, relative to the current working directory. Values specified on the CLI take precedence over values specified in the configuration file. There is no default value.
@@ -57,7 +58,7 @@ Usage
 Multiple prefixes are merged in the order they are specified, with the right-most prefix taking precedence over its left siblings. For example, consider:
 
 ```shell
-envconsul -prefix global/config -prefix redis/config
+$ envconsul -prefix global/config -prefix redis/config
 ```
 
 In this example, the values of `redis` take precedence over the values in `global`. If they had the following structure:
@@ -91,18 +92,18 @@ Query the nyc1 demo Consul instance, rending all the keys in `config/redis`, and
 
 ```shell
 $ envconsul \
-  -consul demo.consul.io \
-  redis/config@nyc1 env
+    -consul demo.consul.io \
+    redis/config@nyc1 env
 ```
 
 Query a local Consul instance, converting special characters in keys to undercores and uppercasing the keys:
 
 ```shell
 $ envconsul \
-  -consul 127.0.0.1:8500 \
-  -sanitize \
-  -upcase \
-  redis/config env
+    -consul 127.0.0.1:8500 \
+    -sanitize \
+    -upcase \
+    redis/config env
 ```
 
 ### Configuration File
@@ -118,6 +119,18 @@ timeout = "5s"
 retry = "10s"
 sanitize = true
 kill_signal = "SIGHUP"
+
+vault {
+  address = "https://vault.service.consul:8200"
+  token = "abcd1234" // May also be specified via the envvar VAULT_TOKEN
+  renew = true
+  ssl {
+    enabled = true
+    verify = true
+    cert = "/path/to/client/cert.pem"
+    ca_cert = "/path/to/ca/cert.pem"
+  }
+}
 
 prefix {
   path = "config/global"
@@ -192,6 +205,62 @@ MAXCONNS=50
 -----
 ```
 
+### Vault Secrets
+With the Vault integration, it is possible to pull secrets from Vault directly into the environment using envconsul. The only restriction is that the data must be "flat" and all keys and values must be strings or string-like values. envconsul will return an error if you try to read from a value that returns a map, for example.
+
+First, you must add the vault address and token information to the configuration file. It is not possible to specify these values via the command line:
+
+```javascript
+vault {
+  address = "https://vault.service.consul:8200"
+  token = "abcd1234" // May also be specified via the envvar VAULT_TOKEN
+  renew = true
+  ssl {
+    enabled = true
+    verify = true
+    cert = "/path/to/client/cert.pem"
+    ca_cert = "/path/to/ca/cert.pem"
+  }
+}
+```
+
+Assuming a secret exists at secret/passwords that was created like so:
+
+```
+$ vault write secret/passwords username=foo password=bar
+```
+
+envconsul can pull those values into the environment:
+
+```
+$ envconsul \
+    -config="./config.hcl" \
+    -secret="secret/passwords" \
+    env
+
+secret_passwords_username=foo
+secret_passwords_password=bar
+```
+
+Notice that the environment variables are prefixed with the path. The slashes in the path are converted to underscores, followed by the key:
+
+```text
+secret/passwords     => secret_passwords
+mysql/creds/readonly => mysql_creds_readonly
+```
+
+You can also apply key transformations to the data:
+
+```
+$ envconsul \
+    -config="./config.hcl" \
+    -secret="mysql/creds/readonly" \
+    -upcase \
+    env
+
+MYSQL_CREDS_READONLY_USERNAME=root-aefa635a-18
+MYSQL_CREDS_READONLY_PASSWORD=132ae3ef-5a64-7499-351e-bfe59f3a2a21
+```
 
 Debugging
 ---------
