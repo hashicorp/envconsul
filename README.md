@@ -55,7 +55,9 @@ Usage
 
 \* = Required parameter
 
-Multiple prefixes are merged in the order they are specified, with the right-most prefix taking precedence over its left siblings. For example, consider:
+Multiple prefixes are merged in the order they are specified, with the right-most prefix taking precedence over its left siblings/ Vault secrets always take precedence over consul prefixes.
+
+For example, consider:
 
 ```shell
 $ envconsul -prefix global/config -prefix redis/config
@@ -137,13 +139,11 @@ prefix {
 }
 
 prefix {
-  path   = "secret/creds"
-  source = "vault"
+  path   = "config/redis"
 }
 
-prefix {
-  path   = "config/redis"
-  source = "consul" // default
+secret {
+  path   = "secret/creds"
 }
 
 auth {
@@ -163,8 +163,7 @@ syslog {
 }
 ```
 
-**Commands specified on the command line take precedence over those defined in a config file!**
-
+Please note: Vault secrets always take precedence over consul prefixes. This is to mitigate a security vulnerability.
 
 Examples
 --------

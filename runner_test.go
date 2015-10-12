@@ -182,11 +182,104 @@ func TestRun_vault(t *testing.T) {
 			}
 		}
 
-		prefix {
-			path   = "secret/foo"
-			source = "vault"
+		secret {
+			path = "secret/foo"
 		}
 	`, addr, secret.Auth.ClientToken), t)
+
+	runner, err := NewRunner(config, []string{"env"}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
+	runner.outStream, runner.errStream = outStream, errStream
+
+	go runner.Start()
+	defer runner.Stop()
+
+	select {
+	case err := <-runner.ErrCh:
+		t.Fatal(err)
+	case <-runner.ExitCh:
+	case <-time.After(250 * time.Millisecond):
+	}
+
+	expected := "secret_foo_zip=zap"
+	if !strings.Contains(outStream.String(), expected) {
+		t.Errorf("expected %q to include %q", outStream.String(), expected)
+	}
+
+	expected = "secret_foo_ding=dong"
+	if !strings.Contains(outStream.String(), expected) {
+		t.Errorf("expected %q to include %q", outStream.String(), expected)
+	}
+}
+
+func TestRun_vaultPrecedenceOverConsul(t *testing.T) {
+	t.Parallel()
+
+	consul := testutil.NewTestServerConfig(t, func(c *testutil.TestServerConfig) {
+		c.Stdout = ioutil.Discard
+		c.Stderr = ioutil.Discard
+	})
+	defer consul.Stop()
+
+	consul.SetKV("secret/foo/secret_foo_zip", []byte("baz"))
+
+	vaultCore, _, token := vault.TestCoreUnsealed(t)
+	ln, vaultAddr := http.TestServer(t, vaultCore)
+	defer ln.Close()
+
+	req := &logical.Request{
+		Operation: logical.WriteOperation,
+		Path:      "secret/foo",
+		Data: map[string]interface{}{
+			"zip":  "zap",
+			"ding": "dong",
+		},
+		ClientToken: token,
+	}
+	if _, err := vaultCore.HandleRequest(req); err != nil {
+		t.Fatal(err)
+	}
+
+	vaultconfig := vaultapi.DefaultConfig()
+	vaultconfig.Address = vaultAddr
+	client, err := vaultapi.NewClient(vaultconfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.SetToken(token)
+
+	// Create a new token - the core token is a root token and is therefore
+	// not renewable
+	secret, err := client.Auth().Token().Create(&vaultapi.TokenCreateRequest{
+		Lease: "1h",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	config := testConfig(fmt.Sprintf(`
+		consul = "%s"
+
+		vault {
+			address = "%s"
+			token   = "%s"
+			ssl {
+				enabled = false
+			}
+		}
+
+		secret {
+			path = "secret/foo"
+		}
+
+		prefix {
+			path = "secret/foo"
+		}
+	`, consul.HTTPAddr, vaultAddr, secret.Auth.ClientToken), t)
 
 	runner, err := NewRunner(config, []string{"env"}, true)
 	if err != nil {

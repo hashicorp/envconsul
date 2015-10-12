@@ -215,13 +215,12 @@ func TestMerge_prefixes(t *testing.T) {
 	config.Merge(testConfig(`
 		prefix {
 			path   = "config/redis"
-			source = "consul"
 		}
 	`, t))
 
-	expected := []*Prefix{
-		&Prefix{Path: "global/time", Source: "consul"},
-		&Prefix{Path: "config/redis", Source: "consul"},
+	expected := []*ConfigPrefix{
+		&ConfigPrefix{Path: "global/time"},
+		&ConfigPrefix{Path: "config/redis"},
 	}
 	if !reflect.DeepEqual(config.Prefixes, expected) {
 		t.Errorf("expected %#v to be %#v", config.Prefixes, expected)
@@ -292,13 +291,11 @@ func TestParseConfig_correctValues(t *testing.T) {
 		}
 
 		prefix {
-			path   = "config/redis"
-			source = "consul"
+			path = "config/redis"
 		}
 
-		prefix {
-			path   = "secret/redis"
-			source = "vault"
+		secret {
+			path = "secret/redis"
 		}
 
 		auth {
@@ -376,12 +373,14 @@ func TestParseConfig_correctValues(t *testing.T) {
 		Retry:      10 * time.Second,
 		LogLevel:   "warn",
 		KillSignal: "SIGTERM",
-		Prefixes: []*Prefix{
-			&Prefix{Path: "old/syntax", Source: "consul"},
-			&Prefix{Path: "deprecated/soon", Source: "consul"},
-			&Prefix{Path: "config/global", Source: "consul"},
-			&Prefix{Path: "config/redis", Source: "consul"},
-			&Prefix{Path: "secret/redis", Source: "vault"},
+		Prefixes: []*ConfigPrefix{
+			&ConfigPrefix{Path: "old/syntax"},
+			&ConfigPrefix{Path: "deprecated/soon"},
+			&ConfigPrefix{Path: "config/global"},
+			&ConfigPrefix{Path: "config/redis"},
+		},
+		Secrets: []*ConfigPrefix{
+			&ConfigPrefix{Path: "secret/redis"},
 		},
 		setKeys: config.setKeys,
 	}
@@ -593,8 +592,8 @@ func TestConfigFromPath_configDir(t *testing.T) {
 
 	expectedConfig := Config{
 		Consul: "127.0.0.1:8500",
-		Prefixes: []*Prefix{
-			&Prefix{Path: "global/time", Source: "consul"},
+		Prefixes: []*ConfigPrefix{
+			&ConfigPrefix{Path: "global/time"},
 		},
 	}
 	if expectedConfig.Consul != config.Consul {

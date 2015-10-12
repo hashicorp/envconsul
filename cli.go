@@ -193,23 +193,21 @@ func (cli *CLI) parseFlags(args []string) (*Config, []string, bool, bool, error)
 	flags.Var((funcVar)(func(s string) error {
 		s = strings.TrimPrefix(s, "/")
 		if config.Prefixes == nil {
-			config.Prefixes = make([]*Prefix, 0, 1)
+			config.Prefixes = make([]*ConfigPrefix, 0, 1)
 		}
-		config.Prefixes = append(config.Prefixes, &Prefix{
-			Path:   s,
-			Source: PrefixSourceConsul,
+		config.Prefixes = append(config.Prefixes, &ConfigPrefix{
+			Path: s,
 		})
 		return nil
 	}), "prefix", "")
 
 	flags.Var((funcVar)(func(s string) error {
 		s = strings.TrimPrefix(s, "/")
-		if config.Prefixes == nil {
-			config.Prefixes = make([]*Prefix, 0, 1)
+		if config.Secrets == nil {
+			config.Secrets = make([]*ConfigPrefix, 0, 1)
 		}
-		config.Prefixes = append(config.Prefixes, &Prefix{
-			Path:   s,
-			Source: PrefixSourceVault,
+		config.Secrets = append(config.Secrets, &ConfigPrefix{
+			Path: s,
 		})
 		return nil
 	}), "secret", "")

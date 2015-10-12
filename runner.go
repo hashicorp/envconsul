@@ -99,29 +99,29 @@ func NewRunner(config *Config, command []string, once bool) (*Runner, error) {
 func (r *Runner) Start() {
 	log.Printf("[INFO] (runner) starting")
 
-	// Parse out each dependency
-	for _, prefix := range r.config.Prefixes {
-		log.Printf("looking at %#v", prefix)
-
-		switch prefix.Source {
-		case PrefixSourceConsul:
-			d, err := dep.ParseStoreKeyPrefix(prefix.Path)
-			if err != nil {
-				r.ErrCh <- err
-				return
-			}
-			r.dependencies = append(r.dependencies, d)
-		case PrefixSourceVault:
-			d, err := dep.ParseVaultSecret(prefix.Path)
-			if err != nil {
-				r.ErrCh <- err
-				return
-			}
-			r.dependencies = append(r.dependencies, d)
-		default:
-			r.ErrCh <- fmt.Errorf("unknown source %q for %q", prefix.Source, prefix.Path)
+	// Parse and add consul dependencies
+	for _, p := range r.config.Prefixes {
+		log.Printf("looking at consul %s", p.Path)
+		d, err := dep.ParseStoreKeyPrefix(p.Path)
+		if err != nil {
+			r.ErrCh <- err
 			return
 		}
+		r.dependencies = append(r.dependencies, d)
+	}
+
+	// Parse and add vault dependencies - it is important that this come after
+	// consul, because consul should never be permitted to overwrite values from
+	// vault; that would expose a security hole since access to consul is
+	// typically less controlled than access to vault.
+	for _, s := range r.config.Secrets {
+		log.Printf("looking at vault %s", s.Path)
+		d, err := dep.ParseVaultSecret(s.Path)
+		if err != nil {
+			r.ErrCh <- err
+			return
+		}
+		r.dependencies = append(r.dependencies, d)
 	}
 
 	// Add each dependency to the watcher
@@ -395,7 +395,7 @@ func (r *Runner) appendSecrets(
 		}
 
 		// Replace the path slashes with an underscore.
-		path := strings.Replace(d.Path, "/", "_", -1)
+		path := InvalidRegexp.ReplaceAllString(d.Path, "_")
 
 		// Prefix the key value with the path value.
 		key = fmt.Sprintf("%s_%s", path, key)

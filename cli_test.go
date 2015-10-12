@@ -56,7 +56,7 @@ func TestParseFlags_prefix(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected := &Prefix{Path: "global", Source: "consul"}
+	expected := &ConfigPrefix{Path: "global"}
 	if !reflect.DeepEqual(config.Prefixes[0], expected) {
 		t.Errorf("expected %#v to be %#v", config.Prefixes[0], expected)
 	}
@@ -71,9 +71,9 @@ func TestParseFlags_secret(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected := &Prefix{Path: "global", Source: "vault"}
-	if !reflect.DeepEqual(config.Prefixes[0], expected) {
-		t.Errorf("expected %#v to be %#v", config.Prefixes[0], expected)
+	expected := &ConfigPrefix{Path: "global"}
+	if !reflect.DeepEqual(config.Secrets[0], expected) {
+		t.Errorf("expected %#v to be %#v", config.Secrets[0], expected)
 	}
 }
 

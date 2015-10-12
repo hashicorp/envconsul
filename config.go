@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -13,9 +14,6 @@ import (
 	"github.com/hashicorp/hcl"
 	"github.com/mitchellh/mapstructure"
 )
-
-const PrefixSourceConsul = "consul"
-const PrefixSourceVault = "vault"
 
 // Config is used to configure Consul ENV
 type Config struct {
@@ -36,9 +34,12 @@ type Config struct {
 	// the Prefixes struct key instead.
 	PrefixesOld []string `json:"prefixes" mapstructure:"prefixes"`
 
-	// Prefixes is the list of all prefix dependencies (consul and vault)
+	// Prefixes is the list of all prefix dependencies (consul)
 	// in merge order.
-	Prefixes []*Prefix `json:"prefix" mapstructure:"prefix"`
+	Prefixes []*ConfigPrefix `json:"prefix" mapstructure:"prefix"`
+
+	// Secrets is the list of all secret dependencies (vault)
+	Secrets []*ConfigPrefix `json:"secret" mapstructure:"secret"`
 
 	// Auth is the HTTP basic authentication for communicating with Consul.
 	Auth *AuthConfig `json:"auth" mapstructure:"auth"`
@@ -106,10 +107,19 @@ func (c *Config) Merge(config *Config) {
 
 	if len(config.Prefixes) > 0 {
 		if c.Prefixes == nil {
-			c.Prefixes = make([]*Prefix, 0, 1)
+			c.Prefixes = make([]*ConfigPrefix, 0, 1)
 		}
 		for _, prefix := range config.Prefixes {
 			c.Prefixes = append(c.Prefixes, prefix)
+		}
+	}
+
+	if len(config.Secrets) > 0 {
+		if c.Secrets == nil {
+			c.Secrets = make([]*ConfigPrefix, 0, 1)
+		}
+		for _, prefix := range config.Secrets {
+			c.Secrets = append(c.Secrets, prefix)
 		}
 	}
 
@@ -281,6 +291,9 @@ func ParseConfig(path string) (*Config, error) {
 		return nil, fmt.Errorf("error decoding config at %q: %s", path, err)
 	}
 
+	x, _ := json.MarshalIndent(shadow, "", "  ")
+	println(fmt.Sprintf("%s", x))
+
 	// Convert to a map and flatten the keys we want to flatten
 	parsed, ok := shadow.(map[string]interface{})
 	if !ok {
@@ -320,22 +333,14 @@ func ParseConfig(path string) (*Config, error) {
 		log.Printf(`[WARN] Specifying the key "prefixes" in the configuration is `+
 			`no longer supported. Please specify each prefix individually using `+
 			`the key "prefix" (config at %s)`, path)
-		prefixes := make([]*Prefix, 0, len(config.PrefixesOld))
+		prefixes := make([]*ConfigPrefix, 0, len(config.PrefixesOld))
 		for _, prefix := range config.PrefixesOld {
-			prefixes = append(prefixes, &Prefix{
-				Path:   prefix,
-				Source: PrefixSourceConsul,
+			prefixes = append(prefixes, &ConfigPrefix{
+				Path: prefix,
 			})
 		}
 		config.Prefixes = append(prefixes, config.Prefixes...)
 		config.PrefixesOld = nil
-	}
-
-	// Ensure the default source value is "consul"
-	for _, prefix := range config.Prefixes {
-		if prefix.Source == "" {
-			prefix.Source = PrefixSourceConsul
-		}
 	}
 
 	// Update the list of set keys
@@ -485,10 +490,10 @@ func DefaultConfig() *Config {
 	return config
 }
 
-//
-type Prefix struct {
-	Path   string `json:"path" mapstructure:"path"`
-	Source string `json:"source" mapstructure:"source"`
+// ConfigPrefix is a wrapper around some common options for Consul and Vault
+// prefixes.
+type ConfigPrefix struct {
+	Path string `json:"path" mapstructure:"path"`
 }
 
 // AuthConfig is the HTTP basic authentication data.
