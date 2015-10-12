@@ -367,10 +367,12 @@ func (r *Runner) appendPrefixes(
 		}
 
 		if current, ok := env[key]; ok {
-			log.Printf("[DEBUG] (runner) overwriting %s=%q (was %q)", key, value, current)
+			log.Printf("[DEBUG] (runner) overwriting %s=%q (was %q) from %s",
+				key, value, current, d.Display())
 			env[key] = value
 		} else {
-			log.Printf("[DEBUG] (runner) setting %s=%q", key, value)
+			log.Printf("[DEBUG] (runner) setting %s=%q from %s",
+				key, value, d.Display())
 			env[key] = value
 		}
 	}
@@ -380,6 +382,43 @@ func (r *Runner) appendPrefixes(
 
 func (r *Runner) appendSecrets(
 	env map[string]string, d *dep.VaultSecret, data interface{}) error {
+	typed, ok := data.(*dep.Secret)
+	if !ok {
+		return fmt.Errorf("error converting to secret %s", d.Display())
+	}
+
+	for key, value := range typed.Data {
+		// Ignore any keys that are empty (not sure if this is even possible in
+		// Vault, but I play defense).
+		if strings.TrimSpace(key) == "" {
+			continue
+		}
+
+		// Replace the path slashes with an underscore.
+		path := strings.Replace(d.Path, "/", "_", -1)
+
+		// Prefix the key value with the path value.
+		key = fmt.Sprintf("%s_%s", path, key)
+
+		if r.config.Sanitize {
+			key = InvalidRegexp.ReplaceAllString(key, "_")
+		}
+
+		if r.config.Upcase {
+			key = strings.ToUpper(key)
+		}
+
+		if current, ok := env[key]; ok {
+			log.Printf("[DEBUG] (runner) overwriting %s=%q (was %q) from %s",
+				key, value, current, d.Display())
+			env[key] = value.(string)
+		} else {
+			log.Printf("[DEBUG] (runner) setting %s=%q from %s",
+				key, value, d.Display())
+			env[key] = value.(string)
+		}
+	}
+
 	return nil
 }
 

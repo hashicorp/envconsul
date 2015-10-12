@@ -144,9 +144,12 @@ func TestRun_vault(t *testing.T) {
 	defer ln.Close()
 
 	req := &logical.Request{
-		Operation:   logical.WriteOperation,
-		Path:        "secret/foo/bar",
-		Data:        map[string]interface{}{"zip": "zap"},
+		Operation: logical.WriteOperation,
+		Path:      "secret/foo",
+		Data: map[string]interface{}{
+			"zip":  "zap",
+			"ding": "dong",
+		},
 		ClientToken: token,
 	}
 	if _, err := core.HandleRequest(req); err != nil {
@@ -180,7 +183,7 @@ func TestRun_vault(t *testing.T) {
 		}
 
 		prefix {
-			path   = "secret/foo/bar"
+			path   = "secret/foo"
 			source = "vault"
 		}
 	`, addr, secret.Auth.ClientToken), t)
@@ -200,10 +203,17 @@ func TestRun_vault(t *testing.T) {
 	case err := <-runner.ErrCh:
 		t.Fatal(err)
 	case <-runner.ExitCh:
-		expected := "b_a_r=baz"
-		if !strings.Contains(outStream.String(), expected) {
-			t.Fatalf("expected %q to include %q", outStream.String(), expected)
-		}
+	case <-time.After(250 * time.Millisecond):
+	}
+
+	expected := "secret_foo_zip=zap"
+	if !strings.Contains(outStream.String(), expected) {
+		t.Errorf("expected %q to include %q", outStream.String(), expected)
+	}
+
+	expected = "secret_foo_ding=dong"
+	if !strings.Contains(outStream.String(), expected) {
+		t.Errorf("expected %q to include %q", outStream.String(), expected)
 	}
 }
 
