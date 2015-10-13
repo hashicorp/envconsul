@@ -10,7 +10,8 @@ FEATURES:
     [GH-58]
   * Add support for Vault configuration and prefixes
   * Add support for custom key formatting
-
+  * Add `splay` option for sleeping a random amount of time before re-spawing
+    the child process [GH-53]
 
 IMPROVEMENTS:
 
