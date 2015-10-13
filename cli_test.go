@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"io/ioutil"
 	"reflect"
 	"strings"
@@ -9,6 +8,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/consul-template/watch"
+	"github.com/hashicorp/go-gatedio"
 )
 
 func TestParseFlags_consul(t *testing.T) {
@@ -526,7 +526,7 @@ func TestParseFlags_errors(t *testing.T) {
 }
 
 func TestRun_errors(t *testing.T) {
-	buf := new(bytes.Buffer)
+	buf := gatedio.NewByteBuffer()
 
 	// Returns the right exit code if no command is given
 	cli := NewCLI(ioutil.Discard, buf)

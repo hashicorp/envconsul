@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -15,6 +14,7 @@ import (
 	"github.com/hashicorp/consul-template/test"
 	"github.com/hashicorp/consul-template/watch"
 	"github.com/hashicorp/consul/testutil"
+	"github.com/hashicorp/go-gatedio"
 	vaultapi "github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/http"
 	"github.com/hashicorp/vault/logical"
@@ -119,7 +119,7 @@ func TestRun_consul(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
+	outStream, errStream := gatedio.NewByteBuffer(), gatedio.NewByteBuffer()
 	runner.outStream, runner.errStream = outStream, errStream
 
 	go runner.Start()
@@ -192,7 +192,7 @@ func TestRun_vault(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
+	outStream, errStream := gatedio.NewByteBuffer(), gatedio.NewByteBuffer()
 	runner.outStream, runner.errStream = outStream, errStream
 
 	go runner.Start()
@@ -286,7 +286,7 @@ func TestRun_vaultPrecedenceOverConsul(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
+	outStream, errStream := gatedio.NewByteBuffer(), gatedio.NewByteBuffer()
 	runner.outStream, runner.errStream = outStream, errStream
 
 	go runner.Start()
@@ -334,7 +334,7 @@ func TestRun_format(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
+	outStream, errStream := gatedio.NewByteBuffer(), gatedio.NewByteBuffer()
 	runner.outStream, runner.errStream = outStream, errStream
 
 	go runner.Start()
@@ -375,7 +375,7 @@ func TestRun_sanitize(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
+	outStream, errStream := gatedio.NewByteBuffer(), gatedio.NewByteBuffer()
 	runner.outStream, runner.errStream = outStream, errStream
 
 	go runner.Start()
@@ -416,7 +416,7 @@ func TestRun_upcase(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
+	outStream, errStream := gatedio.NewByteBuffer(), gatedio.NewByteBuffer()
 	runner.outStream, runner.errStream = outStream, errStream
 
 	go runner.Start()
@@ -457,7 +457,7 @@ func TestRun_pristine(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
+	outStream, errStream := gatedio.NewByteBuffer(), gatedio.NewByteBuffer()
 	runner.outStream, runner.errStream = outStream, errStream
 
 	go runner.Start()
@@ -510,7 +510,7 @@ func TestRun_merges(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
+	outStream, errStream := gatedio.NewByteBuffer(), gatedio.NewByteBuffer()
 	runner.outStream, runner.errStream = outStream, errStream
 
 	go runner.Start()
@@ -544,7 +544,7 @@ func TestStart_noRunMissingData(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
+	outStream, errStream := gatedio.NewByteBuffer(), gatedio.NewByteBuffer()
 	runner.outStream, runner.errStream = outStream, errStream
 
 	go runner.Start()
