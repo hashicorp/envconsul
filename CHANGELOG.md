@@ -1,7 +1,7 @@
 envconsul Changelog
 ===================
 
-## v0.5.1.dev (Unreleased)
+## v0.6.0 (October 12, 2015)
 
 FEATURES:
 
