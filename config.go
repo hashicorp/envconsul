@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -291,9 +290,6 @@ func ParseConfig(path string) (*Config, error) {
 		return nil, fmt.Errorf("error decoding config at %q: %s", path, err)
 	}
 
-	x, _ := json.MarshalIndent(shadow, "", "  ")
-	println(fmt.Sprintf("%s", x))
-
 	// Convert to a map and flatten the keys we want to flatten
 	parsed, ok := shadow.(map[string]interface{})
 	if !ok {
@@ -493,7 +489,8 @@ func DefaultConfig() *Config {
 // ConfigPrefix is a wrapper around some common options for Consul and Vault
 // prefixes.
 type ConfigPrefix struct {
-	Path string `json:"path" mapstructure:"path"`
+	Path   string `json:"path" mapstructure:"path"`
+	Format string `json:"format" mapstructure:"format"`
 }
 
 // AuthConfig is the HTTP basic authentication data.

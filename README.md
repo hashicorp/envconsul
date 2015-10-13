@@ -114,22 +114,24 @@ The envconsul configuration file is written in [HashiCorp Configuration Language
 The Configuration file syntax interface supports all of the options detailed above, but the dashes are replaced with underscores.
 
 ```javascript
-consul = "127.0.0.1:8500"
-token = "abcd1234"
+consul    = "127.0.0.1:8500"
+token     = "abcd1234"
 max_stale = "10m"
-timeout = "5s"
-retry = "10s"
-sanitize = true
+timeout   = "5s"
+retry     = "10s"
+sanitize  = true
+
 kill_signal = "SIGHUP"
 
 vault {
   address = "https://vault.service.consul:8200"
-  token = "abcd1234" // May also be specified via the envvar VAULT_TOKEN
-  renew = true
+  token   = "abcd1234" // May also be specified via the envvar VAULT_TOKEN
+  renew   = true
+
   ssl {
     enabled = true
-    verify = true
-    cert = "/path/to/client/cert.pem"
+    verify  = true
+    cert    = "/path/to/client/cert.pem"
     ca_cert = "/path/to/ca/cert.pem"
   }
 }
@@ -140,15 +142,16 @@ prefix {
 
 prefix {
   path   = "config/redis"
+  format = "prod_%s"
 }
 
 secret {
-  path   = "secret/creds"
+  path = "secret/creds"
 }
 
 auth {
   enabled = true
-  username = "test"
+  usernam e = "test"
   password = "test"
 }
 
@@ -212,12 +215,13 @@ First, you must add the vault address and token information to the configuration
 ```javascript
 vault {
   address = "https://vault.service.consul:8200"
-  token = "abcd1234" // May also be specified via the envvar VAULT_TOKEN
-  renew = true
+  token   = "abcd1234" // May also be specified via the envvar VAULT_TOKEN
+  renew   = true
+
   ssl {
     enabled = true
-    verify = true
-    cert = "/path/to/client/cert.pem"
+    verify  = true
+    cert    = "/path/to/client/cert.pem"
     ca_cert = "/path/to/ca/cert.pem"
   }
 }
@@ -247,6 +251,17 @@ Notice that the environment variables are prefixed with the path. The slashes in
 secret/passwords     => secret_passwords
 mysql/creds/readonly => mysql_creds_readonly
 ```
+
+It is highly encouraged that you specify the format for vault keys to include a common prefix, like:
+
+```javascript
+secret {
+  path   = "secret/passwords"
+  format = "secret_%s"
+}
+```
+
+The format string is passed to the go formatter and "%s" dictates where the key will go. This will help filter out the environment when execing to a child-process, for example.
 
 You can also apply key transformations to the data:
 

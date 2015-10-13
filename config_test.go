@@ -291,7 +291,8 @@ func TestParseConfig_correctValues(t *testing.T) {
 		}
 
 		prefix {
-			path = "config/redis"
+			path   = "config/redis"
+			format = "prod_%s"
 		}
 
 		secret {
@@ -377,7 +378,7 @@ func TestParseConfig_correctValues(t *testing.T) {
 			&ConfigPrefix{Path: "old/syntax"},
 			&ConfigPrefix{Path: "deprecated/soon"},
 			&ConfigPrefix{Path: "config/global"},
-			&ConfigPrefix{Path: "config/redis"},
+			&ConfigPrefix{Path: "config/redis", Format: "prod_%s"},
 		},
 		Secrets: []*ConfigPrefix{
 			&ConfigPrefix{Path: "secret/redis"},

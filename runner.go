@@ -62,6 +62,10 @@ type Runner struct {
 	// dependencies is the list of dependencies for this runner.
 	dependencies []dep.Dependency
 
+	// configPrefixMap is a map of a dependency's hashcode back to the config
+	// prefix that created it.
+	configPrefixMap map[string]*ConfigPrefix
+
 	// data is the latest representation of the data from Consul.
 	data map[string]interface{}
 
@@ -98,31 +102,6 @@ func NewRunner(config *Config, command []string, once bool) (*Runner, error) {
 // timers. This is the main event loop and will block until finished.
 func (r *Runner) Start() {
 	log.Printf("[INFO] (runner) starting")
-
-	// Parse and add consul dependencies
-	for _, p := range r.config.Prefixes {
-		log.Printf("looking at consul %s", p.Path)
-		d, err := dep.ParseStoreKeyPrefix(p.Path)
-		if err != nil {
-			r.ErrCh <- err
-			return
-		}
-		r.dependencies = append(r.dependencies, d)
-	}
-
-	// Parse and add vault dependencies - it is important that this come after
-	// consul, because consul should never be permitted to overwrite values from
-	// vault; that would expose a security hole since access to consul is
-	// typically less controlled than access to vault.
-	for _, s := range r.config.Secrets {
-		log.Printf("looking at vault %s", s.Path)
-		d, err := dep.ParseVaultSecret(s.Path)
-		if err != nil {
-			r.ErrCh <- err
-			return
-		}
-		r.dependencies = append(r.dependencies, d)
-	}
 
 	// Add each dependency to the watcher
 	for _, d := range r.dependencies {
@@ -347,6 +326,9 @@ func (r *Runner) appendPrefixes(
 		return fmt.Errorf("error converting to keypair %s", d.Display())
 	}
 
+	// Get the ConfigPrefix so we can get configuration from it.
+	cp := r.configPrefixMap[d.HashCode()]
+
 	// For each pair, update the environment hash. Subsequent runs could
 	// overwrite an existing key.
 	for _, pair := range typed {
@@ -356,6 +338,11 @@ func (r *Runner) appendPrefixes(
 		// it is possible to have an environment variable _value_ that is blank.
 		if strings.TrimSpace(key) == "" {
 			continue
+		}
+
+		// If the user specified a custom format, apply that here.
+		if cp.Format != "" {
+			key = fmt.Sprintf(cp.Format, key)
 		}
 
 		if r.config.Sanitize {
@@ -387,6 +374,9 @@ func (r *Runner) appendSecrets(
 		return fmt.Errorf("error converting to secret %s", d.Display())
 	}
 
+	// Get the ConfigPrefix so we can get configuration from it.
+	cp := r.configPrefixMap[d.HashCode()]
+
 	for key, value := range typed.Data {
 		// Ignore any keys that are empty (not sure if this is even possible in
 		// Vault, but I play defense).
@@ -399,6 +389,11 @@ func (r *Runner) appendSecrets(
 
 		// Prefix the key value with the path value.
 		key = fmt.Sprintf("%s_%s", path, key)
+
+		// If the user specified a custom format, apply that here.
+		if cp.Format != "" {
+			key = fmt.Sprintf(cp.Format, key)
+		}
 
 		if r.config.Sanitize {
 			key = InvalidRegexp.ReplaceAllString(key, "_")
@@ -465,6 +460,7 @@ func (r *Runner) init() error {
 	r.watcher = watcher
 
 	r.data = make(map[string]interface{})
+	r.configPrefixMap = make(map[string]*ConfigPrefix)
 
 	r.outStream = os.Stdout
 	r.errStream = os.Stderr
@@ -472,6 +468,30 @@ func (r *Runner) init() error {
 	r.ErrCh = make(chan error)
 	r.DoneCh = make(chan struct{})
 	r.ExitCh = make(chan int, 1)
+
+	// Parse and add consul dependencies
+	for _, p := range r.config.Prefixes {
+		d, err := dep.ParseStoreKeyPrefix(p.Path)
+		if err != nil {
+			return err
+		}
+		r.dependencies = append(r.dependencies, d)
+		r.configPrefixMap[d.HashCode()] = p
+	}
+
+	// Parse and add vault dependencies - it is important that this come after
+	// consul, because consul should never be permitted to overwrite values from
+	// vault; that would expose a security hole since access to consul is
+	// typically less controlled than access to vault.
+	for _, s := range r.config.Secrets {
+		log.Printf("looking at vault %s", s.Path)
+		d, err := dep.ParseVaultSecret(s.Path)
+		if err != nil {
+			return err
+		}
+		r.dependencies = append(r.dependencies, d)
+		r.configPrefixMap[d.HashCode()] = s
+	}
 
 	return nil
 }

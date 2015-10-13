@@ -310,6 +310,47 @@ func TestRun_vaultPrecedenceOverConsul(t *testing.T) {
 	}
 }
 
+func TestRun_format(t *testing.T) {
+	t.Parallel()
+
+	consul := testutil.NewTestServerConfig(t, func(c *testutil.TestServerConfig) {
+		c.Stdout = ioutil.Discard
+		c.Stderr = ioutil.Discard
+	})
+	defer consul.Stop()
+
+	consul.SetKV("foo/bar/bar", []byte("baz"))
+
+	config := testConfig(fmt.Sprintf(`
+		consul = "%s"
+		prefix {
+			path   = "foo/bar"
+			format = "prod_%%s"
+		}
+	`, consul.HTTPAddr), t)
+
+	runner, err := NewRunner(config, []string{"env"}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
+	runner.outStream, runner.errStream = outStream, errStream
+
+	go runner.Start()
+	defer runner.Stop()
+
+	select {
+	case err := <-runner.ErrCh:
+		t.Fatal(err)
+	case <-runner.ExitCh:
+		expected := "prod_bar=baz"
+		if !strings.Contains(outStream.String(), expected) {
+			t.Fatalf("expected %q to include %q", outStream.String(), expected)
+		}
+	}
+}
+
 func TestRun_sanitize(t *testing.T) {
 	t.Parallel()
 
