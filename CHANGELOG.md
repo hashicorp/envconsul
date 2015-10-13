@@ -3,9 +3,32 @@ envconsul Changelog
 
 ## v0.5.1.dev (Unreleased)
 
+FEATURES:
+
+  * Add a configurable kill switch [GH-48]
+  * Add `pristine` option to completely replace the environment for the command
+    [GH-58]
+  * Add support for Vault configuration and prefixes
+  * Add support for custom key formatting
+
+
+IMPROVEMENTS:
+
+  * Improve documentation around command line vs configuration file parameters
+    [GH-41]
+  * Update to new Consul Template APIs which are more efficient
+  * Match Makefile and semantics for other HashiCorp projects
+  * Set a default max-stale value of 1s
+  * Support reloading configuration on SIGHUP (but the signal will also be
+    sent to the child process!)
+
 BUG FIXES:
 
-  * Fix config merging (GH-49)
+  * Fix config merging [GH-49]
+  * Trim leading and trailing slashes from prefixes [GH-59]
+  * Fix ignored `-ssl` flag [GH-51]
+  * Remove noisy debug line [GH-55]
+  * Properly handle the case where a command is missing [GH-61]
 
 ## v0.5.0 (February 19, 2015)
 
