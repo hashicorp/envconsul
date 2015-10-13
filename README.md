@@ -252,17 +252,6 @@ secret/passwords     => secret_passwords
 mysql/creds/readonly => mysql_creds_readonly
 ```
 
-It is highly encouraged that you specify the format for vault keys to include a common prefix, like:
-
-```javascript
-secret {
-  path   = "secret/passwords"
-  format = "secret_%s"
-}
-```
-
-The format string is passed to the go formatter and "%s" dictates where the key will go. This will help filter out the environment when execing to a child-process, for example.
-
 You can also apply key transformations to the data:
 
 ```
@@ -275,6 +264,17 @@ $ envconsul \
 MYSQL_CREDS_READONLY_USERNAME=root-aefa635a-18
 MYSQL_CREDS_READONLY_PASSWORD=132ae3ef-5a64-7499-351e-bfe59f3a2a21
 ```
+
+It is highly encouraged that you specify the format for vault keys to include a common prefix, like:
+
+```javascript
+secret {
+  path   = "secret/passwords"
+  format = "secret_%s"
+}
+```
+
+The format string is passed to the go formatter and "%s" dictates where the key will go. This will help filter out the environment when execing to a child-process, for example.
 
 Debugging
 ---------
