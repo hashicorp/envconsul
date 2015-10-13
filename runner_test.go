@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"reflect"
@@ -13,6 +14,11 @@ import (
 	dep "github.com/hashicorp/consul-template/dependency"
 	"github.com/hashicorp/consul-template/test"
 	"github.com/hashicorp/consul-template/watch"
+	"github.com/hashicorp/consul/testutil"
+	vaultapi "github.com/hashicorp/vault/api"
+	"github.com/hashicorp/vault/http"
+	"github.com/hashicorp/vault/logical"
+	"github.com/hashicorp/vault/vault"
 )
 
 func TestNewRunner(t *testing.T) {
@@ -33,10 +39,6 @@ func TestNewRunner(t *testing.T) {
 
 	if runner.once != true {
 		t.Error("expected once to be true")
-	}
-
-	if runner.client == nil {
-		t.Error("expected client to exist")
 	}
 
 	if runner.watcher == nil {
@@ -75,7 +77,9 @@ func TestReceive_receivesData(t *testing.T) {
 	}
 
 	config := testConfig(`
-		prefixes = ["foo/bar"]
+		prefix {
+			path = "foo/bar"
+		}
 	`, t)
 
 	runner, err := NewRunner(config, []string{"env"}, true)
@@ -92,16 +96,23 @@ func TestReceive_receivesData(t *testing.T) {
 	}
 }
 
-func TestRun_sanitize(t *testing.T) {
-	prefix, err := dep.ParseStoreKeyPrefix("foo/bar")
-	if err != nil {
-		t.Fatal(err)
-	}
+func TestRun_consul(t *testing.T) {
+	t.Parallel()
 
-	config := testConfig(`
-		sanitize = true
-		prefixes = ["foo/bar"]
-	`, t)
+	consul := testutil.NewTestServerConfig(t, func(c *testutil.TestServerConfig) {
+		c.Stdout = ioutil.Discard
+		c.Stderr = ioutil.Discard
+	})
+	defer consul.Stop()
+
+	consul.SetKV("foo/bar/bar", []byte("baz"))
+
+	config := testConfig(fmt.Sprintf(`
+		consul = "%s"
+		prefix {
+			path = "foo/bar"
+		}
+	`, consul.HTTPAddr), t)
 
 	runner, err := NewRunner(config, []string{"env"}, true)
 	if err != nil {
@@ -111,25 +122,269 @@ func TestRun_sanitize(t *testing.T) {
 	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
 	runner.outStream, runner.errStream = outStream, errStream
 
-	pair := []*dep.KeyPair{
-		&dep.KeyPair{
-			Path:  "foo/bar",
-			Key:   "b*a*r",
-			Value: "baz",
-		},
-	}
-
-	runner.Receive(prefix, pair)
-
-	exitCh, err := runner.Run()
-	if err != nil {
-		t.Fatal(err)
-	}
+	go runner.Start()
+	defer runner.Stop()
 
 	select {
 	case err := <-runner.ErrCh:
 		t.Fatal(err)
-	case <-exitCh:
+	case <-runner.ExitCh:
+		expected := "bar=baz"
+		if !strings.Contains(outStream.String(), expected) {
+			t.Fatalf("expected %q to include %q", outStream.String(), expected)
+		}
+	}
+}
+
+func TestRun_vault(t *testing.T) {
+	t.Parallel()
+
+	core, _, token := vault.TestCoreUnsealed(t)
+	ln, addr := http.TestServer(t, core)
+	defer ln.Close()
+
+	req := &logical.Request{
+		Operation: logical.WriteOperation,
+		Path:      "secret/foo",
+		Data: map[string]interface{}{
+			"zip":  "zap",
+			"ding": "dong",
+		},
+		ClientToken: token,
+	}
+	if _, err := core.HandleRequest(req); err != nil {
+		t.Fatal(err)
+	}
+
+	vaultconfig := vaultapi.DefaultConfig()
+	vaultconfig.Address = addr
+	client, err := vaultapi.NewClient(vaultconfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.SetToken(token)
+
+	// Create a new token - the core token is a root token and is therefore
+	// not renewable
+	secret, err := client.Auth().Token().Create(&vaultapi.TokenCreateRequest{
+		Lease: "1h",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	config := testConfig(fmt.Sprintf(`
+		vault {
+			address = "%s"
+			token   = "%s"
+			ssl {
+				enabled = false
+			}
+		}
+
+		secret {
+			path = "secret/foo"
+		}
+	`, addr, secret.Auth.ClientToken), t)
+
+	runner, err := NewRunner(config, []string{"env"}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
+	runner.outStream, runner.errStream = outStream, errStream
+
+	go runner.Start()
+	defer runner.Stop()
+
+	select {
+	case err := <-runner.ErrCh:
+		t.Fatal(err)
+	case <-runner.ExitCh:
+	case <-time.After(250 * time.Millisecond):
+	}
+
+	expected := "secret_foo_zip=zap"
+	if !strings.Contains(outStream.String(), expected) {
+		t.Errorf("expected %q to include %q", outStream.String(), expected)
+	}
+
+	expected = "secret_foo_ding=dong"
+	if !strings.Contains(outStream.String(), expected) {
+		t.Errorf("expected %q to include %q", outStream.String(), expected)
+	}
+}
+
+func TestRun_vaultPrecedenceOverConsul(t *testing.T) {
+	t.Parallel()
+
+	consul := testutil.NewTestServerConfig(t, func(c *testutil.TestServerConfig) {
+		c.Stdout = ioutil.Discard
+		c.Stderr = ioutil.Discard
+	})
+	defer consul.Stop()
+
+	consul.SetKV("secret/foo/secret_foo_zip", []byte("baz"))
+
+	vaultCore, _, token := vault.TestCoreUnsealed(t)
+	ln, vaultAddr := http.TestServer(t, vaultCore)
+	defer ln.Close()
+
+	req := &logical.Request{
+		Operation: logical.WriteOperation,
+		Path:      "secret/foo",
+		Data: map[string]interface{}{
+			"zip":  "zap",
+			"ding": "dong",
+		},
+		ClientToken: token,
+	}
+	if _, err := vaultCore.HandleRequest(req); err != nil {
+		t.Fatal(err)
+	}
+
+	vaultconfig := vaultapi.DefaultConfig()
+	vaultconfig.Address = vaultAddr
+	client, err := vaultapi.NewClient(vaultconfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.SetToken(token)
+
+	// Create a new token - the core token is a root token and is therefore
+	// not renewable
+	secret, err := client.Auth().Token().Create(&vaultapi.TokenCreateRequest{
+		Lease: "1h",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	config := testConfig(fmt.Sprintf(`
+		consul = "%s"
+
+		vault {
+			address = "%s"
+			token   = "%s"
+			ssl {
+				enabled = false
+			}
+		}
+
+		secret {
+			path = "secret/foo"
+		}
+
+		prefix {
+			path = "secret/foo"
+		}
+	`, consul.HTTPAddr, vaultAddr, secret.Auth.ClientToken), t)
+
+	runner, err := NewRunner(config, []string{"env"}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
+	runner.outStream, runner.errStream = outStream, errStream
+
+	go runner.Start()
+	defer runner.Stop()
+
+	select {
+	case err := <-runner.ErrCh:
+		t.Fatal(err)
+	case <-runner.ExitCh:
+	case <-time.After(250 * time.Millisecond):
+	}
+
+	expected := "secret_foo_zip=zap"
+	if !strings.Contains(outStream.String(), expected) {
+		t.Errorf("expected %q to include %q", outStream.String(), expected)
+	}
+
+	expected = "secret_foo_ding=dong"
+	if !strings.Contains(outStream.String(), expected) {
+		t.Errorf("expected %q to include %q", outStream.String(), expected)
+	}
+}
+
+func TestRun_format(t *testing.T) {
+	t.Parallel()
+
+	consul := testutil.NewTestServerConfig(t, func(c *testutil.TestServerConfig) {
+		c.Stdout = ioutil.Discard
+		c.Stderr = ioutil.Discard
+	})
+	defer consul.Stop()
+
+	consul.SetKV("foo/bar/bar", []byte("baz"))
+
+	config := testConfig(fmt.Sprintf(`
+		consul = "%s"
+		prefix {
+			path   = "foo/bar"
+			format = "prod_{{ key }}"
+		}
+	`, consul.HTTPAddr), t)
+
+	runner, err := NewRunner(config, []string{"env"}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
+	runner.outStream, runner.errStream = outStream, errStream
+
+	go runner.Start()
+	defer runner.Stop()
+
+	select {
+	case err := <-runner.ErrCh:
+		t.Fatal(err)
+	case <-runner.ExitCh:
+		expected := "prod_bar=baz"
+		if !strings.Contains(outStream.String(), expected) {
+			t.Fatalf("expected %q to include %q", outStream.String(), expected)
+		}
+	}
+}
+
+func TestRun_sanitize(t *testing.T) {
+	t.Parallel()
+
+	consul := testutil.NewTestServerConfig(t, func(c *testutil.TestServerConfig) {
+		c.Stdout = ioutil.Discard
+		c.Stderr = ioutil.Discard
+	})
+	defer consul.Stop()
+
+	consul.SetKV("foo/bar/b*a*r", []byte("baz"))
+
+	config := testConfig(fmt.Sprintf(`
+		consul = "%s"
+		sanitize = true
+		prefix {
+			path = "foo/bar"
+		}
+	`, consul.HTTPAddr), t)
+
+	runner, err := NewRunner(config, []string{"env"}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
+	runner.outStream, runner.errStream = outStream, errStream
+
+	go runner.Start()
+	defer runner.Stop()
+
+	select {
+	case err := <-runner.ErrCh:
+		t.Fatal(err)
+	case <-runner.ExitCh:
 		expected := "b_a_r=baz"
 		if !strings.Contains(outStream.String(), expected) {
 			t.Fatalf("expected %q to include %q", outStream.String(), expected)
@@ -138,15 +393,23 @@ func TestRun_sanitize(t *testing.T) {
 }
 
 func TestRun_upcase(t *testing.T) {
-	prefix, err := dep.ParseStoreKeyPrefix("foo/bar")
-	if err != nil {
-		t.Fatal(err)
-	}
+	t.Parallel()
 
-	config := testConfig(`
+	consul := testutil.NewTestServerConfig(t, func(c *testutil.TestServerConfig) {
+		c.Stdout = ioutil.Discard
+		c.Stderr = ioutil.Discard
+	})
+	defer consul.Stop()
+
+	consul.SetKV("foo/bar/bar", []byte("baz"))
+
+	config := testConfig(fmt.Sprintf(`
+		consul = "%s"
 		upcase = true
-		prefixes = ["foo/bar"]
-	`, t)
+		prefix {
+			path = "foo/bar"
+		}
+	`, consul.HTTPAddr), t)
 
 	runner, err := NewRunner(config, []string{"env"}, true)
 	if err != nil {
@@ -156,25 +419,13 @@ func TestRun_upcase(t *testing.T) {
 	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
 	runner.outStream, runner.errStream = outStream, errStream
 
-	pair := []*dep.KeyPair{
-		&dep.KeyPair{
-			Path:  "foo/bar",
-			Key:   "bar",
-			Value: "baz",
-		},
-	}
-
-	runner.Receive(prefix, pair)
-
-	exitCh, err := runner.Run()
-	if err != nil {
-		t.Fatal(err)
-	}
+	go runner.Start()
+	defer runner.Stop()
 
 	select {
 	case err := <-runner.ErrCh:
 		t.Fatal(err)
-	case <-exitCh:
+	case <-runner.ExitCh:
 		expected := "BAR=baz"
 		if !strings.Contains(outStream.String(), expected) {
 			t.Fatalf("expected %q to include %q", outStream.String(), expected)
@@ -183,15 +434,23 @@ func TestRun_upcase(t *testing.T) {
 }
 
 func TestRun_pristine(t *testing.T) {
-	prefix, err := dep.ParseStoreKeyPrefix("foo/bar")
-	if err != nil {
-		t.Fatal(err)
-	}
+	t.Parallel()
 
-	config := testConfig(`
-        pristine = true
-		prefixes = ["foo/bar"]
-	`, t)
+	consul := testutil.NewTestServerConfig(t, func(c *testutil.TestServerConfig) {
+		c.Stdout = ioutil.Discard
+		c.Stderr = ioutil.Discard
+	})
+	defer consul.Stop()
+
+	consul.SetKV("foo/bar/bar", []byte("baz"))
+
+	config := testConfig(fmt.Sprintf(`
+		consul = "%s"
+		pristine = true
+		prefix {
+			path = "foo/bar"
+		}
+	`, consul.HTTPAddr), t)
 
 	runner, err := NewRunner(config, []string{"env"}, true)
 	if err != nil {
@@ -201,25 +460,18 @@ func TestRun_pristine(t *testing.T) {
 	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
 	runner.outStream, runner.errStream = outStream, errStream
 
-	pair := []*dep.KeyPair{
-		&dep.KeyPair{
-			Path:  "foo/bar",
-			Key:   "bar",
-			Value: "baz",
-		},
-	}
-
-	runner.Receive(prefix, pair)
-
-	exitCh, err := runner.Run()
-	if err != nil {
-		t.Fatal(err)
-	}
+	go runner.Start()
+	defer runner.Stop()
 
 	select {
 	case err := <-runner.ErrCh:
 		t.Fatal(err)
-	case <-exitCh:
+	case <-runner.ExitCh:
+		expected := "bar=baz"
+		if !strings.Contains(outStream.String(), expected) {
+			t.Fatalf("expected %q to include %q", outStream.String(), expected)
+		}
+
 		notExpected := "HOME="
 		if strings.Contains(outStream.String(), notExpected) {
 			t.Fatalf("did not expect %q to include %q", outStream.String(), notExpected)
@@ -227,62 +479,31 @@ func TestRun_pristine(t *testing.T) {
 	}
 }
 
-func TestRun_exitCh(t *testing.T) {
-	prefix, err := dep.ParseStoreKeyPrefix("foo/bar")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	config := testConfig(`
-		prefixes = ["foo/bar"]
-	`, t)
-
-	runner, err := NewRunner(config, []string{"env"}, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
-	runner.outStream, runner.errStream = outStream, errStream
-
-	pair := []*dep.KeyPair{
-		&dep.KeyPair{
-			Path:  "foo/bar",
-			Key:   "bar",
-			Value: "baz",
-		},
-	}
-
-	runner.Receive(prefix, pair)
-
-	exitCh, err := runner.Run()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	select {
-	case err := <-runner.ErrCh:
-		t.Fatal(err)
-	case <-exitCh:
-		// Ok
-	}
-}
-
 func TestRun_merges(t *testing.T) {
-	globalPrefix, err := dep.ParseStoreKeyPrefix("config/global")
-	if err != nil {
-		t.Fatal(err)
-	}
+	t.Parallel()
 
-	redisPrefix, err := dep.ParseStoreKeyPrefix("config/redis")
-	if err != nil {
-		t.Fatal(err)
-	}
+	consul := testutil.NewTestServerConfig(t, func(c *testutil.TestServerConfig) {
+		c.Stdout = ioutil.Discard
+		c.Stderr = ioutil.Discard
+	})
+	defer consul.Stop()
 
-	config := testConfig(`
+	consul.SetKV("config/global/address", []byte("1.2.3.4"))
+	consul.SetKV("config/global/port", []byte("5598"))
+	consul.SetKV("config/redis/port", []byte("8000"))
+
+	config := testConfig(fmt.Sprintf(`
+		consul = "%s"
 		upcase = true
-		prefixes = ["config/global", "config/redis"]
-	`, t)
+
+		prefix {
+			path = "config/global"
+		}
+
+		prefix {
+			path = "config/redis"
+		}
+	`, consul.HTTPAddr), t)
 
 	runner, err := NewRunner(config, []string{"env"}, true)
 	if err != nil {
@@ -292,38 +513,13 @@ func TestRun_merges(t *testing.T) {
 	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
 	runner.outStream, runner.errStream = outStream, errStream
 
-	globalData := []*dep.KeyPair{
-		&dep.KeyPair{
-			Path:  "config/global",
-			Key:   "address",
-			Value: "1.2.3.4",
-		},
-		&dep.KeyPair{
-			Path:  "config/global",
-			Key:   "port",
-			Value: "5598",
-		},
-	}
-	runner.Receive(globalPrefix, globalData)
-
-	redisData := []*dep.KeyPair{
-		&dep.KeyPair{
-			Path:  "config/redis",
-			Key:   "port",
-			Value: "8000",
-		},
-	}
-	runner.Receive(redisPrefix, redisData)
-
-	exitCh, err := runner.Run()
-	if err != nil {
-		t.Fatal(err)
-	}
+	go runner.Start()
+	defer runner.Stop()
 
 	select {
 	case err := <-runner.ErrCh:
 		t.Fatal(err)
-	case <-exitCh:
+	case <-runner.ExitCh:
 		expected := "ADDRESS=1.2.3.4"
 		if !strings.Contains(outStream.String(), expected) {
 			t.Fatalf("expected %q to include %q", outStream.String(), expected)
@@ -338,7 +534,9 @@ func TestRun_merges(t *testing.T) {
 
 func TestStart_noRunMissingData(t *testing.T) {
 	config := testConfig(`
-		prefixes = ["foo/bar"]
+		prefix {
+			path = "foo/bar"
+		}
 	`, t)
 
 	runner, err := NewRunner(config, []string{"sh", "-c", "echo $BAR"}, true)
@@ -376,7 +574,9 @@ func TestStart_runsCommandOnChange(t *testing.T) {
 	}
 
 	config := testConfig(`
-		prefixes = ["foo/bar"]
+		prefix {
+			path = "foo/bar"
+		}
 	`, t)
 
 	f := test.CreateTempfile(nil, t)

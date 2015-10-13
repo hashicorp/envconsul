@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	dep "github.com/hashicorp/consul-template/dependency"
 	"github.com/hashicorp/consul-template/test"
 	"github.com/hashicorp/consul-template/watch"
 )
@@ -92,6 +91,71 @@ func TestMerge_auth(t *testing.T) {
 	}
 }
 
+func TestMerge_vault(t *testing.T) {
+	config := testConfig(`
+		vault {
+			address = "1.1.1.1"
+			token = "1"
+			renew = true
+		}
+	`, t)
+	config.Merge(testConfig(`
+		vault {
+			address = "2.2.2.2"
+			renew = false
+		}
+	`, t))
+
+	expected := &VaultConfig{
+		Address: "2.2.2.2",
+		Token:   "1",
+		Renew:   false,
+		SSL: &SSLConfig{
+			Enabled: true,
+			Verify:  true,
+			Cert:    "",
+			CaCert:  "",
+		},
+	}
+
+	if !reflect.DeepEqual(config.Vault, expected) {
+		t.Errorf("expected \n\n%#v\n\n to be \n\n%#v\n\n", config.Vault, expected)
+	}
+}
+
+func TestMerge_vaultSSL(t *testing.T) {
+	config := testConfig(`
+		vault {
+			ssl {
+				enabled = true
+				verify = true
+				cert = "1.pem"
+				ca_cert = "ca-1.pem"
+			}
+		}
+	`, t)
+	config.Merge(testConfig(`
+		vault {
+			ssl {
+				enabled = false
+			}
+		}
+	`, t))
+
+	expected := &VaultConfig{
+		SSL: &SSLConfig{
+			Enabled: false,
+			Verify:  true,
+			Cert:    "1.pem",
+			CaCert:  "ca-1.pem",
+		},
+	}
+
+	if !reflect.DeepEqual(config.Vault.SSL, expected.SSL) {
+		t.Errorf("expected \n\n%#v\n\n to be \n\n%#v\n\n", config.Vault.SSL, expected.SSL)
+	}
+}
+
 func TestMerge_SSL(t *testing.T) {
 	config := testConfig(`
 		ssl {
@@ -143,26 +207,23 @@ func TestMerge_syslog(t *testing.T) {
 }
 
 func TestMerge_prefixes(t *testing.T) {
-	global, err := dep.ParseStoreKeyPrefix("global/time")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	redis, err := dep.ParseStoreKeyPrefix("config/redis")
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	config := testConfig(`
-		prefixes = ["global/time"]
+		prefix {
+			path = "global/time"
+		}
 	`, t)
 	config.Merge(testConfig(`
-		prefixes = ["config/redis"]
+		prefix {
+			path   = "config/redis"
+		}
 	`, t))
 
-	expected := []*dep.StoreKeyPrefix{global, redis}
+	expected := []*ConfigPrefix{
+		&ConfigPrefix{Path: "global/time"},
+		&ConfigPrefix{Path: "config/redis"},
+	}
 	if !reflect.DeepEqual(config.Prefixes, expected) {
-		t.Errorf("expected \n\n%#v\n\n to be \n\n%#v\n\n", config.Prefixes, expected)
+		t.Errorf("expected %#v to be %#v", config.Prefixes, expected)
 	}
 }
 
@@ -214,16 +275,6 @@ func TestParseConfig_parseFileError(t *testing.T) {
 }
 
 func TestParseConfig_correctValues(t *testing.T) {
-	global, err := dep.ParseStoreKeyPrefix("config/global")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	redis, err := dep.ParseStoreKeyPrefix("config/redis")
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	configFile := test.CreateTempfile([]byte(`
 		consul = "nyc1.demo.consul.io"
 		max_stale = "5s"
@@ -232,12 +283,35 @@ func TestParseConfig_correctValues(t *testing.T) {
 		retry = "10s"
 		log_level = "warn"
 
-		prefixes = ["config/global", "config/redis"]
+		// Deprecated
+		prefixes = ["old/syntax", "deprecated/soon"]
+
+		prefix {
+			path = "config/global"
+		}
+
+		prefix {
+			path   = "config/redis"
+			format = "prod_{{ key }}"
+		}
+
+		secret {
+			path = "secret/redis"
+		}
 
 		auth {
 			enabled = true
 			username = "test"
 			password = "test"
+		}
+
+		vault {
+			address = "vault.service.consul"
+			token = "efgh5678"
+			renew = true
+			ssl {
+				enabled = false
+			}
 		}
 
 		ssl {
@@ -271,6 +345,17 @@ func TestParseConfig_correctValues(t *testing.T) {
 			Username: "test",
 			Password: "test",
 		},
+		Vault: &VaultConfig{
+			Address: "vault.service.consul",
+			Token:   "efgh5678",
+			Renew:   true,
+			SSL: &SSLConfig{
+				Enabled: false,
+				Verify:  true,
+				Cert:    "",
+				CaCert:  "",
+			},
+		},
 		SSL: &SSLConfig{
 			Enabled: true,
 			Verify:  false,
@@ -288,18 +373,22 @@ func TestParseConfig_correctValues(t *testing.T) {
 		},
 		Retry:      10 * time.Second,
 		LogLevel:   "warn",
-		Prefixes:   []*dep.StoreKeyPrefix{global, redis},
 		KillSignal: "SIGTERM",
-		setKeys:    config.setKeys,
+		Prefixes: []*ConfigPrefix{
+			&ConfigPrefix{Path: "old/syntax"},
+			&ConfigPrefix{Path: "deprecated/soon"},
+			&ConfigPrefix{Path: "config/global"},
+			&ConfigPrefix{Path: "config/redis", Format: "prod_{{ key }}"},
+		},
+		Secrets: []*ConfigPrefix{
+			&ConfigPrefix{Path: "secret/redis"},
+		},
+		setKeys: config.setKeys,
 	}
 
 	if !reflect.DeepEqual(config, expected) {
 		t.Fatalf("expected \n%#v\n to be \n%#v\n", config, expected)
 	}
-
-	// if !reflect.DeepEqual(config, expected) {
-	// 	t.Fatalf("expected \n%#v\n to be \n%#v\n", config, expected)
-	// }
 }
 
 func TestParseConfig_mapstructureError(t *testing.T) {
@@ -488,7 +577,9 @@ func TestConfigFromPath_configDir(t *testing.T) {
 		t.Fatal(err)
 	}
 	config2 := []byte(`
-		prefixes = ["config/global"]
+		prefix {
+			path = "global/time"
+		}
 	`)
 	_, err = configFile2.Write(config2)
 	if err != nil {
@@ -501,8 +592,10 @@ func TestConfigFromPath_configDir(t *testing.T) {
 	}
 
 	expectedConfig := Config{
-		Consul:   "127.0.0.1:8500",
-		Prefixes: []*dep.StoreKeyPrefix{{Prefix: "global/time"}},
+		Consul: "127.0.0.1:8500",
+		Prefixes: []*ConfigPrefix{
+			&ConfigPrefix{Path: "global/time"},
+		},
 	}
 	if expectedConfig.Consul != config.Consul {
 		t.Fatalf("Config files failed to combine. Expected Consul to be %s but got %s", expectedConfig.Consul, config.Consul)

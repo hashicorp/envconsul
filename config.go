@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"time"
 
-	dep "github.com/hashicorp/consul-template/dependency"
 	"github.com/hashicorp/consul-template/watch"
 	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/hcl"
@@ -29,11 +28,23 @@ type Config struct {
 	// Token is the Consul API token.
 	Token string `json:"-" mapstructure:"token"`
 
-	// Prefixes is the list of key prefix dependencies.
-	Prefixes []*dep.StoreKeyPrefix `json:"prefixes" mapstructure:"prefixes"`
+	// PrefixesOld is the list of key prefix dependencies. This is deprecated and
+	// is only used for backwards compatability purposes. Please use "prefix" and
+	// the Prefixes struct key instead.
+	PrefixesOld []string `json:"prefixes" mapstructure:"prefixes"`
+
+	// Prefixes is the list of all prefix dependencies (consul)
+	// in merge order.
+	Prefixes []*ConfigPrefix `json:"prefix" mapstructure:"prefix"`
+
+	// Secrets is the list of all secret dependencies (vault)
+	Secrets []*ConfigPrefix `json:"secret" mapstructure:"secret"`
 
 	// Auth is the HTTP basic authentication for communicating with Consul.
 	Auth *AuthConfig `json:"auth" mapstructure:"auth"`
+
+	// Vault is the configuration for connecting to a vault server.
+	Vault *VaultConfig `json:"vault" mapstructure:"vault"`
 
 	// SSL indicates we should use a secure connection while talking to
 	// Consul. This requires Consul to be configured to serve HTTPS.
@@ -95,10 +106,19 @@ func (c *Config) Merge(config *Config) {
 
 	if len(config.Prefixes) > 0 {
 		if c.Prefixes == nil {
-			c.Prefixes = make([]*dep.StoreKeyPrefix, 0, 1)
+			c.Prefixes = make([]*ConfigPrefix, 0, 1)
 		}
 		for _, prefix := range config.Prefixes {
 			c.Prefixes = append(c.Prefixes, prefix)
+		}
+	}
+
+	if len(config.Secrets) > 0 {
+		if c.Secrets == nil {
+			c.Secrets = make([]*ConfigPrefix, 0, 1)
+		}
+		for _, prefix := range config.Secrets {
+			c.Secrets = append(c.Secrets, prefix)
 		}
 	}
 
@@ -116,6 +136,41 @@ func (c *Config) Merge(config *Config) {
 		}
 		if config.WasSet("auth.enabled") {
 			c.Auth.Enabled = config.Auth.Enabled
+		}
+	}
+
+	if config.WasSet("vault") {
+		if c.Vault == nil {
+			c.Vault = &VaultConfig{}
+		}
+		if config.WasSet("vault.address") {
+			c.Vault.Address = config.Vault.Address
+		}
+		if config.WasSet("vault.token") {
+			c.Vault.Token = config.Vault.Token
+		}
+		if config.WasSet("vault.renew") {
+			c.Vault.Renew = config.Vault.Renew
+		}
+		if config.WasSet("vault.ssl") {
+			if c.Vault.SSL == nil {
+				c.Vault.SSL = &SSLConfig{}
+			}
+			if config.WasSet("vault.ssl.verify") {
+				c.Vault.SSL.Verify = config.Vault.SSL.Verify
+				c.Vault.SSL.Enabled = true
+			}
+			if config.WasSet("vault.ssl.cert") {
+				c.Vault.SSL.Cert = config.Vault.SSL.Cert
+				c.Vault.SSL.Enabled = true
+			}
+			if config.WasSet("vault.ssl.ca_cert") {
+				c.Vault.SSL.CaCert = config.Vault.SSL.CaCert
+				c.Vault.SSL.Enabled = true
+			}
+			if config.WasSet("vault.ssl.enabled") {
+				c.Vault.SSL.Enabled = config.Vault.SSL.Enabled
+			}
 		}
 	}
 
@@ -240,53 +295,7 @@ func ParseConfig(path string) (*Config, error) {
 	if !ok {
 		return nil, fmt.Errorf("error converting config at %q", path)
 	}
-	flattenKeys(parsed, []string{"auth", "ssl", "syslog"})
-
-	// Parse the prefixes
-	if raw, ok := parsed["prefixes"]; ok {
-		if typed, ok := raw.([]interface{}); !ok {
-			err = fmt.Errorf("error converting prefixes to []interface{} at %q, was %T", path, raw)
-			errs = multierror.Append(errs, err)
-			delete(parsed, "prefixes")
-		} else {
-			prefixes := make([]*dep.StoreKeyPrefix, 0, len(typed))
-			for _, p := range typed {
-				if s, ok := p.(string); ok {
-					if prefix, err := dep.ParseStoreKeyPrefix(s); err != nil {
-						err = fmt.Errorf("error parsing prefix %q at %q: %s", p, path, err)
-						errs = multierror.Append(errs, err)
-					} else {
-						prefixes = append(prefixes, prefix)
-					}
-				} else {
-					err = fmt.Errorf("error converting %T to string", p)
-					errs = multierror.Append(errs, err)
-					delete(parsed, "prefixes")
-				}
-			}
-			parsed["prefixes"] = prefixes
-		}
-	}
-
-	// Parse the wait component
-	if raw, ok := parsed["wait"]; ok {
-		if typed, ok := raw.(string); !ok {
-			err = fmt.Errorf("error converting wait to string at %q", path)
-			errs = multierror.Append(errs, err)
-			delete(parsed, "wait")
-		} else {
-			if wait, err := watch.ParseWait(typed); err != nil {
-				err = fmt.Errorf("error parsing wait at %q: %s", path, err)
-				errs = multierror.Append(errs, err)
-				delete(parsed, "wait")
-			} else {
-				parsed["wait"] = map[string]time.Duration{
-					"min": wait.Min,
-					"max": wait.Max,
-				}
-			}
-		}
-	}
+	flattenKeys(parsed, []string{"auth", "ssl", "syslog", "vault"})
 
 	// Create a new, empty config
 	config := new(Config)
@@ -295,6 +304,7 @@ func ParseConfig(path string) (*Config, error) {
 	metadata := new(mapstructure.Metadata)
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		DecodeHook: mapstructure.ComposeDecodeHookFunc(
+			watch.StringToWaitDurationHookFunc(),
 			mapstructure.StringToSliceHookFunc(","),
 			mapstructure.StringToTimeDurationHookFunc(),
 		),
@@ -313,6 +323,21 @@ func ParseConfig(path string) (*Config, error) {
 
 	// Store a reference to the path where this config was read from
 	config.Path = path
+
+	// Handle deprecations
+	if len(config.PrefixesOld) > 0 {
+		log.Printf(`[WARN] Specifying the key "prefixes" in the configuration is `+
+			`no longer supported. Please specify each prefix individually using `+
+			`the key "prefix" (config at %s)`, path)
+		prefixes := make([]*ConfigPrefix, 0, len(config.PrefixesOld))
+		for _, prefix := range config.PrefixesOld {
+			prefixes = append(prefixes, &ConfigPrefix{
+				Path: prefix,
+			})
+		}
+		config.Prefixes = append(prefixes, config.Prefixes...)
+		config.PrefixesOld = nil
+	}
 
 	// Update the list of set keys
 	if config.setKeys == nil {
@@ -407,6 +432,13 @@ func DefaultConfig() *Config {
 		Auth: &AuthConfig{
 			Enabled: false,
 		},
+		Vault: &VaultConfig{
+			Renew: true,
+			SSL: &SSLConfig{
+				Enabled: true,
+				Verify:  true,
+			},
+		},
 		SSL: &SSLConfig{
 			Enabled: false,
 			Verify:  true,
@@ -435,7 +467,30 @@ func DefaultConfig() *Config {
 		config.Token = v
 	}
 
+	if v := os.Getenv("VAULT_ADDR"); v != "" {
+		config.Vault.Address = v
+	}
+
+	if v := os.Getenv("VAULT_CAPATH"); v != "" {
+		config.Vault.SSL.Cert = v
+	}
+
+	if v := os.Getenv("VAULT_CACERT"); v != "" {
+		config.Vault.SSL.CaCert = v
+	}
+
+	if v := os.Getenv("VAULT_SKIP_VERIFY"); v != "" {
+		config.Vault.SSL.Verify = false
+	}
+
 	return config
+}
+
+// ConfigPrefix is a wrapper around some common options for Consul and Vault
+// prefixes.
+type ConfigPrefix struct {
+	Path   string `json:"path" mapstructure:"path"`
+	Format string `json:"format" mapstructure:"format"`
 }
 
 // AuthConfig is the HTTP basic authentication data.
@@ -458,6 +513,16 @@ func (a *AuthConfig) String() string {
 	}
 
 	return a.Username
+}
+
+// VaultConfig is the configuration for connecting to a vault server.
+type VaultConfig struct {
+	Address string `json:"address,omitempty" mapstructure:"address"`
+	Token   string `json:"-" mapstructure:"token"`
+	Renew   bool   `json:"renew" mapstructure:"renew"`
+
+	// SSL indicates we should use a secure connection while talking to Vault.
+	SSL *SSLConfig `json:"ssl" mapstructure:"ssl"`
 }
 
 // SSLConfig is the configuration for SSL.

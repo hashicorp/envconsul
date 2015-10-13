@@ -39,7 +39,7 @@ updatedeps:
 # generate runs `go generate` to build the dynamically generated
 # source files.
 generate:
-	find . -type f -name '.DS_Store' -delete
+	@find . -type f -name '.DS_Store' -delete
 	go generate ./...
 
 .PHONY: default bin dev dist test testrace updatedeps vet generate

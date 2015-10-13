@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -15,11 +18,13 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"text/template"
 	"time"
 
 	dep "github.com/hashicorp/consul-template/dependency"
 	"github.com/hashicorp/consul-template/watch"
-	"github.com/hashicorp/consul/api"
+	consulapi "github.com/hashicorp/consul/api"
+	vaultapi "github.com/hashicorp/vault/api"
 )
 
 // Regexp for invalid characters in keys
@@ -43,9 +48,6 @@ type Runner struct {
 	// construct other objects and pass data.
 	config *Config
 
-	// client is the consul/api client.
-	client *api.Client
-
 	// once indicates the runner should get data exactly one time and then stop.
 	once bool
 
@@ -59,8 +61,15 @@ type Runner struct {
 	// watcher is the watcher this runner is using.
 	watcher *watch.Watcher
 
+	// dependencies is the list of dependencies for this runner.
+	dependencies []dep.Dependency
+
+	// configPrefixMap is a map of a dependency's hashcode back to the config
+	// prefix that created it.
+	configPrefixMap map[string]*ConfigPrefix
+
 	// data is the latest representation of the data from Consul.
-	data map[string][]*dep.KeyPair
+	data map[string]interface{}
 
 	// env is the last compiled environment.
 	env map[string]string
@@ -96,9 +105,9 @@ func NewRunner(config *Config, command []string, once bool) (*Runner, error) {
 func (r *Runner) Start() {
 	log.Printf("[INFO] (runner) starting")
 
-	// Add the dependencies to the watcher
-	for _, prefix := range r.config.Prefixes {
-		r.watcher.Add(prefix)
+	// Add each dependency to the watcher
+	for _, d := range r.dependencies {
+		r.watcher.Add(d)
 	}
 
 	var err error
@@ -144,6 +153,10 @@ func (r *Runner) Start() {
 			//   errCh <- err
 			// }
 			log.Printf("[ERR] (runner) watcher reported error: %s", err)
+			if r.once {
+				r.ErrCh <- err
+				return
+			}
 		case <-r.watcher.FinishCh:
 			log.Printf("[INFO] (runner) watcher reported finish")
 			return
@@ -185,7 +198,7 @@ func (r *Runner) Stop() {
 func (r *Runner) Receive(d dep.Dependency, data interface{}) {
 	r.Lock()
 	defer r.Unlock()
-	r.data[d.HashCode()] = data.([]*dep.KeyPair)
+	r.data[d.HashCode()] = data
 }
 
 // Signal sends a signal to the child process, if it exists. Any errors that
@@ -219,39 +232,20 @@ func (r *Runner) Run() (<-chan int, error) {
 	//
 	// We iterate over the list of config prefixes so that order is maintained,
 	// since order in a map is not deterministic.
-	for _, dep := range r.config.Prefixes {
-		data, ok := r.data[dep.HashCode()]
+	for _, d := range r.dependencies {
+		data, ok := r.data[d.HashCode()]
 		if !ok {
-			log.Printf("[INFO] (runner) missing data for %s", dep.Display())
+			log.Printf("[INFO] (runner) missing data for %s", d.Display())
 			return nil, nil
 		}
 
-		// For each pair, update the environment hash. Subsequent runs could
-		// overwrite an existing key.
-		for _, pair := range data {
-			key, value := pair.Key, string(pair.Value)
-
-			// It is not possible to have an environment variable that is blank, but
-			// it is possible to have an environment variable _value_ that is blank.
-			if strings.TrimSpace(key) == "" {
-				continue
-			}
-
-			if r.config.Sanitize {
-				key = InvalidRegexp.ReplaceAllString(key, "_")
-			}
-
-			if r.config.Upcase {
-				key = strings.ToUpper(key)
-			}
-
-			if current, ok := env[key]; ok {
-				log.Printf("[DEBUG] (runner) overwriting %s=%q (was %q)", key, value, current)
-				env[key] = value
-			} else {
-				log.Printf("[DEBUG] (runner) setting %s=%q", key, value)
-				env[key] = value
-			}
+		switch typed := d.(type) {
+		case *dep.StoreKeyPrefix:
+			r.appendPrefixes(env, typed, data)
+		case *dep.VaultSecret:
+			r.appendSecrets(env, typed, data)
+		default:
+			return nil, fmt.Errorf("unknown dependency type %T", typed)
 		}
 	}
 
@@ -327,6 +321,134 @@ func (r *Runner) Run() (<-chan int, error) {
 	return exitCh, nil
 }
 
+func applyTemplate(contents, key string) (string, error) {
+	funcs := template.FuncMap{
+		"key": func() (string, error) {
+			return key, nil
+		},
+	}
+
+	tmpl, err := template.New("filter").Funcs(funcs).Parse(contents)
+	if err != nil {
+		return "", nil
+	}
+
+	var buf bytes.Buffer
+	if err = tmpl.Execute(&buf, nil); err != nil {
+		return "", err
+	}
+
+	return buf.String(), nil
+}
+
+func (r *Runner) appendPrefixes(
+	env map[string]string, d *dep.StoreKeyPrefix, data interface{}) error {
+	var err error
+
+	typed, ok := data.([]*dep.KeyPair)
+	if !ok {
+		return fmt.Errorf("error converting to keypair %s", d.Display())
+	}
+
+	// Get the ConfigPrefix so we can get configuration from it.
+	cp := r.configPrefixMap[d.HashCode()]
+
+	// For each pair, update the environment hash. Subsequent runs could
+	// overwrite an existing key.
+	for _, pair := range typed {
+		key, value := pair.Key, string(pair.Value)
+
+		// It is not possible to have an environment variable that is blank, but
+		// it is possible to have an environment variable _value_ that is blank.
+		if strings.TrimSpace(key) == "" {
+			continue
+		}
+
+		// If the user specified a custom format, apply that here.
+		if cp.Format != "" {
+			key, err = applyTemplate(cp.Format, key)
+			if err != nil {
+				return err
+			}
+		}
+
+		if r.config.Sanitize {
+			key = InvalidRegexp.ReplaceAllString(key, "_")
+		}
+
+		if r.config.Upcase {
+			key = strings.ToUpper(key)
+		}
+
+		if current, ok := env[key]; ok {
+			log.Printf("[DEBUG] (runner) overwriting %s=%q (was %q) from %s",
+				key, value, current, d.Display())
+			env[key] = value
+		} else {
+			log.Printf("[DEBUG] (runner) setting %s=%q from %s",
+				key, value, d.Display())
+			env[key] = value
+		}
+	}
+
+	return nil
+}
+
+func (r *Runner) appendSecrets(
+	env map[string]string, d *dep.VaultSecret, data interface{}) error {
+	var err error
+
+	typed, ok := data.(*dep.Secret)
+	if !ok {
+		return fmt.Errorf("error converting to secret %s", d.Display())
+	}
+
+	// Get the ConfigPrefix so we can get configuration from it.
+	cp := r.configPrefixMap[d.HashCode()]
+
+	for key, value := range typed.Data {
+		// Ignore any keys that are empty (not sure if this is even possible in
+		// Vault, but I play defense).
+		if strings.TrimSpace(key) == "" {
+			continue
+		}
+
+		// Replace the path slashes with an underscore.
+		path := InvalidRegexp.ReplaceAllString(d.Path, "_")
+
+		// Prefix the key value with the path value.
+		key = fmt.Sprintf("%s_%s", path, key)
+
+		// If the user specified a custom format, apply that here.
+		if cp.Format != "" {
+			key, err = applyTemplate(cp.Format, key)
+			if err != nil {
+				return err
+			}
+		}
+
+		if r.config.Sanitize {
+			key = InvalidRegexp.ReplaceAllString(key, "_")
+		}
+
+		if r.config.Upcase {
+			key = strings.ToUpper(key)
+		}
+
+		if current, ok := env[key]; ok {
+			log.Printf("[DEBUG] (runner) overwriting %s=%q (was %q) from %s",
+				key, value, current, d.Display())
+			env[key] = value.(string)
+		} else {
+			log.Printf("[DEBUG] (runner) setting %s=%q from %s",
+				key, value, d.Display())
+			env[key] = value.(string)
+		}
+	}
+
+	return nil
+}
+
 // init creates the Runner's underlying data structures and returns an error if
 // any problems occur.
 func (r *Runner) init() error {
@@ -356,21 +478,21 @@ func (r *Runner) init() error {
 	}
 	r.killSignal = signal
 
-	// Create the client
-	client, err := newAPIClient(r.config)
+	// Create the clientset
+	clients, err := newClientSet(r.config)
 	if err != nil {
 		return fmt.Errorf("runner: %s", err)
 	}
-	r.client = client
 
 	// Create the watcher
-	watcher, err := newWatcher(r.config, client, r.once)
+	watcher, err := newWatcher(r.config, clients, r.once)
 	if err != nil {
 		return fmt.Errorf("runner: %s", err)
 	}
 	r.watcher = watcher
 
-	r.data = make(map[string][]*dep.KeyPair)
+	r.data = make(map[string]interface{})
+	r.configPrefixMap = make(map[string]*ConfigPrefix)
 
 	r.outStream = os.Stdout
 	r.errStream = os.Stderr
@@ -378,6 +500,30 @@ func (r *Runner) init() error {
 	r.ErrCh = make(chan error)
 	r.DoneCh = make(chan struct{})
 	r.ExitCh = make(chan int, 1)
+
+	// Parse and add consul dependencies
+	for _, p := range r.config.Prefixes {
+		d, err := dep.ParseStoreKeyPrefix(p.Path)
+		if err != nil {
+			return err
+		}
+		r.dependencies = append(r.dependencies, d)
+		r.configPrefixMap[d.HashCode()] = p
+	}
+
+	// Parse and add vault dependencies - it is important that this come after
+	// consul, because consul should never be permitted to overwrite values from
+	// vault; that would expose a security hole since access to consul is
+	// typically less controlled than access to vault.
+	for _, s := range r.config.Secrets {
+		log.Printf("looking at vault %s", s.Path)
+		d, err := dep.ParseVaultSecret(s.Path)
+		if err != nil {
+			return err
+		}
+		r.dependencies = append(r.dependencies, d)
+		r.configPrefixMap[d.HashCode()] = s
+	}
 
 	return nil
 }
@@ -412,45 +558,88 @@ func (r *Runner) killProcess() {
 	r.cmd = nil
 }
 
-// newAPIClient creates a new API client from the given config and
-func newAPIClient(config *Config) (*api.Client, error) {
+// newClientSet creates a new client set from the given config.
+func newClientSet(config *Config) (*dep.ClientSet, error) {
+	clients := dep.NewClientSet()
+
+	consul, err := newConsulClient(config)
+	if err != nil {
+		return nil, err
+	}
+	if err := clients.Add(consul); err != nil {
+		return nil, err
+	}
+
+	vault, err := newVaultClient(config)
+	if err != nil {
+		return nil, err
+	}
+	if err := clients.Add(vault); err != nil {
+		return nil, err
+	}
+
+	return clients, nil
+}
+
+// newConsulClient creates a new API client from the given config and
+func newConsulClient(config *Config) (*consulapi.Client, error) {
 	log.Printf("[INFO] (runner) creating consul/api client")
 
-	consulConfig := api.DefaultConfig()
+	consulConfig := consulapi.DefaultConfig()
 
 	if config.Consul != "" {
-		log.Printf("[DEBUG] (runner) setting address to %s", config.Consul)
+		log.Printf("[DEBUG] (runner) setting consul address to %s", config.Consul)
 		consulConfig.Address = config.Consul
 	}
 
 	if config.Token != "" {
-		log.Printf("[DEBUG] (runner) setting token to %s", config.Token)
+		log.Printf("[DEBUG] (runner) setting consul token")
 		consulConfig.Token = config.Token
 	}
 
 	if config.SSL.Enabled {
-		log.Printf("[DEBUG] (runner) enabling SSL")
+		log.Printf("[DEBUG] (runner) enabling consul SSL")
 		consulConfig.Scheme = "https"
-	}
 
-	if !config.SSL.Verify {
-		log.Printf("[WARN] (runner) disabling SSL verification")
+		tlsConfig := &tls.Config{}
+
+		if config.SSL.Cert != "" {
+			cert, err := tls.LoadX509KeyPair(config.SSL.Cert, config.SSL.Cert)
+			if err != nil {
+				return nil, err
+			}
+			tlsConfig.Certificates = []tls.Certificate{cert}
+		}
+		if config.SSL.CaCert != "" {
+			cacert, err := ioutil.ReadFile(config.SSL.CaCert)
+			if err != nil {
+				return nil, err
+			}
+			caCertPool := x509.NewCertPool()
+			caCertPool.AppendCertsFromPEM(cacert)
+
+			tlsConfig.RootCAs = caCertPool
+		}
+		tlsConfig.BuildNameToCertificate()
+
+		if !config.SSL.Verify {
+			log.Printf("[WARN] (runner) disabling consul SSL verification")
+			tlsConfig.InsecureSkipVerify = true
+		}
 		consulConfig.HttpClient.Transport = &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
+			TLSClientConfig: tlsConfig,
 		}
 	}
 
-	if config.Auth != nil {
+	if config.Auth.Enabled {
 		log.Printf("[DEBUG] (runner) setting basic auth")
-		consulConfig.HttpAuth = &api.HttpBasicAuth{
+		consulConfig.HttpAuth = &consulapi.HttpBasicAuth{
 			Username: config.Auth.Username,
 			Password: config.Auth.Password,
 		}
 	}
 
-	client, err := api.NewClient(consulConfig)
+	client, err := consulapi.NewClient(consulConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -458,22 +647,76 @@ func newAPIClient(config *Config) (*api.Client, error) {
 	return client, nil
 }
 
-// newWatcher creates a new watcher.
-func newWatcher(config *Config, client *api.Client, once bool) (*watch.Watcher, error) {
-	log.Printf("[INFO] (runner) creating Watcher")
+// newVaultClient creates a new client for connecting to vault.
+func newVaultClient(config *Config) (*vaultapi.Client, error) {
+	log.Printf("[INFO] (runner) creating vault/api client")
 
-	clientSet := dep.NewClientSet()
-	if err := clientSet.Add(client); err != nil {
+	vaultConfig := vaultapi.DefaultConfig()
+
+	if config.Vault.Address != "" {
+		log.Printf("[DEBUG] (runner) setting vault address to %s", config.Vault.Address)
+		vaultConfig.Address = config.Vault.Address
+	}
+
+	if config.Vault.SSL.Enabled {
+		log.Printf("[DEBUG] (runner) enabling vault SSL")
+		tlsConfig := &tls.Config{}
+
+		if config.Vault.SSL.Cert != "" {
+			cert, err := tls.LoadX509KeyPair(config.Vault.SSL.Cert, config.Vault.SSL.Cert)
+			if err != nil {
+				return nil, err
+			}
+			tlsConfig.Certificates = []tls.Certificate{cert}
+		}
+
+		if config.Vault.SSL.CaCert != "" {
+			cacert, err := ioutil.ReadFile(config.Vault.SSL.CaCert)
+			if err != nil {
+				return nil, err
+			}
+			caCertPool := x509.NewCertPool()
+			caCertPool.AppendCertsFromPEM(cacert)
+
+			tlsConfig.RootCAs = caCertPool
+		}
+		tlsConfig.BuildNameToCertificate()
+
+		if !config.Vault.SSL.Verify {
+			log.Printf("[WARN] (runner) disabling vault SSL verification")
+			tlsConfig.InsecureSkipVerify = true
+		}
+
+		vaultConfig.HttpClient.Transport = &http.Transport{
+			TLSClientConfig: tlsConfig,
+		}
+	}
+
+	client, err := vaultapi.NewClient(vaultConfig)
+	if err != nil {
 		return nil, err
 	}
 
+	if config.Vault.Token != "" {
+		log.Printf("[DEBUG] (runner) setting vault token")
+		client.SetToken(config.Vault.Token)
+	}
+
+	return client, nil
+}
+
+// newWatcher creates a new watcher.
+func newWatcher(config *Config, clients *dep.ClientSet, once bool) (*watch.Watcher, error) {
+	log.Printf("[INFO] (runner) creating Watcher")
+
 	watcher, err := watch.NewWatcher(&watch.WatcherConfig{
-		Clients:  clientSet,
+		Clients:  clients,
 		Once:     once,
 		MaxStale: config.MaxStale,
 		RetryFunc: func(current time.Duration) time.Duration {
 			return config.Retry
 		},
+		RenewVault: config.Vault.Token != "" && config.Vault.Renew,
 	})
 	if err != nil {
 		return nil, err
