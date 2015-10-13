@@ -282,6 +282,7 @@ func TestParseConfig_correctValues(t *testing.T) {
 		wait = "5s:10s"
 		retry = "10s"
 		log_level = "warn"
+		splay = "10s"
 
 		// Deprecated
 		prefixes = ["old/syntax", "deprecated/soon"]
@@ -339,6 +340,7 @@ func TestParseConfig_correctValues(t *testing.T) {
 		MaxStale: time.Second * 5,
 		Upcase:   false,
 		Sanitize: false,
+		Splay:    10 * time.Second,
 		Timeout:  5 * time.Second,
 		Auth: &AuthConfig{
 			Enabled:  true,

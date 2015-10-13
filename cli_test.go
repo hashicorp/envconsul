@@ -364,6 +364,24 @@ func TestParseFlags_sanitize(t *testing.T) {
 	}
 }
 
+func TestParseFlags_splay(t *testing.T) {
+	cli := NewCLI(ioutil.Discard, ioutil.Discard)
+	config, _, _, _, err := cli.parseFlags([]string{
+		"-splay", "10s",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := 10 * time.Second
+	if config.Splay != expected {
+		t.Errorf("expected %v to be %v", config.Splay, expected)
+	}
+	if !config.WasSet("splay") {
+		t.Errorf("expected splay to be set")
+	}
+}
+
 func TestParseFlags_upcase(t *testing.T) {
 	cli := NewCLI(ioutil.Discard, ioutil.Discard)
 	config, _, _, _, err := cli.parseFlags([]string{

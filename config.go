@@ -64,6 +64,11 @@ type Config struct {
 	// Sanitize converts any "bad" characters in key values to underscores
 	Sanitize bool `json:"sanitize" mapstructure:"sanitize"`
 
+	// Splay is the maximum time in seconds to wait before restarting the program,
+	// from which a random value is chosen. This is designed to prevent the
+	// "thundering herd" problem.
+	Splay time.Duration `json:"splay" mapstructure:"splay"`
+
 	// Upcase converts environment variables to uppercase
 	Upcase bool `json:"upcase" mapstructure:"upcase"`
 
@@ -218,6 +223,10 @@ func (c *Config) Merge(config *Config) {
 
 	if config.WasSet("sanitize") {
 		c.Sanitize = config.Sanitize
+	}
+
+	if config.WasSet("splay") {
+		c.Splay = config.Splay
 	}
 
 	if config.WasSet("upcase") {
