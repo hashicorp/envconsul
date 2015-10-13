@@ -153,7 +153,7 @@ secret {
 
 auth {
   enabled = true
-  usernam e = "test"
+  username = "test"
   password = "test"
 }
 
