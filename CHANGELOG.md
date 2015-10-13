@@ -1,6 +1,15 @@
 envconsul Changelog
 ===================
 
+## v0.6.1 (Unreleased)
+
+FEATURES:
+
+IMPROVEMENTS:
+
+BUG FIXES:
+
+
 ## v0.6.0 (October 12, 2015)
 
 FEATURES:
