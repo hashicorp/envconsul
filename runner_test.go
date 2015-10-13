@@ -325,7 +325,7 @@ func TestRun_format(t *testing.T) {
 		consul = "%s"
 		prefix {
 			path   = "foo/bar"
-			format = "prod_%%s"
+			format = "prod_{{ key }}"
 		}
 	`, consul.HTTPAddr), t)
 

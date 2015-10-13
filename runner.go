@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -17,6 +18,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"text/template"
 	"time"
 
 	dep "github.com/hashicorp/consul-template/dependency"
@@ -319,8 +321,30 @@ func (r *Runner) Run() (<-chan int, error) {
 	return exitCh, nil
 }
 
+func applyTemplate(contents, key string) (string, error) {
+	funcs := template.FuncMap{
+		"key": func() (string, error) {
+			return key, nil
+		},
+	}
+
+	tmpl, err := template.New("filter").Funcs(funcs).Parse(contents)
+	if err != nil {
+		return "", nil
+	}
+
+	var buf bytes.Buffer
+	if err = tmpl.Execute(&buf, nil); err != nil {
+		return "", err
+	}
+
+	return buf.String(), nil
+}
+
 func (r *Runner) appendPrefixes(
 	env map[string]string, d *dep.StoreKeyPrefix, data interface{}) error {
+	var err error
+
 	typed, ok := data.([]*dep.KeyPair)
 	if !ok {
 		return fmt.Errorf("error converting to keypair %s", d.Display())
@@ -342,7 +366,10 @@ func (r *Runner) appendPrefixes(
 
 		// If the user specified a custom format, apply that here.
 		if cp.Format != "" {
-			key = fmt.Sprintf(cp.Format, key)
+			key, err = applyTemplate(cp.Format, key)
+			if err != nil {
+				return err
+			}
 		}
 
 		if r.config.Sanitize {
@@ -369,6 +396,8 @@ func (r *Runner) appendPrefixes(
 
 func (r *Runner) appendSecrets(
 	env map[string]string, d *dep.VaultSecret, data interface{}) error {
+	var err error
+
 	typed, ok := data.(*dep.Secret)
 	if !ok {
 		return fmt.Errorf("error converting to secret %s", d.Display())
@@ -392,7 +421,10 @@ func (r *Runner) appendSecrets(
 
 		// If the user specified a custom format, apply that here.
 		if cp.Format != "" {
-			key = fmt.Sprintf(cp.Format, key)
+			key, err = applyTemplate(cp.Format, key)
+			if err != nil {
+				return err
+			}
 		}
 
 		if r.config.Sanitize {

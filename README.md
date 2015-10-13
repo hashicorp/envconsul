@@ -142,7 +142,7 @@ prefix {
 
 prefix {
   path   = "config/redis"
-  format = "prod_%s"
+  format = "prod_{{ key }}"
 }
 
 secret {
@@ -270,7 +270,7 @@ It is highly encouraged that you specify the format for vault keys to include a 
 ```javascript
 secret {
   path   = "secret/passwords"
-  format = "secret_%s"
+  format = "secret_{{ key }}"
 }
 ```
 
