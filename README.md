@@ -46,7 +46,8 @@ Usage
 | `retry`           | The amount of time to wait if Consul returns an error when communicating with the API. The default value is 5 seconds.
 | `prefix`          | A prefix to watch in Consul. This may be specified multiple times.
 | `secret`          | A secret to watch in Vault. This may be specified multiple times.
-| `sanitize`        | Replace invalid characters in keys to underscores .
+| `sanitize`        | Replace invalid characters in keys to underscores.
+| `splay`           | The maximum time to wait before restarting the program, from which a random value is chosen.
 | `upcase`          | Convert all environment variable keys to uppercase.
 | `config`          | The path to a configuration file or directory of configuration files on disk, relative to the current working directory. Values specified on the CLI take precedence over values specified in the configuration file. There is no default value.
 | `log-level`       | The log level for output. This applies to the stdout/stderr logging as well as syslog logging (if enabled). Valid values are "debug", "info", "warn", and "err". The default value is "warn".
@@ -120,6 +121,7 @@ max_stale = "10m"
 timeout   = "5s"
 retry     = "10s"
 sanitize  = true
+splay     = "5s"
 
 kill_signal = "SIGHUP"
 

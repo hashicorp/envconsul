@@ -294,6 +294,12 @@ func (cli *CLI) parseFlags(args []string) (*Config, []string, bool, bool, error)
 		return nil
 	}), "sanitize", "")
 
+	flags.Var((funcDurationVar)(func(d time.Duration) error {
+		config.Splay = d
+		config.set("splay")
+		return nil
+	}), "splay", "")
+
 	flags.Var((funcBoolVar)(func(b bool) error {
 		config.Upcase = b
 		config.set("upcase")
@@ -408,6 +414,8 @@ Options:
                            result taking precedence, including any values
                            specified with -prefix
   -sanitize                Replace invalid characters in keys to underscores
+  -splay                   The maximum time to wait before restarting the
+                           program, from which a random value is chosen
   -upcase                  Convert all environment variable keys to uppercase
   -kill-signal             The signal to send to kill the process
 

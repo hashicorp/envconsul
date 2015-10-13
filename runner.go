@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/exec"
@@ -534,6 +535,21 @@ func (r *Runner) init() error {
 func (r *Runner) killProcess() {
 	// Kill the process
 	exited := false
+
+	// If a splay value was given, sleep for a random amount of time up to the
+	// splay.
+	if r.config.Splay > 0 {
+		nanoseconds := r.config.Splay.Nanoseconds()
+		offset := rand.Int63n(nanoseconds)
+
+		log.Printf("[INFO] (runner) waiting %.2fs for random splay",
+			time.Duration(offset).Seconds())
+
+		select {
+		case <-time.After(time.Duration(offset)):
+		case <-r.ExitCh:
+		}
+	}
 
 	if err := r.cmd.Process.Signal(r.killSignal); err == nil {
 		// Wait a few seconds for it to exit
