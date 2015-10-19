@@ -96,7 +96,8 @@ Query the nyc1 demo Consul instance, rending all the keys in `config/redis`, and
 ```shell
 $ envconsul \
     -consul demo.consul.io \
-    redis/config@nyc1 env
+    -prefix redis/config@nyc3 \
+    env
 ```
 
 Query a local Consul instance, converting special characters in keys to undercores and uppercasing the keys:
@@ -106,7 +107,8 @@ $ envconsul \
     -consul 127.0.0.1:8500 \
     -sanitize \
     -upcase \
-    redis/config env
+    -prefix redis/config \
+    env
 ```
 
 ### Configuration File
@@ -176,9 +178,11 @@ Examples
 Redis is a command key-value storage engine. If Redis is configured to read the given environment variables, you can use `envconsul` to start and manage the process:
 
 ```shell
+# Ensure "daemonize no" is set in the redis configuration first.
 $ envconsul \
   -consul demo.consul.io \
-  redis/config /etc/init.d/redis start
+  -prefix redis/config \
+  redis-server [opts...]
 ```
 
 ### Env
@@ -187,8 +191,9 @@ This example is a great way to see `envconsul` in action. In practice, it is unl
 ```shell
 $ envconsul \
   -consul=demo.consul.io \
-  redis/config env \
-  -once
+  -prefix redis/config \
+  -once \
+  env
 ADDRESS=1.2.3.4
 PORT=55
 ```
@@ -198,14 +203,13 @@ We can also ask envconsul to poll for configuration changes and automatically re
 ```
 $ envconsul \
   -consul=demo.consul.io \
-  redis/config /bin/sh -c "env; echo "-----"; sleep 1000"
-ADDRESS=1.2.3.4
-PORT=55
+  -prefix redis/config \
+  python -c 'import os, time; print os.environ; time.sleep(1000);'
+{ 'ADDRESS': '1.2.3.4', 'PORT': '55' }
 -----
-ADDRESS=1.2.3.4
+{ 'ADDRESS': '1.2.3.4' }
 -----
-ADDRESS=1.2.3.4
-MAXCONNS=50
+{ 'ADDRESS': '1.2.3.4', 'MAXCONNS': '50' }
 -----
 ```
 
