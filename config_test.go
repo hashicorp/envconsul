@@ -535,7 +535,7 @@ func TestConfigFromPath_BadConfigs(t *testing.T) {
 
 	configPath := filepath.Join(configDir, "config")
 	err = ioutil.WriteFile(configPath, []byte(`
-		totally not a valid config
+		totally not a valid config!
 	`), 0644)
 	if err != nil {
 		t.Fatal(err)

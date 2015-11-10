@@ -300,6 +300,12 @@ func (cli *CLI) parseFlags(args []string) (*Config, []string, bool, bool, error)
 		return nil
 	}), "splay", "")
 
+	flags.Var((funcDurationVar)(func(d time.Duration) error {
+		config.Timeout = d
+		config.set("timeout")
+		return nil
+	}), "timeout", "")
+
 	flags.Var((funcBoolVar)(func(b bool) error {
 		config.Upcase = b
 		config.set("upcase")
@@ -384,50 +390,52 @@ Usage: %s [options] <command>
 
 Options:
 
-  -auth=<user[:pass]>      Set the basic authentication username (and password)
-  -consul=<address>        Sets the address of the Consul instance
-  -max-stale=<duration>    Set the maximum staleness and allow stale queries to
-                           Consul which will distribute work among all servers
-                           instead of just the leader
-  -ssl                     Use SSL when connecting to Consul
-  -ssl-verify              Verify certificates when connecting via SSL
-  -token=<token>           Sets the Consul API token
+  -auth=<user[:pass]>          Set the basic authentication username (and password)
+  -consul=<address>            Sets the address of the Consul instance
+  -max-stale=<duration>        Set the maximum staleness and allow stale queries to
+                               Consul which will distribute work among all servers
+                               instead of just the leader
+  -retry=<duration>            The amount of time to wait if Consul returns an
+                               error when communicating with the API
+  -ssl                         Use SSL when connecting to Consul
+  -ssl-verify                  Verify certificates when connecting via SSL
+  -token=<token>               Sets the Consul API token
 
-  -syslog                  Send the output to syslog instead of standard error
-                           and standard out. The syslog facility defaults to
-                           LOCAL0 and can be changed using a configuration file
-  -syslog-facility=<f>     Set the facility where syslog should log. If this
-                           attribute is supplied, the -syslog flag must also be
-                           supplied.
+  -log-level=<level>           Set the logging level - valid values are "debug",
+                               "info", "warn" (default), and "err"
+  -syslog                      Send the output to syslog instead of standard error
+                               and standard out. The syslog facility defaults to
+                               LOCAL0 and can be changed using a configuration file
+  -syslog-facility=<f>         Set the facility where syslog should log. If this
+                               attribute is supplied, the -syslog flag must also be
+                               supplied.
 
-  -wait=<duration>         Sets the 'minumum(:maximum)' amount of time to wait
-                           before writing a triggering a restart
-  -retry=<duration>        The amount of time to wait if Consul returns an
-                           error when communicating with the API
+  -wait=<duration[:duration]>  Sets the 'minumum[:maximum]' amount of time to wait
+                               before writing a triggering a restart
+  -splay=<duration>            The maximum time to wait before sending kill signal
+                               to the program, from which a random value is chosen
+  -timeout=<duration>          Time to wait after sending kill signal to the
+                               program before forcibly killing it
 
-  -prefix                  A prefix to watch, multiple prefixes are merged from
-                           left to right, with the right-most result taking
-                           precedence, including any values specified with
-                           -secret
-  -secret                  A secret path to watch in Vault, multiple prefixes
-                           are merged from left to right, with the right-most
-                           result taking precedence, including any values
-                           specified with -prefix
-  -sanitize                Replace invalid characters in keys to underscores
-  -splay                   The maximum time to wait before restarting the
-                           program, from which a random value is chosen
-  -upcase                  Convert all environment variable keys to uppercase
-  -kill-signal             The signal to send to kill the process
+  -prefix=<prefix>             A prefix to watch, multiple prefixes are merged from
+                               left to right, with the right-most result taking
+                               precedence, including any values specified with
+                               -secret
+  -secret=<prefix>             A secret path to watch in Vault, multiple prefixes
+                               are merged from left to right, with the right-most
+                               result taking precedence, including any values
+                               specified with -prefix
 
+  -sanitize                    Replace invalid characters in keys to underscores
+  -upcase                      Convert all environment variable keys to uppercase
+  -pristine                    Only use variables retrieved from Consul, do not
+                               inherit existing environment variables
 
-  -config=<path>           Sets the path to a configuration file on disk
+  -kill-signal=<signal>        The signal to send to kill the process. Defaults to
+                               SIGTERM
 
-  -log-level=<level>       Set the logging level - valid values are "debug",
-                           "info", "warn" (default), and "err"
+  -config=<path>               Sets the path to a configuration file on disk
 
-  -pristine                Only use variables retrieved from consul, do not inherit
-                           existing environment variables
-
-  -once                    Do not run the process as a daemon
-  -version                 Print the version of this daemon
+  -once                        Do not run the process as a daemon
+  -version                     Print the version of this daemon
 `
