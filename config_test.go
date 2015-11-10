@@ -259,7 +259,7 @@ func TestParseConfig_readFileError(t *testing.T) {
 
 func TestParseConfig_parseFileError(t *testing.T) {
 	configFile := test.CreateTempfile([]byte(`
-    invalid file in here
+    invalid file in here!
   `), t)
 	defer test.DeleteTempfile(configFile, t)
 
@@ -268,7 +268,7 @@ func TestParseConfig_parseFileError(t *testing.T) {
 		t.Fatal("expected error, but nothing was returned")
 	}
 
-	expected := "syntax error"
+	expected := "illegal char"
 	if !strings.Contains(err.Error(), expected) {
 		t.Fatalf("expected %q to contain %q", err.Error(), expected)
 	}
@@ -540,7 +540,7 @@ func TestConfigFromPath_BadConfigs(t *testing.T) {
 
 	configPath := filepath.Join(configDir, "config")
 	err = ioutil.WriteFile(configPath, []byte(`
-		totally not a valid config
+		totally not a valid config!
 	`), 0644)
 	if err != nil {
 		t.Fatal(err)
