@@ -278,10 +278,17 @@ func (r *Runner) Run() (<-chan int, error) {
 	} else {
 		processEnv := os.Environ()
 		cmdEnv = make([]string, len(processEnv), len(r.env)+len(processEnv))
-		copy(cmdEnv, processEnv)
+		if !r.config.Prepend {
+			copy(cmdEnv, processEnv)
+		}
 	}
 	for k, v := range r.env {
 		cmdEnv = append(cmdEnv, fmt.Sprintf("%s=%s", k, v))
+	}
+	if r.config.Prepend {
+		for _, env := range os.Environ() {
+			cmdEnv = append(cmdEnv, env)
+		}
 	}
 
 	// Create the command
