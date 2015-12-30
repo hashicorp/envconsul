@@ -16,7 +16,7 @@ import (
 	"github.com/hashicorp/consul-template/watch"
 )
 
-// Exit codes are int valuse that represent an exit code for a particular error.
+// Exit codes are int values that represent an exit code for a particular error.
 // Sub-systems may check this unique error to determine the cause of an error
 // without parsing the output or help text.
 const (
