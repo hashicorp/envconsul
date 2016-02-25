@@ -47,6 +47,7 @@ Usage
 | `prefix`          | A prefix to watch in Consul. This may be specified multiple times.
 | `secret`          | A secret to watch in Vault. This may be specified multiple times.
 | `sanitize`        | Replace invalid characters in keys to underscores.
+| `separator`       | Use separator instead of underscore.
 | `splay`           | The maximum time to wait before restarting the program, from which a random value is chosen.
 | `upcase`          | Convert all environment variable keys to uppercase.
 | `config`          | The path to a configuration file or directory of configuration files on disk, relative to the current working directory. Values specified on the CLI take precedence over values specified in the configuration file. There is no default value.

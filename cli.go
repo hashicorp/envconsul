@@ -330,6 +330,12 @@ func (cli *CLI) parseFlags(args []string) (*Config, []string, bool, bool, error)
 		return nil
 	}), "pristine", "")
 
+    flags.Var((funcVar)(func(s string)error {
+    	config.Separator = s
+    	config.set("separator")
+    	return nil
+    }), "separator", "")
+    
 	flags.BoolVar(&once, "once", false, "")
 	flags.BoolVar(&version, "v", false, "")
 	flags.BoolVar(&version, "version", false, "")

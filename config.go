@@ -72,6 +72,9 @@ type Config struct {
 	// Upcase converts environment variables to uppercase
 	Upcase bool `json:"upcase" mapstructure:"upcase"`
 
+	// Seperator change the default separator
+	Separator string `json:"separator" mapstructure:"separator`
+
 	// Timeout is the amount of time to wait for the child process to restart
 	// before killing and restarting.
 	Timeout time.Duration `json:"timeout" mapstructure:"timeout"`
@@ -224,6 +227,10 @@ func (c *Config) Merge(config *Config) {
 	if config.WasSet("sanitize") {
 		c.Sanitize = config.Sanitize
 	}
+
+    if config.WasSet("separator") {
+    	c.Separator = config.Separator
+    }
 
 	if config.WasSet("splay") {
 		c.Splay = config.Splay
@@ -456,6 +463,7 @@ func DefaultConfig() *Config {
 			Enabled:  false,
 			Facility: "LOCAL0",
 		},
+		Separator:  "_",
 		Sanitize:   false,
 		Upcase:     false,
 		Timeout:    5 * time.Second,
