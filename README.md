@@ -37,6 +37,8 @@ Usage
 | `consul`*         | The location of the Consul instance to query (may be an IP address or FQDN) with port.
 | `max-stale`       | The maximum staleness of a query. If specified, Consul will distribute work among all servers instead of just the leader. The default value is 0 (none).
 | `ssl`             | Use HTTPS while talking to Consul. Requires the Consul server to be configured to serve secure connections. The default value is false.
+| `ssl-ca-cert`     | Path to a CA certificate file, containing one or more CA certificates to use to validate the certificate sent by the consul server to us. This is a handy alternative to setting ```--ssl-verify=false``` if you are using your own CA.
+| `ssl-cert`        | Path to an SSL client certificate to use to authenticate to the consul server. Useful if the consul server "verify_incoming" option is set.
 | `ssl-verify`      | Verify certificates when connecting via SSL. This requires the use of `-ssl`. The default value is true.
 | `syslog`          | Send log output to syslog (in addition to stdout and stderr). The default value is false.
 | `syslog-facility` | The facility to use when sending to syslog. This requires the use of `-syslog`. The default value is `LOCAL0`.
