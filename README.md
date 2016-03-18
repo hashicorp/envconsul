@@ -4,7 +4,7 @@ envconsul
 [![Latest Version](http://img.shields.io/github/release/hashicorp/envconsul.svg?style=flat-square)][release]
 [![Build Status](http://img.shields.io/travis/hashicorp/envconsul.svg?style=flat-square)][travis]
 
-[release]: https://github.com/hashicorp/envconsul/releases
+[release]: https://releases.hashicorp.com/envconsul/
 [travis]: http://travis-ci.org/hashicorp/envconsul
 
 envconsul provides a convenient way to populate values from [Consul][] into a child process environment using the `envconsul` daemon.
@@ -364,7 +364,7 @@ Submit Pull Requests and Issues to the envconsul project on GitHub.
 
 [Consul]: http://consul.io/ "Service discovery and configuration made easy"
 [envdir]: http://cr.yp.to/daemontools/envdir.html "envdir"
-[Releases]: https://github.com/hashicorp/envconsul/releases "envconsul releases page"
+[Releases]: https://releases.hashicorp.com/envconsul/ "envconsul releases page"
 [HCL]: https://github.com/hashicorp/hcl "HashiCorp Configuration Language (HCL)"
 [Go]: http://golang.org "Go the language"
 [Consul ACLs]: http://www.consul.io/docs/internals/acl.html "Consul ACLs"
