@@ -480,6 +480,10 @@ func DefaultConfig() *Config {
 		config.Vault.Address = v
 	}
 
+	if v := os.Getenv("VAULT_TOKEN"); v != "" {
+		config.Vault.Token = v
+	}
+
 	if v := os.Getenv("VAULT_CAPATH"); v != "" {
 		config.Vault.SSL.Cert = v
 	}
