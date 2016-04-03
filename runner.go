@@ -218,7 +218,7 @@ func (r *Runner) Signal(sig os.Signal) error {
 }
 
 // Run executes and manages the child process with the correct environment. The
-// current enviornment is also copied into the child process environment.
+// current environment is also copied into the child process environment.
 func (r *Runner) Run() (<-chan int, error) {
 	r.Lock()
 	defer r.Unlock()

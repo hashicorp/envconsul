@@ -382,6 +382,24 @@ func TestParseFlags_splay(t *testing.T) {
 	}
 }
 
+func TestParseFlags_timeout(t *testing.T) {
+	cli := NewCLI(ioutil.Discard, ioutil.Discard)
+	config, _, _, _, err := cli.parseFlags([]string{
+		"-timeout", "10s",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := 10 * time.Second
+	if config.Timeout != expected {
+		t.Errorf("expected %v to be %v", config.Timeout, expected)
+	}
+	if !config.WasSet("timeout") {
+		t.Errorf("expected timeout to be set")
+	}
+}
+
 func TestParseFlags_upcase(t *testing.T) {
 	cli := NewCLI(ioutil.Discard, ioutil.Discard)
 	config, _, _, _, err := cli.parseFlags([]string{
