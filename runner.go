@@ -26,6 +26,7 @@ import (
 	"github.com/hashicorp/consul-template/watch"
 	consulapi "github.com/hashicorp/consul/api"
 	vaultapi "github.com/hashicorp/vault/api"
+	"github.com/fatih/camelcase"
 )
 
 // Regexp for invalid characters in keys
@@ -330,6 +331,16 @@ func applyTemplate(contents, key string) (string, error) {
 		"stripped_key": func() (string, error) {
 			i := strings.Index(key, "_")
 			return key[i+1:], nil
+		},
+		"jumpstart_key": func() (string, error) {
+			newkey := []string{}
+			splittedKeys := strings.Split(key, "_")
+			for _, splittedKey := range splittedKeys {
+				camels := camelcase.Split( splittedKey )
+				s := strings.Join(camels, "_")
+				newkey = append(newkey, s)
+			}
+			return strings.Join( newkey, "__" ), nil
 		},
 	}
 
