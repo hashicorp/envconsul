@@ -334,7 +334,7 @@ func applyTemplate(contents, key string) (string, error) {
 		},
 		"jumpstart_key": func() (string, error) {
 			newkey := []string{}
-			splittedKeys := strings.Split(key, "_")
+			splittedKeys := strings.Split(key, "/")
 			for _, splittedKey := range splittedKeys {
 				camels := camelcase.Split( splittedKey )
 				s := strings.Join(camels, "_")
