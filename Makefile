@@ -37,11 +37,13 @@ testrace: generate
 updatedeps:
 	@echo "==> Updating dependencies..."
 	@echo "    Cleaning previous dependencies..."
-	@rm -rf vendor/
+	@rm -rf Godeps/ vendor/
 	@echo "    Updating to newest dependencies..."
-	@go get -f -t -u ./...
+	@go list ./... \
+		| xargs go list -f '{{ join .Deps "\n" }}{{ printf "\n" }}{{ join .TestImports "\n" }}' \
+		| xargs go get -f -u -t
 	@echo "    Saving dependencies..."
-	godep save
+	@godep save ./...
 
 # generate runs `go generate` to build the dynamically generated source files.
 generate:
