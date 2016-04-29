@@ -7,8 +7,14 @@ FEATURES:
 
 IMPROVEMENTS:
 
+  * Accept `Key` option in SSL config
+
 BUG FIXES:
 
+  * Use gatedio in tests to avoid races
+  * Document `pristine` flag
+  * Load `VAULT_TOKEN` from the environment into the config [GH-99, GH-100]
+  * Add `timeout` CLI flag parsing [GH-73]
 
 ## v0.6.0 (October 12, 2015)
 
