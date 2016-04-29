@@ -27,7 +27,7 @@ tmpdir=$(mktemp -d)
 function cleanup {
   rm -rf "${tmpdir}"
 }
-# trap cleanup EXIT
+trap cleanup EXIT
 
 export GOPATH="${tmpdir}"
 export PATH="${tmpdir}/bin:$PATH"
