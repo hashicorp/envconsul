@@ -117,14 +117,14 @@ func (r *Runner) Start() {
 	for {
 		select {
 		case data := <-r.watcher.DataCh:
-			r.Receive(data.Dependency, data.Data)
+			r.Receive(data.Dependency, data.Data())
 
 			// Drain all views that have data
 		OUTER:
 			for {
 				select {
 				case data = <-r.watcher.DataCh:
-					r.Receive(data.Dependency, data.Data)
+					r.Receive(data.Dependency, data.Data())
 				default:
 					break OUTER
 				}

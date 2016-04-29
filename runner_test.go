@@ -12,7 +12,6 @@ import (
 
 	dep "github.com/hashicorp/consul-template/dependency"
 	"github.com/hashicorp/consul-template/test"
-	"github.com/hashicorp/consul-template/watch"
 	"github.com/hashicorp/consul/testutil"
 	"github.com/hashicorp/go-gatedio"
 	vaultapi "github.com/hashicorp/vault/api"
@@ -568,38 +567,27 @@ func TestStart_noRunMissingData(t *testing.T) {
 }
 
 func TestStart_runsCommandOnChange(t *testing.T) {
-	prefix, err := dep.ParseStoreKeyPrefix("foo/bar")
-	if err != nil {
-		t.Fatal(err)
-	}
+	t.Parallel()
 
-	config := testConfig(`
+	consul := testutil.NewTestServerConfig(t, func(c *testutil.TestServerConfig) {
+		c.Stdout = ioutil.Discard
+		c.Stderr = ioutil.Discard
+	})
+	consul.SetKV("foo/bar", []byte("one"))
+	defer consul.Stop()
+
+	config := testConfig(fmt.Sprintf(`
+		consul = "%s"
+		upcase = true
+
 		prefix {
-			path = "foo/bar"
+			path = "foo"
 		}
-	`, t)
+	`, consul.HTTPAddr), t)
 
 	f := test.CreateTempfile(nil, t)
 	defer os.Remove(f.Name())
 	os.Remove(f.Name())
-
-	readFile := func(path string, ch chan string) {
-		for {
-			contents, err := ioutil.ReadFile(path)
-			if err != nil {
-				if os.IsNotExist(err) {
-					time.Sleep(50 * time.Millisecond)
-					continue
-				} else {
-					t.Fatal(err)
-					return
-				}
-			}
-
-			ch <- string(contents)
-			return
-		}
-	}
 
 	runner, err := NewRunner(config, []string{"sh", "-c", "echo $BAR > " + f.Name()}, true)
 	if err != nil {
@@ -611,63 +599,7 @@ func TestStart_runsCommandOnChange(t *testing.T) {
 	go runner.Start()
 	defer runner.Stop()
 
-	// Kind of hacky, but wait for the runner to return an error, indicating we
-	// are all setup.
-	select {
-	case <-runner.watcher.ErrCh:
-	}
-
-	pair := []*dep.KeyPair{
-		&dep.KeyPair{
-			Path:  "foo/bar",
-			Key:   "BAR",
-			Value: "one",
-		},
-	}
-	runner.watcher.DataCh <- &watch.View{Dependency: prefix, Data: pair}
-
-	contentCh := make(chan string)
-	go readFile(f.Name(), contentCh)
-
-	select {
-	case err := <-runner.ErrCh:
-		t.Fatal(err)
-	case content := <-contentCh:
-		expected := "one\n"
-		if content != expected {
-			t.Fatalf("expected %q to be %q", content, expected)
-		}
-	case <-time.After(1 * time.Second):
-		t.Fatal("expected file to be rendered by now")
-	}
-
-	// Delete the file - otherwise the next read could have a false-positive since
-	// the file already exists
-	os.Remove(f.Name())
-
-	pair = []*dep.KeyPair{
-		&dep.KeyPair{
-			Path:  "foo/bar",
-			Key:   "BAR",
-			Value: "two",
-		},
-	}
-	runner.watcher.DataCh <- &watch.View{Dependency: prefix, Data: pair}
-
-	contentCh = make(chan string)
-	go readFile(f.Name(), contentCh)
-
-	select {
-	case err := <-runner.ErrCh:
-		t.Fatal(err)
-	case content := <-contentCh:
-		expected := "two\n"
-		if content != expected {
-			t.Fatalf("expected %q to be %q", content, expected)
-		}
-	case <-time.After(1 * time.Second):
-		t.Fatal("expected file to be rendered by now")
-	}
+	test.WaitForFileContents(f.Name(), []byte("one\n"), t)
 }
 
 func TestSignal_sendsToChild(t *testing.T) {
