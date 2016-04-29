@@ -1,6 +1,9 @@
 TEST?=./...
 NAME?=$(shell basename "${CURDIR}")
 VERSION = $(shell awk -F\" '/^const Version/ { print $$2; exit }' main.go)
+EXTERNAL_TOOLS=\
+	github.com/mitchellh/gox\
+	github.com/tools/godep
 
 default: test
 
@@ -51,7 +54,9 @@ generate:
 # bootstrap installs the necessary go tools for development/build.
 bootstrap:
 	@echo "==> Bootstrapping..."
-	go get -u github.com/tools/godep
-	go get -u github.com/mitchellh/gox
+	@for t in ${EXTERNAL_TOOLS}; do \
+		echo "    Installing "$$t"..." ; \
+		go get -u "$$t"; \
+	done
 
 .PHONY: default bin dev dist test testrace updatedeps vet generate bootstrap

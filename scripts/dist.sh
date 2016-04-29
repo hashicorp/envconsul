@@ -25,7 +25,7 @@ cd "$DIR"
 
 # Build
 if [ -z $NOBUILD ]; then
-  echo "==> Building..."
+  echo "==> Building binaries in container..."
   docker run \
     --rm \
     --workdir="/go/src/github.com/hashicorp/${NAME}" \
