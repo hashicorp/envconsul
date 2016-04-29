@@ -1,45 +1,57 @@
 TEST?=./...
-NAME = $(shell awk -F\" '/^const Name/ { print $$2; exit }' main.go)
+NAME?=$(shell basename "${CURDIR}")
 VERSION = $(shell awk -F\" '/^const Version/ { print $$2; exit }' main.go)
 
 default: test
 
-# bin generates the releasable binaries for Consul Template
+# bin generates the binaries for all platforms.
 bin: generate
-	@sh -c "'$(CURDIR)/scripts/build.sh'"
+	@sh -c "'${CURDIR}/scripts/build.sh' '${NAME}'"
 
-# dev creates binares for testing locally. There are put into ./bin and $GOPAHT
+# dev creates binares for testing locally - they are put into ./bin and $GOPATH.
 dev: generate
-	@CT_DEV=1 sh -c "'$(CURDIR)/scripts/build.sh'"
+	@DEV=1 sh -c "'${CURDIR}/scripts/build.sh' '${NAME}'"
 
-# dist creates the binaries for distibution
-dist: bin
-	@sh -c "'$(CURDIR)/scripts/dist.sh' $(VERSION)"
+# dist creates the binaries for distibution.
+dist:
+	@sh -c "'${CURDIR}/scripts/dist.sh' '${NAME}' '${VERSION}'"
 
-# test runs the test suite and vets the code
+# test runs the test suite and vets the code.
 test: generate
-	go test $(TEST) $(TESTARGS) -timeout=30s -parallel=4
+	@echo "==> Running tests..."
+	@go list $(TEST) \
+		| grep -v "github.com/hashicorp/${NAME}/vendor" \
+		| xargs -n1 go test -timeout=60s -parallel=10 ${TESTARGS}
 
 # testrace runs the race checker
 testrace: generate
-	go test -race $(TEST) $(TESTARGS)
+	@echo "==> Running tests (race)..."
+	@go list $(TEST) \
+		| grep -v "github.com/hashicorp/${NAME}/vendor" \
+		| xargs -n1 go test -timeout=60s -race ${TESTARGS}
 
-# updatedeps installs all the dependencies Consul Template needs to run and
-# build
+# updatedeps installs all the dependencies needed to run and build.
 updatedeps:
-	go get -u github.com/mitchellh/gox
-	go get -f -t -u ./...
-	go list ./... \
-		| xargs go list -f '{{join .Deps "\n"}}' \
-		| grep -v github.com/hashicorp/envconsul \
-		| grep -v '/internal/' \
-		| sort -u \
-		| xargs go get -f -u
+	@echo "==> Updating dependencies..."
+	@echo "    Cleaning previous dependencies..."
+	@rm -rf vendor/
+	@echo "    Updating to newest dependencies..."
+	@go get -f -t -u ./...
+	@echo "    Saving dependencies..."
+	godep save
 
-# generate runs `go generate` to build the dynamically generated
-# source files.
+# generate runs `go generate` to build the dynamically generated source files.
 generate:
+	@echo "==> Generating..."
 	@find . -type f -name '.DS_Store' -delete
-	go generate ./...
+	@go list ./... \
+		| grep -v "github.com/hashicorp/${NAME}/vendor" \
+		| xargs -n1 go generate
 
-.PHONY: default bin dev dist test testrace updatedeps vet generate
+# bootstrap installs the necessary go tools for development/build.
+bootstrap:
+	@echo "==> Bootstrapping..."
+	go get -u github.com/tools/godep
+	go get -u github.com/mitchellh/gox
+
+.PHONY: default bin dev dist test testrace updatedeps vet generate bootstrap
