@@ -169,6 +169,10 @@ func (c *Config) Merge(config *Config) {
 				c.Vault.SSL.Cert = config.Vault.SSL.Cert
 				c.Vault.SSL.Enabled = true
 			}
+			if config.WasSet("vault.ssl.key") {
+				c.Vault.SSL.Key = config.Vault.SSL.Key
+				c.Vault.SSL.Enabled = true
+			}
 			if config.WasSet("vault.ssl.ca_cert") {
 				c.Vault.SSL.CaCert = config.Vault.SSL.CaCert
 				c.Vault.SSL.Enabled = true
@@ -189,6 +193,10 @@ func (c *Config) Merge(config *Config) {
 		}
 		if config.WasSet("ssl.cert") {
 			c.SSL.Cert = config.SSL.Cert
+			c.SSL.Enabled = true
+		}
+		if config.WasSet("ssl.key") {
+			c.SSL.Key = config.SSL.Key
 			c.SSL.Enabled = true
 		}
 		if config.WasSet("ssl.ca_cert") {
@@ -543,6 +551,7 @@ type SSLConfig struct {
 	Enabled bool   `json:"enabled" mapstructure:"enabled"`
 	Verify  bool   `json:"verify" mapstructure:"verify"`
 	Cert    string `json:"cert,omitempty" mapstructure:"cert"`
+	Key     string `json:"key,omitempty" mapstructure:"key"`
 	CaCert  string `json:"ca_cert,omitempty" mapstructure:"ca_cert"`
 }
 
