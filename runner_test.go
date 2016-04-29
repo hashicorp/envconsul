@@ -144,7 +144,7 @@ func TestRun_vault(t *testing.T) {
 	defer ln.Close()
 
 	req := &logical.Request{
-		Operation: logical.WriteOperation,
+		Operation: logical.CreateOperation,
 		Path:      "secret/foo",
 		Data: map[string]interface{}{
 			"zip":  "zap",
@@ -232,7 +232,7 @@ func TestRun_vaultPrecedenceOverConsul(t *testing.T) {
 	defer ln.Close()
 
 	req := &logical.Request{
-		Operation: logical.WriteOperation,
+		Operation: logical.CreateOperation,
 		Path:      "secret/foo",
 		Data: map[string]interface{}{
 			"zip":  "zap",

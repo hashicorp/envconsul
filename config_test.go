@@ -259,18 +259,13 @@ func TestParseConfig_readFileError(t *testing.T) {
 
 func TestParseConfig_parseFileError(t *testing.T) {
 	configFile := test.CreateTempfile([]byte(`
-    invalid file in here
+    invalid
   `), t)
 	defer test.DeleteTempfile(configFile, t)
 
 	_, err := ParseConfig(configFile.Name())
 	if err == nil {
 		t.Fatal("expected error, but nothing was returned")
-	}
-
-	expected := "syntax error"
-	if !strings.Contains(err.Error(), expected) {
-		t.Fatalf("expected %q to contain %q", err.Error(), expected)
 	}
 }
 

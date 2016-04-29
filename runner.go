@@ -578,20 +578,31 @@ func (r *Runner) killProcess() {
 func newClientSet(config *Config) (*dep.ClientSet, error) {
 	clients := dep.NewClientSet()
 
-	consul, err := newConsulClient(config)
-	if err != nil {
-		return nil, err
-	}
-	if err := clients.Add(consul); err != nil {
+	if err := clients.CreateConsulClient(&dep.CreateConsulClientInput{
+		Address:      config.Consul,
+		Token:        config.Token,
+		AuthEnabled:  config.Auth.Enabled,
+		AuthUsername: config.Auth.Username,
+		AuthPassword: config.Auth.Password,
+		SSLEnabled:   config.SSL.Enabled,
+		SSLVerify:    config.SSL.Verify,
+		SSLCert:      config.SSL.Cert,
+		SSLKey:       config.SSL.Key,
+		SSLCACert:    config.SSL.CaCert,
+	}); err != nil {
 		return nil, err
 	}
 
-	vault, err := newVaultClient(config)
-	if err != nil {
-		return nil, err
-	}
-	if err := clients.Add(vault); err != nil {
-		return nil, err
+	if err := clients.CreateVaultClient(&dep.CreateVaultClientInput{
+		Address:    config.Vault.Address,
+		Token:      config.Vault.Token,
+		SSLEnabled: config.Vault.SSL.Enabled,
+		SSLVerify:  config.Vault.SSL.Verify,
+		SSLCert:    config.Vault.SSL.Cert,
+		SSLKey:     config.Vault.SSL.Key,
+		SSLCACert:  config.Vault.SSL.CaCert,
+	}); err != nil {
+		return nil, fmt.Errorf("runner: %s", err)
 	}
 
 	return clients, nil
