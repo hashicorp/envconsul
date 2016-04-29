@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 # Get the name from the command line.
@@ -18,7 +18,7 @@ fi
 # Get the parent directory of where this script is.
 SOURCE="${BASH_SOURCE[0]}"
 while [ -h "$SOURCE" ] ; do SOURCE="$(readlink "$SOURCE")"; done
-DIR="$( cd -P "$( dirname "$SOURCE" )/.." && pwd )"
+DIR="$(cd -P "$(dirname "$SOURCE")/.." && pwd)"
 
 # Change into that dir because we expect that.
 cd "$DIR"
@@ -55,8 +55,8 @@ done
 rm -rf ./pkg/dist
 mkdir -p ./pkg/dist
 for FILENAME in $(find ./pkg -mindepth 1 -maxdepth 1 -type f); do
-    FILENAME=$(basename $FILENAME)
-    cp ./pkg/${FILENAME} ./pkg/dist/${NAME}_${VERSION}_${FILENAME}
+  FILENAME=$(basename $FILENAME)
+  cp ./pkg/${FILENAME} ./pkg/dist/${NAME}_${VERSION}_${FILENAME}
 done
 
 # Make and sign the checksums.

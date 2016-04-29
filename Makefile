@@ -35,15 +35,7 @@ testrace: generate
 
 # updatedeps installs all the dependencies needed to run and build.
 updatedeps:
-	@echo "==> Updating dependencies..."
-	@echo "    Cleaning previous dependencies..."
-	@rm -rf Godeps/ vendor/
-	@echo "    Updating to newest dependencies..."
-	@go list ./... \
-		| xargs go list -f '{{ join .Deps "\n" }}{{ printf "\n" }}{{ join .TestImports "\n" }}' \
-		| xargs go get -f -u -t
-	@echo "    Saving dependencies..."
-	@godep save ./...
+	@sh -c "'${CURDIR}/scripts/deps.sh' '${NAME}'"
 
 # generate runs `go generate` to build the dynamically generated source files.
 generate:
