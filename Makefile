@@ -49,7 +49,7 @@ generate:
 bootstrap:
 	@echo "==> Bootstrapping..."
 	@for t in ${EXTERNAL_TOOLS}; do \
-		echo "    Installing "$$t"..." ; \
+		echo "--> Installing "$$t"..." ; \
 		go get -u "$$t"; \
 	done
 
