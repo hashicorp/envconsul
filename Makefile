@@ -2,8 +2,7 @@ TEST?=./...
 NAME?=$(shell basename "${CURDIR}")
 VERSION = $(shell awk -F\" '/^const Version/ { print $$2; exit }' main.go)
 EXTERNAL_TOOLS=\
-	github.com/mitchellh/gox\
-	github.com/tools/godep
+	github.com/mitchellh/gox
 
 default: test
 
