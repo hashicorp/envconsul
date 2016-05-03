@@ -8,6 +8,8 @@ FEATURES:
 IMPROVEMENTS:
 
   * Accept `Key` option in SSL config
+  * Accept stdin - this allows the user to pipe and use interactively
+    [GH-80, GH-75]
 
 BUG FIXES:
 
