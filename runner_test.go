@@ -309,6 +309,52 @@ func TestRun_vaultPrecedenceOverConsul(t *testing.T) {
 	}
 }
 
+func TestRun_stdin(t *testing.T) {
+	t.Parallel()
+
+	consul := testutil.NewTestServerConfig(t, func(c *testutil.TestServerConfig) {
+		c.Stdout = ioutil.Discard
+		c.Stderr = ioutil.Discard
+	})
+	defer consul.Stop()
+
+	consul.SetKV("foo/bar/bar", []byte("baz"))
+
+	config := testConfig(fmt.Sprintf(`
+		consul = "%s"
+		prefix {
+			path = "foo/bar"
+		}
+	`, consul.HTTPAddr), t)
+
+	runner, err := NewRunner(config, []string{"cat"}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	outStream, errStream := gatedio.NewByteBuffer(), gatedio.NewByteBuffer()
+	inStream := gatedio.NewByteBuffer()
+	runner.outStream, runner.errStream = outStream, errStream
+	runner.inStream = inStream
+
+	go runner.Start()
+	defer runner.Stop()
+
+	if _, err := inStream.WriteString("foo"); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case err := <-runner.ErrCh:
+		t.Fatal(err)
+	case <-runner.ExitCh:
+		expected := "foo"
+		if !strings.Contains(outStream.String(), expected) {
+			t.Fatalf("expected %q to include %q", outStream.String(), expected)
+		}
+	}
+}
+
 func TestRun_format(t *testing.T) {
 	t.Parallel()
 

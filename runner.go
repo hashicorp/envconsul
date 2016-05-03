@@ -57,7 +57,10 @@ type Runner struct {
 
 	// outStream and errStream are the io.Writer streams where the runner will
 	// write information.
+	//
+	// inStream is the ioReader where the runner will read information.
 	outStream, errStream io.Writer
+	inStream             io.Reader
 
 	// watcher is the watcher this runner is using.
 	watcher *watch.Watcher
@@ -287,6 +290,7 @@ func (r *Runner) Run() (<-chan int, error) {
 	// Create the command
 	log.Printf("[INFO] (runner) running command %s %s", r.command[0], strings.Join(r.command[1:], " "))
 	cmd := exec.Command(r.command[0], r.command[1:]...)
+	cmd.Stdin = r.inStream
 	cmd.Stdout = r.outStream
 	cmd.Stderr = r.errStream
 	cmd.Env = cmdEnv
@@ -495,6 +499,7 @@ func (r *Runner) init() error {
 	r.data = make(map[string]interface{})
 	r.configPrefixMap = make(map[string]*ConfigPrefix)
 
+	r.inStream = os.Stdin
 	r.outStream = os.Stdout
 	r.errStream = os.Stderr
 
