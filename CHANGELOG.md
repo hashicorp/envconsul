@@ -17,6 +17,7 @@ BUG FIXES:
   * Document `pristine` flag
   * Load `VAULT_TOKEN` from the environment into the config [GH-99, GH-100]
   * Add `timeout` CLI flag parsing [GH-73]
+  * Do not overwrite previous process when no data is returned [GH-85, GH-107]
 
 ## v0.6.0 (October 12, 2015)
 
