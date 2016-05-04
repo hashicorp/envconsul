@@ -114,7 +114,6 @@ func (r *Runner) Start() {
 		r.watcher.Add(d)
 	}
 
-	var err error
 	var exitCh <-chan int
 
 	for {
@@ -173,10 +172,18 @@ func (r *Runner) Start() {
 
 		// If we got this far, that means we got new data or one of the timers
 		// fired, so attempt to re-process the environment.
-		exitCh, err = r.Run()
+		nexitCh, err := r.Run()
 		if err != nil {
 			r.ErrCh <- err
 			return
+		}
+
+		// It's possible that we didn't start a process, in which case no exitCh
+		// is returned. In this case, we should assume our current process is still
+		// running and chug along. If we did get a new exitCh, that means a new
+		// process is spawned, so we need to watch a new exitCh.
+		if nexitCh != nil {
+			exitCh = nexitCh
 		}
 	}
 }
