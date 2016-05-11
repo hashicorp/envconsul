@@ -17,7 +17,7 @@ envconsul is inspired by [envdir][] in its simplicity, name, and function.
 
 Installation
 ------------
-You can download a released `envconsul` artifact from [the envconsul release page][Releases] on GitHub. If you wish to compile from source, you will need to have buildtools and [Go][] installed:
+You can download a released `envconsul` artifact from [the envconsul release page](https://releases.hashicorp.com/envconsul/). If you wish to compile from source, you will need to have buildtools and [Go][] installed:
 
 ```shell
 $ git clone https://github.com/hashicorp/envconsul.git
