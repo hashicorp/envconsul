@@ -160,9 +160,6 @@ func (r *Runner) Start() {
 				r.ErrCh <- err
 				return
 			}
-		case <-r.watcher.FinishCh:
-			log.Printf("[INFO] (runner) watcher reported finish")
-			return
 		case code := <-exitCh:
 			r.ExitCh <- code
 		case <-r.DoneCh:
