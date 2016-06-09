@@ -11,7 +11,7 @@ var GitCommit string
 
 const Name = "envconsul"
 const Version = "0.6.1"
-const VersionPrerelease = "dev"
+const VersionPrerelease = ""
 
 func main() {
 	cli := &CLI{outStream: os.Stdout, errStream: os.Stderr}
