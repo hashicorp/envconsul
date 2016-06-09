@@ -10,8 +10,8 @@ import (
 var GitCommit string
 
 const Name = "envconsul"
-const Version = "0.6.1"
-const VersionPrerelease = ""
+const Version = "0.6.2"
+const VersionPrerelease = "dev"
 
 func main() {
 	cli := &CLI{outStream: os.Stdout, errStream: os.Stderr}
