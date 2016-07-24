@@ -283,7 +283,7 @@ secret {
 }
 ```
 
-The format string is passed to the go formatter and "%s" dictates where the key will go. This will help filter out the environment when execing to a child-process, for example.
+The format string is passed to the go formatter and "{{ key }}" dictates where the key will go. This will help filter out the environment when execing to a child-process, for example.
 
 Debugging
 ---------
