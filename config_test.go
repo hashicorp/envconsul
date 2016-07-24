@@ -295,6 +295,12 @@ func TestParseConfig_correctValues(t *testing.T) {
 			path = "secret/redis"
 		}
 
+		secret {
+			no_prefix = true
+			path = "secret/redis"
+			format = "no_prefix_{{ key }}"
+		}
+
 		auth {
 			enabled = true
 			username = "test"
@@ -379,6 +385,7 @@ func TestParseConfig_correctValues(t *testing.T) {
 		},
 		Secrets: []*ConfigPrefix{
 			&ConfigPrefix{Path: "secret/redis"},
+			&ConfigPrefix{Path: "secret/redis", Format: "no_prefix_{{ key }}", NoPrefix: true},
 		},
 		setKeys: config.setKeys,
 	}

@@ -510,8 +510,9 @@ func DefaultConfig() *Config {
 // ConfigPrefix is a wrapper around some common options for Consul and Vault
 // prefixes.
 type ConfigPrefix struct {
-	Path   string `json:"path" mapstructure:"path"`
-	Format string `json:"format" mapstructure:"format"`
+	Path     string `json:"path" mapstructure:"path"`
+	Format   string `json:"format" mapstructure:"format"`
+	NoPrefix bool   `json:"no_prefix" mapstructure:"no_prefix"`
 }
 
 // AuthConfig is the HTTP basic authentication data.

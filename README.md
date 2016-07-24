@@ -261,6 +261,18 @@ secret/passwords     => secret_passwords
 mysql/creds/readonly => mysql_creds_readonly
 ```
 
+This behavior may be disabled by setting `no_prefix`
+
+```javascript
+secret {
+  no_prefix = true
+  path   = "secret/passwords"
+}
+
+username=foo
+password=bar
+```
+
 You can also apply key transformations to the data:
 
 ```

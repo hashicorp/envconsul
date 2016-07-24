@@ -422,11 +422,13 @@ func (r *Runner) appendSecrets(
 			continue
 		}
 
-		// Replace the path slashes with an underscore.
-		path := InvalidRegexp.ReplaceAllString(d.Path, "_")
+		if !cp.NoPrefix {
+			// Replace the path slashes with an underscore.
+			path := InvalidRegexp.ReplaceAllString(d.Path, "_")
 
-		// Prefix the key value with the path value.
-		key = fmt.Sprintf("%s_%s", path, key)
+			// Prefix the key value with the path value.
+			key = fmt.Sprintf("%s_%s", path, key)
+		}
 
 		// If the user specified a custom format, apply that here.
 		if cp.Format != "" {
