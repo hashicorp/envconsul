@@ -64,6 +64,9 @@ type Config struct {
 	// Sanitize converts any "bad" characters in key values to underscores
 	Sanitize bool `json:"sanitize" mapstructure:"sanitize"`
 
+	// Prepend envconsul values to the environment rather than appending it
+	Prepend bool `json:"prepend" mapstructure:"prepend"`
+
 	// Splay is the maximum time in seconds to wait before restarting the program,
 	// from which a random value is chosen. This is designed to prevent the
 	// "thundering herd" problem.
@@ -263,7 +266,12 @@ func (c *Config) Merge(config *Config) {
 	if config.WasSet("pristine") {
 		c.Pristine = config.Pristine
 	}
+	
+	if config.WasSet("prepend") {
+		c.Prepend = config.Prepend
+	}
 
+	
 	if c.setKeys == nil {
 		c.setKeys = make(map[string]struct{})
 	}
@@ -473,6 +481,7 @@ func DefaultConfig() *Config {
 		LogLevel:   logLevel,
 		KillSignal: "SIGTERM",
 		Pristine:   false,
+		Prepend:    false, 
 		setKeys:    make(map[string]struct{}),
 	}
 
