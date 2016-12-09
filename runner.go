@@ -26,6 +26,7 @@ import (
 	"github.com/hashicorp/consul-template/watch"
 	consulapi "github.com/hashicorp/consul/api"
 	vaultapi "github.com/hashicorp/vault/api"
+	"github.com/fatih/camelcase"
 )
 
 // Regexp for invalid characters in keys
@@ -335,6 +336,20 @@ func applyTemplate(contents, key string) (string, error) {
 		"key": func() (string, error) {
 			return key, nil
 		},
+		"stripped_key": func() (string, error) {
+			i := strings.Index(key, "_")
+			return key[i+1:], nil
+		},
+		"jumpstart_key": func() (string, error) {
+			newkey := []string{}
+			splittedKeys := strings.Split(key, "/")
+			for _, splittedKey := range splittedKeys {
+				camels := camelcase.Split( splittedKey )
+				s := strings.Join(camels, "_")
+				newkey = append(newkey, s)
+			}
+			return strings.Join( newkey, "__" ), nil
+		},
 	}
 
 	tmpl, err := template.New("filter").Funcs(funcs).Parse(contents)
@@ -385,6 +400,10 @@ func (r *Runner) appendPrefixes(
 			key = InvalidRegexp.ReplaceAllString(key, "_")
 		}
 
+		if r.config.Separator != "_" {
+				key = regexp.MustCompile(`[_/]`).ReplaceAllString(key, r.config.Separator)
+		}
+
 		if r.config.Upcase {
 			key = strings.ToUpper(key)
 		}
@@ -422,11 +441,14 @@ func (r *Runner) appendSecrets(
 			continue
 		}
 
-		// Replace the path slashes with an underscore.
-		path := InvalidRegexp.ReplaceAllString(d.Path, "_")
-
+        path := InvalidRegexp.ReplaceAllString(d.Path, "_")
+		
 		// Prefix the key value with the path value.
-		key = fmt.Sprintf("%s_%s", path, key)
+		if( key == "value") {
+			key = path
+		} else {
+			key = fmt.Sprintf("%s_%s", path, key)
+		}
 
 		// If the user specified a custom format, apply that here.
 		if cp.Format != "" {
@@ -438,6 +460,10 @@ func (r *Runner) appendSecrets(
 
 		if r.config.Sanitize {
 			key = InvalidRegexp.ReplaceAllString(key, "_")
+		}
+
+		if r.config.Separator != "_" {
+			key = regexp.MustCompile(`[_/]`).ReplaceAllString(key, r.config.Separator)
 		}
 
 		if r.config.Upcase {
