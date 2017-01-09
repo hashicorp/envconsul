@@ -432,6 +432,11 @@ func (r *Runner) appendSecrets(
 			continue
 		}
 
+		// Ignore any keys in which value is nil
+		if value == nil {
+			continue
+		}
+
 		if !cp.NoPrefix {
 			// Replace the path slashes with an underscore.
 			path := InvalidRegexp.ReplaceAllString(d.Path, "_")
