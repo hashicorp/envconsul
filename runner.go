@@ -280,16 +280,24 @@ func (r *Runner) Run() (<-chan int, error) {
 	}
 
 	// Create a new environment
-	var cmdEnv []string
+	newEnv := make(map[string]string)
 
-	if r.config.Pristine {
-		cmdEnv = make([]string, 0)
-	} else {
-		processEnv := os.Environ()
-		cmdEnv = make([]string, len(processEnv), len(r.env)+len(processEnv))
-		copy(cmdEnv, processEnv)
+	// If we are not pristine, copy over all values in the current env.
+	if !r.config.Pristine {
+		for _, v := range os.Environ() {
+			list := strings.SplitN(v, "=", 2)
+			newEnv[list[0]] = list[1]
+		}
 	}
+
+	// Add our custom values, overwriting any existing ones.
 	for k, v := range r.env {
+		newEnv[k] = v
+	}
+
+	// Prepare the final environment
+	var cmdEnv []string
+	for k, v := range newEnv {
 		cmdEnv = append(cmdEnv, fmt.Sprintf("%s=%s", k, v))
 	}
 

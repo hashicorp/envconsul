@@ -577,6 +577,51 @@ func TestRun_merges(t *testing.T) {
 	}
 }
 
+func TestRun_overwrites(t *testing.T) {
+	t.Parallel()
+
+	consul := testutil.NewTestServerConfig(t, func(c *testutil.TestServerConfig) {
+		c.Stdout = ioutil.Discard
+		c.Stderr = ioutil.Discard
+	})
+	defer consul.Stop()
+
+	consul.SetKV("config/global/address", []byte("1.2.3.4"))
+
+	config := testConfig(fmt.Sprintf(`
+		consul = "%s"
+
+		prefix {
+			path = "config/global"
+		}
+	`, consul.HTTPAddr), t)
+
+	runner, err := NewRunner(config, []string{"env"}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	outStream, errStream := gatedio.NewByteBuffer(), gatedio.NewByteBuffer()
+	runner.outStream, runner.errStream = outStream, errStream
+
+	// Set the env to ensure it overwrites
+	os.Setenv("address", "should_be_overwritten")
+	defer os.Unsetenv("address")
+
+	go runner.Start()
+	defer runner.Stop()
+
+	select {
+	case err := <-runner.ErrCh:
+		t.Fatal(err)
+	case <-runner.ExitCh:
+		expected := "address=1.2.3.4"
+		if !strings.Contains(outStream.String(), expected) {
+			t.Fatalf("expected %q to include %q", outStream.String(), expected)
+		}
+	}
+}
+
 func TestStart_noRunMissingData(t *testing.T) {
 	config := testConfig(`
 		prefix {
