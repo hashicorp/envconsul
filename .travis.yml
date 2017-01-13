@@ -3,10 +3,13 @@ sudo: false
 language: go
 
 go:
-  - 1.6
+  - 1.7
+
+env:
+  - GOMAXPROCS=7
 
 branches:
   only:
     - master
 
-script: make bootstrap test testrace
+script: make test test-race
