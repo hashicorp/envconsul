@@ -7,6 +7,10 @@ BREAKING CHANGES:
 
   * Remove deprecated way of specifying `prefixes` as an array in configuration.
 
+IMPROVEMENTS:
+
+  * Allow stripping parts of a secret path [GH-84, GH-113]
+
 BUG FIXES:
 
   * Overwriting existing environment variables [GH-122]
