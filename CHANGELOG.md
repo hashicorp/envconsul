@@ -10,6 +10,7 @@ BREAKING CHANGES:
 BUG FIXES:
 
   * Overwriting existing environment variables [GH-122]
+  * Update Consul API library to stop logging secret data [GH-120]
 
 ## v0.6.1 (June 9, 2016)
 
