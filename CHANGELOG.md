@@ -7,6 +7,10 @@ BREAKING CHANGES:
 
   * Remove deprecated way of specifying `prefixes` as an array in configuration.
 
+BUG FIXES:
+
+  * Overwriting existing environment variables [GH-122]
+
 ## v0.6.1 (June 9, 2016)
 
 IMPROVEMENTS:
