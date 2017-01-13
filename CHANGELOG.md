@@ -3,6 +3,10 @@ envconsul Changelog
 
 ## v0.6.2.dev (Unreleased)
 
+BREAKING CHANGES:
+
+  * Remove deprecated way of specifying `prefixes` as an array in configuration.
+
 ## v0.6.1 (June 9, 2016)
 
 IMPROVEMENTS:

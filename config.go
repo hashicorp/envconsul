@@ -28,11 +28,6 @@ type Config struct {
 	// Token is the Consul API token.
 	Token string `json:"-" mapstructure:"token"`
 
-	// PrefixesOld is the list of key prefix dependencies. This is deprecated and
-	// is only used for backwards compatability purposes. Please use "prefix" and
-	// the Prefixes struct key instead.
-	PrefixesOld []string `json:"prefixes" mapstructure:"prefixes"`
-
 	// Prefixes is the list of all prefix dependencies (consul)
 	// in merge order.
 	Prefixes []*ConfigPrefix `json:"prefix" mapstructure:"prefix"`
@@ -340,21 +335,6 @@ func ParseConfig(path string) (*Config, error) {
 
 	// Store a reference to the path where this config was read from
 	config.Path = path
-
-	// Handle deprecations
-	if len(config.PrefixesOld) > 0 {
-		log.Printf(`[WARN] Specifying the key "prefixes" in the configuration is `+
-			`no longer supported. Please specify each prefix individually using `+
-			`the key "prefix" (config at %s)`, path)
-		prefixes := make([]*ConfigPrefix, 0, len(config.PrefixesOld))
-		for _, prefix := range config.PrefixesOld {
-			prefixes = append(prefixes, &ConfigPrefix{
-				Path: prefix,
-			})
-		}
-		config.Prefixes = append(prefixes, config.Prefixes...)
-		config.PrefixesOld = nil
-	}
 
 	// Update the list of set keys
 	if config.setKeys == nil {

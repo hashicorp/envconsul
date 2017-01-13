@@ -185,6 +185,12 @@
 			"revisionTime": "2016-05-26T20:48:27Z"
 		},
 		{
+			"checksumSHA1": "InIrfOI7Ys1QqZpCgTB4yW1G32M=",
+			"path": "github.com/burntsushi/toml",
+			"revision": "99064174e013895bbd9b025c31100bd1d9b590ca",
+			"revisionTime": "2016-07-17T15:07:09Z"
+		},
+		{
 			"checksumSHA1": "Fa/Hw0ByZgcIDU5iG+Jt0MdeYYg=",
 			"path": "github.com/coreos/etcd/client",
 			"revision": "20fc3e968fc9f742a9eb32f8eb44e70a822e9ae4",
@@ -233,6 +239,24 @@
 			"revisionTime": "2016-04-11T07:50:31Z"
 		},
 		{
+			"checksumSHA1": "0ajPN7MXzHcK+IApE8wvF9Tp8/M=",
+			"path": "github.com/hashicorp/consul-template",
+			"revision": "75eecfb8cbe24bda2f8f26d742912723ced27896",
+			"revisionTime": "2017-01-12T20:04:58Z"
+		},
+		{
+			"checksumSHA1": "gx2CAg/v3k7kfBA/rT5NCkI0jDI=",
+			"path": "github.com/hashicorp/consul-template/child",
+			"revision": "75eecfb8cbe24bda2f8f26d742912723ced27896",
+			"revisionTime": "2017-01-12T20:04:58Z"
+		},
+		{
+			"checksumSHA1": "1EAiHEm1b/m3KWy08U7yrAvDlms=",
+			"path": "github.com/hashicorp/consul-template/config",
+			"revision": "75eecfb8cbe24bda2f8f26d742912723ced27896",
+			"revisionTime": "2017-01-12T20:04:58Z"
+		},
+		{
 			"checksumSHA1": "Iy8+LIQJjbgTINhAVQ5FBSbu1Hc=",
 			"path": "github.com/hashicorp/consul-template/dependency",
 			"revision": "50831a29d50adac2253f201f8fd91dd52f92c971",
@@ -243,6 +267,24 @@
 			"path": "github.com/hashicorp/consul-template/logging",
 			"revision": "50831a29d50adac2253f201f8fd91dd52f92c971",
 			"revisionTime": "2016-05-28T19:06:10Z"
+		},
+		{
+			"checksumSHA1": "hEX+eqpb8PI7lMogCw9wJmNqhpc=",
+			"path": "github.com/hashicorp/consul-template/manager",
+			"revision": "75eecfb8cbe24bda2f8f26d742912723ced27896",
+			"revisionTime": "2017-01-12T20:04:58Z"
+		},
+		{
+			"checksumSHA1": "oskgb0WteBKOItG8NNDduM7E/D0=",
+			"path": "github.com/hashicorp/consul-template/signals",
+			"revision": "75eecfb8cbe24bda2f8f26d742912723ced27896",
+			"revisionTime": "2017-01-12T20:04:58Z"
+		},
+		{
+			"checksumSHA1": "gKJ663FDhp57cx6RHObyL5Mp8Ss=",
+			"path": "github.com/hashicorp/consul-template/template",
+			"revision": "75eecfb8cbe24bda2f8f26d742912723ced27896",
+			"revisionTime": "2017-01-12T20:04:58Z"
 		},
 		{
 			"checksumSHA1": "faiR0aiXlDA2wOZ50CiF0JWFVmo=",
@@ -521,6 +563,12 @@
 			"revisionTime": "2016-05-10T22:24:21Z"
 		},
 		{
+			"checksumSHA1": "ajImwVZHzsI+aNwsgzCSFSbmJqs=",
+			"path": "github.com/mattn/go-shellwords",
+			"revision": "525bedee691b5a8df547cb5cf9f86b7fb1883e24",
+			"revisionTime": "2016-03-15T04:08:06Z"
+		},
+		{
 			"checksumSHA1": "HQtYvnSHa3OG2tSNMljW8vMvKm4=",
 			"path": "github.com/mitchellh/copystructure",
 			"revision": "80adcec1955ee4e97af357c30dee61aadcc02c10",
@@ -543,6 +591,12 @@
 			"path": "github.com/mitchellh/reflectwalk",
 			"revision": "eecf4c70c626c7cfbb95c90195bc34d386c74ac6",
 			"revisionTime": "2015-05-27T15:31:53Z"
+		},
+		{
+			"checksumSHA1": "ynJSWoF6v+3zMnh9R0QmmG6iGV8=",
+			"path": "github.com/pkg/errors",
+			"revision": "248dadf4e9068a0b3e79f02ed0a610d935de5302",
+			"revisionTime": "2016-10-29T09:36:37Z"
 		},
 		{
 			"checksumSHA1": "BH6b31pbQqJSDaU6uP11L7p30+w=",
@@ -633,6 +687,12 @@
 			"path": "golang.org/x/sys/unix",
 			"revision": "d4feaf1a7e61e1d9e79e6c4e76c6349e9cab0a03",
 			"revisionTime": "2016-05-16T12:31:02Z"
+		},
+		{
+			"checksumSHA1": "12GqsW8PiRPnezDDy0v4brZrndM=",
+			"path": "gopkg.in/yaml.v2",
+			"revision": "a5b47d31c556af34a302ce5d659e6fea44d90de0",
+			"revisionTime": "2016-09-28T15:37:09Z"
 		}
 	],
 	"rootPath": "github.com/hashicorp/envconsul"

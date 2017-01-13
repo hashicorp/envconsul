@@ -279,9 +279,6 @@ func TestParseConfig_correctValues(t *testing.T) {
 		log_level = "warn"
 		splay = "10s"
 
-		// Deprecated
-		prefixes = ["old/syntax", "deprecated/soon"]
-
 		prefix {
 			path = "config/global"
 		}
@@ -372,8 +369,6 @@ func TestParseConfig_correctValues(t *testing.T) {
 		LogLevel:   "warn",
 		KillSignal: "SIGTERM",
 		Prefixes: []*ConfigPrefix{
-			&ConfigPrefix{Path: "old/syntax"},
-			&ConfigPrefix{Path: "deprecated/soon"},
 			&ConfigPrefix{Path: "config/global"},
 			&ConfigPrefix{Path: "config/redis", Format: "prod_{{ key }}"},
 		},
