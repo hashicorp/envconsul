@@ -5,7 +5,7 @@ CURRENT_DIR := $(CURRENT_DIR:/=)
 
 # Get the project metadata
 GOVERSION := 1.7.4
-VERSION := 0.6.3
+VERSION := 0.6.2
 PROJECT := github.com/hashicorp/envconsul
 OWNER := $(dir $(PROJECT))
 OWNER := $(notdir $(OWNER:/=))
