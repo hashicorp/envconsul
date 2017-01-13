@@ -261,6 +261,18 @@ secret/passwords     => secret_passwords
 mysql/creds/readonly => mysql_creds_readonly
 ```
 
+This behavior may be disabled by setting `no_prefix`
+
+```javascript
+secret {
+  no_prefix = true
+  path   = "secret/passwords"
+}
+
+username=foo
+password=bar
+```
+
 You can also apply key transformations to the data:
 
 ```
@@ -283,7 +295,7 @@ secret {
 }
 ```
 
-The format string is passed to the go formatter and "%s" dictates where the key will go. This will help filter out the environment when execing to a child-process, for example.
+The format string is passed to the go formatter and "{{ key }}" dictates where the key will go. This will help filter out the environment when execing to a child-process, for example.
 
 Debugging
 ---------
