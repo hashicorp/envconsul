@@ -15,14 +15,16 @@ import (
 	"os/exec"
 	"reflect"
 	"regexp"
-	"sort"
 	"strings"
 	"sync"
 	"syscall"
 	"text/template"
 	"time"
 
+	"github.com/pkg/errors"
+
 	dep "github.com/hashicorp/consul-template/dependency"
+	"github.com/hashicorp/consul-template/signals"
 	"github.com/hashicorp/consul-template/watch"
 	consulapi "github.com/hashicorp/consul/api"
 	vaultapi "github.com/hashicorp/vault/api"
@@ -475,15 +477,9 @@ func (r *Runner) init() error {
 		result)
 
 	// Setup the kill signal
-	signal, ok := SignalLookup[r.config.KillSignal]
-	if !ok {
-		valid := make([]string, 0, len(SignalLookup))
-		for k, _ := range SignalLookup {
-			valid = append(valid, k)
-		}
-		sort.Strings(valid)
-		return fmt.Errorf("runner: unknown signal %q - valid signals are %q",
-			r.config.KillSignal, valid)
+	signal, err := signals.Parse(r.config.KillSignal)
+	if err != nil {
+		return errors.Wrap(err, "runner")
 	}
 	r.killSignal = signal
 
