@@ -77,6 +77,21 @@ func TestParseFlags_secret(t *testing.T) {
 	}
 }
 
+func TestParseFlags_secret_no_prefix(t *testing.T) {
+	cli := NewCLI(ioutil.Discard, ioutil.Discard)
+	config, _, _, _, err := cli.parseFlags([]string{
+		"-secret-no-prefix", "global",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := &ConfigPrefix{Path: "global", NoPrefix: true}
+	if !reflect.DeepEqual(config.Secrets[0], expected) {
+		t.Errorf("expected %#v to be %#v", config.Secrets[0], expected)
+	}
+}
+
 func TestParseFlags_authUsername(t *testing.T) {
 	cli := NewCLI(ioutil.Discard, ioutil.Discard)
 	config, _, _, _, err := cli.parseFlags([]string{

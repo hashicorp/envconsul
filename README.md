@@ -48,6 +48,7 @@ Usage
 | `retry`           | The amount of time to wait if Consul returns an error when communicating with the API. The default value is 5 seconds.
 | `prefix`          | A prefix to watch in Consul. This may be specified multiple times.
 | `secret`          | A secret to watch in Vault. This may be specified multiple times.
+| `secret-no-prefix`| Same like `-secret` but doesn't prefix the environment variable name with the path.
 | `sanitize`        | Replace invalid characters in keys to underscores.
 | `splay`           | The maximum time to wait before restarting the program, from which a random value is chosen.
 | `upcase`          | Convert all environment variable keys to uppercase.

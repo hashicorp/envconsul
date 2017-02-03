@@ -213,6 +213,18 @@ func (cli *CLI) parseFlags(args []string) (*Config, []string, bool, bool, error)
 	}), "secret", "")
 
 	flags.Var((funcVar)(func(s string) error {
+		s = strings.TrimPrefix(s, "/")
+		if config.Secrets == nil {
+			config.Secrets = make([]*ConfigPrefix, 0, 1)
+		}
+		config.Secrets = append(config.Secrets, &ConfigPrefix{
+			Path:     s,
+			NoPrefix: true,
+		})
+		return nil
+	}), "secret-no-prefix", "")
+
+	flags.Var((funcVar)(func(s string) error {
 		config.Auth.Enabled = true
 		config.set("auth.enabled")
 		if strings.Contains(s, ":") {
@@ -425,6 +437,8 @@ Options:
                                are merged from left to right, with the right-most
                                result taking precedence, including any values
                                specified with -prefix
+  -secret-no-prefix=<prefix>   Same like -secret but doesn't prefix the environment
+                               variable name with the path
 
   -sanitize                    Replace invalid characters in keys to underscores
   -upcase                      Convert all environment variable keys to uppercase
