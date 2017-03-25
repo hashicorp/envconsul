@@ -336,6 +336,12 @@ func (cli *CLI) parseFlags(args []string) (*Config, []string, bool, bool, error)
 		return nil
 	}), "pristine", "")
 
+	flags.Var((funcVar)(func(s string) error {
+		config.EnvPrefix = s
+		config.set("env_prefix")
+		return nil
+	}), "env-prefix", "")
+
 	flags.BoolVar(&once, "once", false, "")
 	flags.BoolVar(&version, "v", false, "")
 	flags.BoolVar(&version, "version", false, "")
@@ -430,6 +436,9 @@ Options:
   -upcase                      Convert all environment variable keys to uppercase
   -pristine                    Only use variables retrieved from Consul, do not
                                inherit existing environment variables
+
+  -env-prefix=<prefix>		   Adds the provided prefix to variables added to the
+  							   environment.
 
   -kill-signal=<signal>        The signal to send to kill the process. Defaults to
                                SIGTERM

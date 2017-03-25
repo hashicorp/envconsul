@@ -518,6 +518,24 @@ func TestParseFlags_pristine(t *testing.T) {
 	}
 }
 
+func TestParseFlags_env_prefix(t *testing.T) {
+	cli := NewCLI(ioutil.Discard, ioutil.Discard)
+	config, _, _, _, err := cli.parseFlags([]string{
+		"-env-prefix", "TEST_",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := "TEST_"
+	if config.EnvPrefix != expected {
+		t.Errorf("expected %v to be %v", config.EnvPrefix, expected)
+	}
+	if !config.WasSet("env_prefix") {
+		t.Errorf("expected env_prefix to be set")
+	}
+}
+
 func TestParseFlags_v(t *testing.T) {
 	cli := NewCLI(ioutil.Discard, ioutil.Discard)
 	_, _, _, version, err := cli.parseFlags([]string{

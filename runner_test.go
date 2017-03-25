@@ -524,6 +524,47 @@ func TestRun_pristine(t *testing.T) {
 	}
 }
 
+func TestRun_env_prefix(t *testing.T) {
+	t.Parallel()
+
+	consul := testutil.NewTestServerConfig(t, func(c *testutil.TestServerConfig) {
+		c.Stdout = ioutil.Discard
+		c.Stderr = ioutil.Discard
+	})
+	defer consul.Stop()
+
+	consul.SetKV("foo/bar/bar", []byte("baz"))
+
+	config := testConfig(fmt.Sprintf(`
+		consul = "%s"
+		env_prefix = "TEST_PREFIX_"
+		prefix {
+			path = "foo/bar"
+		}
+	`, consul.HTTPAddr), t)
+
+	runner, err := NewRunner(config, []string{"env"}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	outStream, errStream := gatedio.NewByteBuffer(), gatedio.NewByteBuffer()
+	runner.outStream, runner.errStream = outStream, errStream
+
+	go runner.Start()
+	defer runner.Stop()
+
+	select {
+	case err := <-runner.ErrCh:
+		t.Fatal(err)
+	case <-runner.ExitCh:
+		expected := "TEST_PREFIX_bar=baz"
+		if !strings.Contains(outStream.String(), expected) {
+			t.Fatalf("expected %q to include %q", outStream.String(), expected)
+		}
+	}
+}
+
 func TestRun_merges(t *testing.T) {
 	t.Parallel()
 

@@ -53,7 +53,8 @@ Usage
 | `upcase`          | Convert all environment variable keys to uppercase.
 | `config`          | The path to a configuration file or directory of configuration files on disk, relative to the current working directory. Values specified on the CLI take precedence over values specified in the configuration file. There is no default value.
 | `log-level`       | The log level for output. This applies to the stdout/stderr logging as well as syslog logging (if enabled). Valid values are "debug", "info", "warn", and "err". The default value is "warn".
-| `pristine`       | Only use variables retrieved from consul, do not inherit existing environment variables.
+| `pristine`        | Only use variables retrieved from consul, do not inherit existing environment variables.
+| `env-prefix`      | Add a prefix to each variable set in the environment. The default value is "".
 | `once`            | Run envconsul once and exit (as opposed to the default behavior of daemon). _(CLI-only)_
 | `version`         | Output version information and quit. _(CLI-only)_
 
