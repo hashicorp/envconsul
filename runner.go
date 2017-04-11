@@ -546,6 +546,10 @@ func (r *Runner) init() error {
 		r.configPrefixMap[d.HashCode()] = s
 	}
 
+	// Seed the default rand Source with current time to produce better random
+	// numbers used with splay
+	rand.Seed(time.Now().UnixNano())
+	
 	return nil
 }
 
@@ -559,7 +563,6 @@ func (r *Runner) killProcess() {
 	// If a splay value was given, sleep for a random amount of time up to the
 	// splay.
 	if r.config.Splay > 0 {
-		rand.Seed(time.Now().UnixNano())
 		nanoseconds := r.config.Splay.Nanoseconds()
 		offset := rand.Int63n(nanoseconds)
 
