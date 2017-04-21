@@ -546,6 +546,10 @@ func (r *Runner) init() error {
 		r.configPrefixMap[d.HashCode()] = s
 	}
 
+	// Seed the default rand Source with current time to produce better random
+	// numbers used with splay
+	rand.Seed(time.Now().UnixNano())
+	
 	return nil
 }
 
