@@ -4,7 +4,7 @@ CURRENT_DIR := $(dir $(realpath $(MKFILE_PATH)))
 CURRENT_DIR := $(CURRENT_DIR:/=)
 
 # Get the project metadata
-GOVERSION := 1.7.4
+GOVERSION := 1.8.1
 VERSION := 0.6.3
 PROJECT := github.com/hashicorp/envconsul
 OWNER := $(dir $(PROJECT))
