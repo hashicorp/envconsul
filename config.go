@@ -368,8 +368,10 @@ func ConfigFromPath(path string) (*Config, error) {
 		return nil, fmt.Errorf("config: error stating file: %s", err)
 	}
 
+	mode := stat.Mode()
+
 	// Recursively parse directories, single load files
-	if stat.Mode().IsDir() {
+	if mode.IsDir() {
 		// Ensure the given filepath has at least one config file
 		_, err := ioutil.ReadDir(path)
 		if err != nil {
@@ -408,7 +410,7 @@ func ConfigFromPath(path string) (*Config, error) {
 		}
 
 		return config, nil
-	} else if stat.Mode().IsRegular() {
+	} else if mode.IsRegular() || mode&os.ModeNamedPipe != 0 {
 		return ParseConfig(path)
 	}
 

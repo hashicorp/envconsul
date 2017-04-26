@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -483,6 +484,35 @@ func TestConfigFromPath_singleFile(t *testing.T) {
 	defer test.DeleteTempfile(configFile, t)
 
 	config, err := ConfigFromPath(configFile.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := "127.0.0.1"
+	if config.Consul != expected {
+		t.Errorf("expected %q to be %q", config.Consul, expected)
+	}
+}
+
+func TestConfigFromPath_namedPipe(t *testing.T) {
+	path := filepath.Join(os.TempDir(), "tmp_pipe")
+
+	err := syscall.Mkfifo(path, 0666)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(path)
+
+	go func() {
+		err := ioutil.WriteFile(path, []byte(`
+			consul = "127.0.0.1"
+		`), 0666)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	config, err := ConfigFromPath(path)
 	if err != nil {
 		t.Fatal(err)
 	}
