@@ -549,9 +549,9 @@ func (r *Runner) init() error {
 	return nil
 }
 
-// Restart the current process in the Runner by sending a SIGTERM. It is
-// assumed that the process is set on the Runner! It is the caller's
-// responsibility to lock the runner.
+// Kill the current process in the Runner by sending the r.killSignal and, if
+// necessary, SIGKILL. It is assumed that the process is set on the Runner! It
+// is the caller's responsibility to lock the runner.
 func (r *Runner) killProcess() {
 	// Kill the process
 	exited := false
@@ -586,8 +586,10 @@ func (r *Runner) killProcess() {
 		}
 	}
 
-	// If we still haven't exited from a SIGKILL
+	// If the process still hasn't exited
 	if !exited {
+		log.Printf("[INFO] (runner) command did not exit within %v; killing forcefully",
+			r.config.Timeout)
 		r.cmd.Process.Kill()
 	}
 
