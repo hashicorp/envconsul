@@ -390,9 +390,9 @@ Usage: %s [options] <command>
 
 Options:
 
-  -auth=<user[:pass]>          Set the basic authentication username (and password)
+  -auth=<user[:pass]>          Sets the basic authentication username (and password)
   -consul=<address>            Sets the address of the Consul instance
-  -max-stale=<duration>        Set the maximum staleness and allow stale queries to
+  -max-stale=<duration>        Sets the maximum staleness and allow stale queries to
                                Consul which will distribute work among all servers
                                instead of just the leader
   -retry=<duration>            The amount of time to wait if Consul returns an
@@ -401,20 +401,20 @@ Options:
   -ssl-verify                  Verify certificates when connecting via SSL
   -token=<token>               Sets the Consul API token
 
-  -log-level=<level>           Set the logging level - valid values are "debug",
+  -log-level=<level>           Sets the logging level - valid values are "debug",
                                "info", "warn" (default), and "err"
   -syslog                      Send the output to syslog instead of standard error
                                and standard out. The syslog facility defaults to
                                LOCAL0 and can be changed using a configuration file
-  -syslog-facility=<f>         Set the facility where syslog should log. If this
+  -syslog-facility=<f>         Sets the facility where syslog should log. If this
                                attribute is supplied, the -syslog flag must also be
                                supplied.
 
-  -wait=<duration[:duration]>  Sets the 'minumum[:maximum]' amount of time to wait
-                               before writing a triggering a restart
+  -wait=<duration[:duration]>  Sets the 'minimum[:maximum]' amount of time to wait
+                               before triggering a restart
   -splay=<duration>            The maximum time to wait before sending kill signal
                                to the program, from which a random value is chosen
-  -timeout=<duration>          Time to wait after sending kill signal to the
+  -timeout=<duration>          Time to wait after sending the kill signal to the
                                program before forcibly killing it
 
   -prefix=<prefix>             A prefix to watch, multiple prefixes are merged from
