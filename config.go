@@ -85,6 +85,10 @@ type Config struct {
 	// environment
 	Pristine bool `json:"pristine" mapstructure:"pristine"`
 
+	// EnvPrefix is an optional prefix which will be added to each
+	// variable set in the environment.
+	EnvPrefix string `json:"env_prefix" mapstructure:"env_prefix"`
+
 	// setKeys is the list of config keys that were set by the user.
 	setKeys map[string]struct{}
 }
@@ -257,6 +261,10 @@ func (c *Config) Merge(config *Config) {
 
 	if config.WasSet("pristine") {
 		c.Pristine = config.Pristine
+	}
+
+	if config.WasSet("env_prefix") {
+		c.EnvPrefix = config.EnvPrefix
 	}
 
 	if c.setKeys == nil {
@@ -455,6 +463,7 @@ func DefaultConfig() *Config {
 		LogLevel:   logLevel,
 		KillSignal: "SIGTERM",
 		Pristine:   false,
+		EnvPrefix:  "",
 		setKeys:    make(map[string]struct{}),
 	}
 

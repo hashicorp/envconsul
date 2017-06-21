@@ -399,6 +399,15 @@ func (r *Runner) appendPrefixes(
 			key = strings.ToUpper(key)
 		}
 
+		// This is intentionally done after sanitization and upcasing because
+		// a user can provide a sanitized and upcased env prefix if they want one
+		// at the same time they configure the other options.  This way, though,
+		// they can also have a lower case or unsanitized prefix if they actually
+		// want it that way.
+		if r.config.EnvPrefix != "" {
+			key = r.config.EnvPrefix + key
+		}
+
 		if current, ok := env[key]; ok {
 			log.Printf("[DEBUG] (runner) overwriting %s=%q (was %q) from %s",
 				key, value, current, d.Display())
