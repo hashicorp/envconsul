@@ -1,6 +1,28 @@
 Consul Template Changelog
 =========================
 
+## v0.19.1 (Unreleased)
+
+IMPROVEMENTS:
+
+  * The runner's render event now includes the last-rendered template contents.
+      This is useful when embedding Consul Template as a library. [GH-974-975]
+
+  * Use the new Golang API renewer [GH-978]
+
+BUG FIXES:
+
+  * Add per-template option `error_on_missing_key`. This causes the template to
+      error when the user attempts to access a key in a map or field in a struct
+      that does not exist. Previous behavior was to print `<no value>`, which
+      might not be the desired behavior. This is opt-in behavior on a
+      per-template basis. There is no global option. A future version of
+      Consul Template will switch the default behavior to this safer format, but
+      that change will be clearly called out as a breaking change in the future.
+      Users should set `error_on_missing_key = false` in their configuration
+      files if they are relying on the current `<no value>` behavior.
+      [GH-973, GH-972]
+
 ## v0.19.0 (June 29, 2017)
 
 BREAKING CHANGES:

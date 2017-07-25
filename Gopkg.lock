@@ -50,6 +50,12 @@
   version = "v1.10.15"
 
 [[projects]]
+  name = "github.com/burntsushi/toml"
+  packages = ["."]
+  revision = "b26d9c308763d68093482582cea63d69be07a0f0"
+  version = "v0.3.0"
+
+[[projects]]
   name = "github.com/coreos/etcd"
   packages = ["auth/authpb","client","clientv3","clientv3/concurrency","etcdserver/api/v3rpc/rpctypes","etcdserver/etcdserverpb","mvcc/mvccpb","pkg/pathutil","pkg/srv","pkg/tlsutil","pkg/transport","pkg/types","version"]
   revision = "c31bec0f29facff13f7c3e3d948e55dd6689ed42"
@@ -128,10 +134,10 @@
   version = "v0.9.0"
 
 [[projects]]
+  branch = "master"
   name = "github.com/hashicorp/consul-template"
-  packages = ["dependency","logging","signals","test","watch"]
-  revision = "cfe084f488f915b3e41b00824a3e07d79e3677aa"
-  version = "v0.19.0"
+  packages = ["child","config","dependency","logging","manager","signals","template","test","watch"]
+  revision = "3bcbafa3deecea8266e7c3f384b13d50a0a178f0"
 
 [[projects]]
   branch = "master"
@@ -167,7 +173,7 @@
   branch = "master"
   name = "github.com/hashicorp/go-plugin"
   packages = ["."]
-  revision = "03136dc196bf3ce9ac05bb584e56d61ffeb2f1a7"
+  revision = "4e5a3725c607a756be8d35bf3a521c0f9c422666"
 
 [[projects]]
   branch = "master"
@@ -260,6 +266,12 @@
   version = "v0.0.2"
 
 [[projects]]
+  name = "github.com/mattn/go-shellwords"
+  packages = ["."]
+  revision = "02e3cf038dcea8290e44424da473dd12be796a8a"
+  version = "v1.0.3"
+
+[[projects]]
   branch = "master"
   name = "github.com/mgutz/ansi"
   packages = ["."]
@@ -282,6 +294,12 @@
   name = "github.com/mitchellh/go-homedir"
   packages = ["."]
   revision = "b8bc1bf767474819792c23f32d8286a45736f1c6"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/mitchellh/go-testing-interface"
+  packages = ["."]
+  revision = "e1449340a7b207d8ca90d41466272ece75cbb5b5"
 
 [[projects]]
   branch = "master"
@@ -397,9 +415,15 @@
   packages = [".","bson","internal/json","internal/sasl","internal/scram"]
   revision = "3f83fa5005286a7fe593b055f0d7771a7dce4655"
 
+[[projects]]
+  branch = "v2"
+  name = "gopkg.in/yaml.v2"
+  packages = ["."]
+  revision = "25c4ec802a7d637f88d584ab26798e94ad14c13b"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "0a363cc866056e882ec813c57f6075cbc231fb6f10987f246684df55cc125d70"
+  inputs-digest = "8bd1388a83233fb9d6507dfe7764c02bcd5a744c1bdadbf921b12c4db349634f"
   solver-name = "gps-cdcl"
   solver-version = 1

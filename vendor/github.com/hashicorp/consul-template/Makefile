@@ -5,7 +5,7 @@ CURRENT_DIR := $(CURRENT_DIR:/=)
 
 # Get the project metadata
 GOVERSION := 1.8.3
-VERSION := 0.19.0
+VERSION := 0.19.1.dev
 PROJECT := github.com/hashicorp/consul-template
 OWNER := $(dir $(PROJECT))
 OWNER := $(notdir $(OWNER:/=))
@@ -112,6 +112,16 @@ ifdef GOPATH
 	@echo "--> Moving into GOPATH/"
 	@mkdir -p "${GOPATH}/bin/"
 	@cp "${CURRENT_DIR}/pkg/${ME_OS}_${ME_ARCH}/${NAME}" "${GOPATH}/bin/"
+endif
+
+# dev-local uses the local go installation and os to build the project.
+dev-local:
+	@echo "==> Building locally..."
+	@go build -o "${CURRENT_DIR}/bin/${NAME}"
+ifdef GOPATH
+	@echo "--> Moving into GOPATH/"
+	@mkdir -p "${GOPATH}/bin/"
+	@cp "${CURRENT_DIR}/bin/${NAME}" "${GOPATH}/bin/${NAME}"
 endif
 
 # dist builds the binaries and then signs and packages them for distribution
