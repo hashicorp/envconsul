@@ -8,10 +8,10 @@
   version = "v0.10.0"
 
 [[projects]]
-  name = "github.com/Azure/azure-storage-go"
-  packages = ["."]
-  revision = "7c36d244fc8bf27bcf9785b0b37d6beef2949296"
-  version = "v0.1.0"
+  name = "github.com/Azure/azure-sdk-for-go"
+  packages = ["storage"]
+  revision = "5b6066bbd213e47c49a5fa2be2b29529bbcb6704"
+  version = "v10.1.1-beta"
 
 [[projects]]
   name = "github.com/Azure/go-autorest"
@@ -24,6 +24,12 @@
   packages = ["."]
   revision = "2a3aa15961d5fee6047b8151b67ac2f08ba2c48c"
   version = "1.0"
+
+[[projects]]
+  name = "github.com/SAP/go-hdb"
+  packages = ["driver","driver/sqltrace","internal/bufio","internal/protocol","internal/unicode","internal/unicode/cesu8"]
+  revision = "a582e52ee0774b3554cefb389cba53b221924fd7"
+  version = "v0.9"
 
 [[projects]]
   name = "github.com/SermoDigital/jose"
@@ -54,6 +60,12 @@
   packages = ["."]
   revision = "b26d9c308763d68093482582cea63d69be07a0f0"
   version = "v0.3.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/cockroachdb/cockroach-go"
+  packages = ["crdb"]
+  revision = "9d7a031b30cb0a69f68aecd0a9aad8e5c7e136d1"
 
 [[projects]]
   name = "github.com/coreos/etcd"
@@ -218,10 +230,10 @@
   version = "v0.8.1"
 
 [[projects]]
+  branch = "master"
   name = "github.com/hashicorp/vault"
-  packages = ["api","audit","builtin/logical/database/dbplugin","helper/awsutil","helper/builtinplugins","helper/certutil","helper/compressutil","helper/consts","helper/errutil","helper/forwarding","helper/jsonutil","helper/locksutil","helper/logformat","helper/mlock","helper/parseutil","helper/pgpkeys","helper/pluginutil","helper/policyutil","helper/salt","helper/strutil","helper/tlsutil","helper/wrapping","helper/xor","http","logical","logical/framework","physical","plugins","plugins/database/cassandra","plugins/database/mongodb","plugins/database/mssql","plugins/database/mysql","plugins/database/postgresql","plugins/helper/database/connutil","plugins/helper/database/credsutil","plugins/helper/database/dbutil","shamir","vault","version"]
-  revision = "0b20ae0b9b7a748d607082b1add3663a28e31b68"
-  version = "v0.7.3"
+  packages = ["api","audit","builtin/logical/database/dbplugin","helper/awsutil","helper/builtinplugins","helper/certutil","helper/compressutil","helper/consts","helper/errutil","helper/forwarding","helper/jsonutil","helper/locksutil","helper/logformat","helper/mlock","helper/parseutil","helper/pgpkeys","helper/pluginutil","helper/policyutil","helper/salt","helper/strutil","helper/tlsutil","helper/wrapping","helper/xor","http","logical","logical/framework","physical","plugins","plugins/database/cassandra","plugins/database/hana","plugins/database/mongodb","plugins/database/mssql","plugins/database/mysql","plugins/database/postgresql","plugins/helper/database/connutil","plugins/helper/database/credsutil","plugins/helper/database/dbutil","shamir","vault","version"]
+  revision = "96e8ffea5aa019d9c1d684224d15095722c9519b"
 
 [[projects]]
   branch = "master"
@@ -338,6 +350,12 @@
   revision = "1d7be4effb13d2d908342d349d71a284a7542693"
 
 [[projects]]
+  name = "github.com/satori/uuid"
+  packages = ["."]
+  revision = "879c5887cd475cd7864858769793b2ceb0d44feb"
+  version = "v1.1.0"
+
+[[projects]]
   branch = "master"
   name = "github.com/sethgrid/pester"
   packages = ["."]
@@ -424,6 +442,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "8bd1388a83233fb9d6507dfe7764c02bcd5a744c1bdadbf921b12c4db349634f"
+  inputs-digest = "05f2647d27dadfea578c914160db8676b626d860529d3faaabcb0481d2601ca8"
   solver-name = "gps-cdcl"
   solver-version = 1

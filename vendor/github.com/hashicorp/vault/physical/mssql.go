@@ -4,11 +4,14 @@ import (
 	"database/sql"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/armon/go-metrics"
 	_ "github.com/denisenkom/go-mssqldb"
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/vault/helper/strutil"
 	log "github.com/mgutz/logxi/v1"
 )
 
@@ -17,6 +20,7 @@ type MsSQLBackend struct {
 	client     *sql.DB
 	statements map[string]*sql.Stmt
 	logger     log.Logger
+	permitPool *PermitPool
 }
 
 func newMsSQLBackend(conf map[string]string, logger log.Logger) (Backend, error) {
@@ -33,6 +37,21 @@ func newMsSQLBackend(conf map[string]string, logger log.Logger) (Backend, error)
 	server, ok := conf["server"]
 	if !ok || server == "" {
 		return nil, fmt.Errorf("missing server")
+	}
+
+	maxParStr, ok := conf["max_parallel"]
+	var maxParInt int
+	var err error
+	if ok {
+		maxParInt, err = strconv.Atoi(maxParStr)
+		if err != nil {
+			return nil, errwrap.Wrapf("failed parsing max_parallel parameter: {{err}}", err)
+		}
+		if logger.IsDebug() {
+			logger.Debug("mysql: max_parallel set", "max_parallel", maxParInt)
+		}
+	} else {
+		maxParInt = DefaultParallelOperations
 	}
 
 	database, ok := conf["database"]
@@ -79,6 +98,8 @@ func newMsSQLBackend(conf map[string]string, logger log.Logger) (Backend, error)
 		return nil, fmt.Errorf("failed to connect to mssql: %v", err)
 	}
 
+	db.SetMaxOpenConns(maxParInt)
+
 	if _, err := db.Exec("IF NOT EXISTS(SELECT * FROM sys.databases WHERE name = '" + database + "') CREATE DATABASE " + database); err != nil {
 		return nil, fmt.Errorf("failed to create mssql database: %v", err)
 	}
@@ -115,6 +136,7 @@ func newMsSQLBackend(conf map[string]string, logger log.Logger) (Backend, error)
 		client:     db,
 		statements: make(map[string]*sql.Stmt),
 		logger:     logger,
+		permitPool: NewPermitPool(maxParInt),
 	}
 
 	statements := map[string]string{
@@ -148,6 +170,9 @@ func (m *MsSQLBackend) prepare(name, query string) error {
 func (m *MsSQLBackend) Put(entry *Entry) error {
 	defer metrics.MeasureSince([]string{"mssql", "put"}, time.Now())
 
+	m.permitPool.Acquire()
+	defer m.permitPool.Release()
+
 	_, err := m.statements["put"].Exec(entry.Key, entry.Value, entry.Key, entry.Key, entry.Value)
 	if err != nil {
 		return err
@@ -158,6 +183,9 @@ func (m *MsSQLBackend) Put(entry *Entry) error {
 
 func (m *MsSQLBackend) Get(key string) (*Entry, error) {
 	defer metrics.MeasureSince([]string{"mssql", "get"}, time.Now())
+
+	m.permitPool.Acquire()
+	defer m.permitPool.Release()
 
 	var result []byte
 	err := m.statements["get"].QueryRow(key).Scan(&result)
@@ -180,6 +208,9 @@ func (m *MsSQLBackend) Get(key string) (*Entry, error) {
 func (m *MsSQLBackend) Delete(key string) error {
 	defer metrics.MeasureSince([]string{"mssql", "delete"}, time.Now())
 
+	m.permitPool.Acquire()
+	defer m.permitPool.Release()
+
 	_, err := m.statements["delete"].Exec(key)
 	if err != nil {
 		return err
@@ -191,9 +222,14 @@ func (m *MsSQLBackend) Delete(key string) error {
 func (m *MsSQLBackend) List(prefix string) ([]string, error) {
 	defer metrics.MeasureSince([]string{"mssql", "list"}, time.Now())
 
+	m.permitPool.Acquire()
+	defer m.permitPool.Release()
+
 	likePrefix := prefix + "%"
 	rows, err := m.statements["list"].Query(likePrefix)
-
+	if err != nil {
+		return nil, err
+	}
 	var keys []string
 	for rows.Next() {
 		var key string
@@ -206,7 +242,7 @@ func (m *MsSQLBackend) List(prefix string) ([]string, error) {
 		if i := strings.Index(key, "/"); i == -1 {
 			keys = append(keys, key)
 		} else if i != -1 {
-			keys = appendIfMissing(keys, string(key[:i+1]))
+			keys = strutil.AppendIfMissing(keys, string(key[:i+1]))
 		}
 	}
 

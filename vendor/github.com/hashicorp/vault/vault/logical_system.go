@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fatih/structs"
 	"github.com/hashicorp/vault/helper/consts"
 	"github.com/hashicorp/vault/helper/parseutil"
 	"github.com/hashicorp/vault/helper/wrapping"
@@ -44,7 +45,7 @@ var (
 	}
 )
 
-func NewSystemBackend(core *Core, config *logical.BackendConfig) (logical.Backend, error) {
+func NewSystemBackend(core *Core) *SystemBackend {
 	b := &SystemBackend{
 		Core: core,
 	}
@@ -62,9 +63,11 @@ func NewSystemBackend(core *Core, config *logical.BackendConfig) (logical.Backen
 				"replication/primary/secondary-token",
 				"replication/reindex",
 				"rotate",
+				"config/cors",
 				"config/auditing/*",
 				"plugins/catalog/*",
 				"revoke-prefix/*",
+				"revoke-force/*",
 				"leases/revoke-prefix/*",
 				"leases/revoke-force/*",
 				"leases/lookup/*",
@@ -97,6 +100,30 @@ func NewSystemBackend(core *Core, config *logical.BackendConfig) (logical.Backen
 
 				HelpSynopsis:    strings.TrimSpace(sysHelp["capabilities_accessor"][0]),
 				HelpDescription: strings.TrimSpace(sysHelp["capabilities_accessor"][1]),
+			},
+
+			&framework.Path{
+				Pattern: "config/cors$",
+
+				Fields: map[string]*framework.FieldSchema{
+					"enable": &framework.FieldSchema{
+						Type:        framework.TypeBool,
+						Description: "Enables or disables CORS headers on requests.",
+					},
+					"allowed_origins": &framework.FieldSchema{
+						Type:        framework.TypeCommaStringSlice,
+						Description: "A comma-separated string or array of strings indicating origins that may make cross-origin requests.",
+					},
+				},
+
+				Callbacks: map[logical.Operation]framework.OperationFunc{
+					logical.ReadOperation:   b.handleCORSRead,
+					logical.UpdateOperation: b.handleCORSUpdate,
+					logical.DeleteOperation: b.handleCORSDelete,
+				},
+
+				HelpDescription: strings.TrimSpace(sysHelp["config/cors"][0]),
+				HelpSynopsis:    strings.TrimSpace(sysHelp["config/cors"][1]),
 			},
 
 			&framework.Path{
@@ -461,6 +488,10 @@ func NewSystemBackend(core *Core, config *logical.BackendConfig) (logical.Backen
 						Type:        framework.TypeString,
 						Description: strings.TrimSpace(sysHelp["auth_desc"][0]),
 					},
+					"plugin_name": &framework.FieldSchema{
+						Type:        framework.TypeString,
+						Description: strings.TrimSpace(sysHelp["auth_plugin"][0]),
+					},
 					"local": &framework.FieldSchema{
 						Type:        framework.TypeBool,
 						Default:     false,
@@ -750,7 +781,7 @@ func NewSystemBackend(core *Core, config *logical.BackendConfig) (logical.Backen
 				HelpDescription: strings.TrimSpace(sysHelp["audited-headers"][1]),
 			},
 			&framework.Path{
-				Pattern: "plugins/catalog/$",
+				Pattern: "plugins/catalog/?$",
 
 				Fields: map[string]*framework.FieldSchema{},
 
@@ -767,18 +798,15 @@ func NewSystemBackend(core *Core, config *logical.BackendConfig) (logical.Backen
 				Fields: map[string]*framework.FieldSchema{
 					"name": &framework.FieldSchema{
 						Type:        framework.TypeString,
-						Description: "The name of the plugin",
+						Description: strings.TrimSpace(sysHelp["plugin-catalog_name"][0]),
 					},
 					"sha_256": &framework.FieldSchema{
-						Type: framework.TypeString,
-						Description: `The SHA256 sum of the executable used in the
-						command field. This should be HEX encoded.`,
+						Type:        framework.TypeString,
+						Description: strings.TrimSpace(sysHelp["plugin-catalog_sha-256"][0]),
 					},
 					"command": &framework.FieldSchema{
-						Type: framework.TypeString,
-						Description: `The command used to start the plugin. The
-						executable defined in this command must exist in vault's
-						plugin directory.`,
+						Type:        framework.TypeString,
+						Description: strings.TrimSpace(sysHelp["plugin-catalog_command"][0]),
 					},
 				},
 
@@ -798,15 +826,50 @@ func NewSystemBackend(core *Core, config *logical.BackendConfig) (logical.Backen
 
 	b.Backend.Invalidate = b.invalidate
 
-	return b.Backend.Setup(config)
+	return b
 }
 
 // SystemBackend implements logical.Backend and is used to interact with
 // the core of the system. This backend is hardcoded to exist at the "sys"
 // prefix. Conceptually it is similar to procfs on Linux.
 type SystemBackend struct {
-	Core    *Core
-	Backend *framework.Backend
+	*framework.Backend
+	Core *Core
+}
+
+// handleCORSRead returns the current CORS configuration
+func (b *SystemBackend) handleCORSRead(req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+	corsConf := b.Core.corsConfig
+
+	enabled := corsConf.IsEnabled()
+
+	resp := &logical.Response{
+		Data: map[string]interface{}{
+			"enabled": enabled,
+		},
+	}
+
+	if enabled {
+		corsConf.RLock()
+		resp.Data["allowed_origins"] = corsConf.AllowedOrigins
+		corsConf.RUnlock()
+	}
+
+	return resp, nil
+}
+
+// handleCORSUpdate sets the list of origins that are allowed to make
+// cross-origin requests and sets the CORS enabled flag to true
+func (b *SystemBackend) handleCORSUpdate(req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+	origins := d.Get("allowed_origins").([]string)
+
+	return nil, b.Core.corsConfig.Enable(origins)
+}
+
+// handleCORSDelete clears the allowed origins and sets the CORS enabled flag
+// to false
+func (b *SystemBackend) handleCORSDelete(req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+	return nil, b.Core.corsConfig.Disable()
 }
 
 func (b *SystemBackend) handleTidyLeases(req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
@@ -883,10 +946,11 @@ func (b *SystemBackend) handlePluginCatalogRead(req *logical.Request, d *framewo
 		return nil, nil
 	}
 
+	// Create a map of data to be returned and remove sensitive information from it
+	data := structs.New(plugin).Map()
+
 	return &logical.Response{
-		Data: map[string]interface{}{
-			"plugin": plugin,
-		},
+		Data: data,
 	}, nil
 }
 
@@ -967,7 +1031,7 @@ func (b *SystemBackend) handleAuditedHeadersRead(req *logical.Request, d *framew
 	}, nil
 }
 
-// handleCapabilitiesreturns the ACL capabilities of the token for a given path
+// handleCapabilities returns the ACL capabilities of the token for a given path
 func (b *SystemBackend) handleCapabilities(req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
 	token := d.Get("token").(string)
 	if token == "" {
@@ -985,8 +1049,8 @@ func (b *SystemBackend) handleCapabilities(req *logical.Request, d *framework.Fi
 	}, nil
 }
 
-// handleCapabilitiesAccessor returns the ACL capabilities of the token associted
-// with the given accessor for a given path.
+// handleCapabilitiesAccessor returns the ACL capabilities of the
+// token associted with the given accessor for a given path.
 func (b *SystemBackend) handleCapabilitiesAccessor(req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
 	accessor := d.Get("accessor").(string)
 	if accessor == "" {
@@ -1097,17 +1161,17 @@ func (b *SystemBackend) handleMountTable(
 	}
 
 	for _, entry := range b.Core.mounts.Entries {
+		// Populate mount info
+		structConfig := structs.New(entry.Config).Map()
+		structConfig["default_lease_ttl"] = int64(structConfig["default_lease_ttl"].(time.Duration).Seconds())
+		structConfig["max_lease_ttl"] = int64(structConfig["max_lease_ttl"].(time.Duration).Seconds())
 		info := map[string]interface{}{
 			"type":        entry.Type,
 			"description": entry.Description,
-			"config": map[string]interface{}{
-				"default_lease_ttl": int64(entry.Config.DefaultLeaseTTL.Seconds()),
-				"max_lease_ttl":     int64(entry.Config.MaxLeaseTTL.Seconds()),
-				"force_no_cache":    entry.Config.ForceNoCache,
-			},
-			"local": entry.Local,
+			"accessor":    entry.Accessor,
+			"config":      structConfig,
+			"local":       entry.Local,
 		}
-
 		resp.Data[entry.Path] = info
 	}
 
@@ -1134,12 +1198,8 @@ func (b *SystemBackend) handleMount(
 	path = sanitizeMountPath(path)
 
 	var config MountConfig
+	var apiConfig APIMountConfig
 
-	var apiConfig struct {
-		DefaultLeaseTTL string `json:"default_lease_ttl" structs:"default_lease_ttl" mapstructure:"default_lease_ttl"`
-		MaxLeaseTTL     string `json:"max_lease_ttl" structs:"max_lease_ttl" mapstructure:"max_lease_ttl"`
-		ForceNoCache    bool   `json:"force_no_cache" structs:"force_no_cache" mapstructure:"force_no_cache"`
-	}
 	configMap := data.Get("config").(map[string]interface{})
 	if configMap != nil && len(configMap) != 0 {
 		err := mapstructure.Decode(configMap, &apiConfig)
@@ -1188,6 +1248,11 @@ func (b *SystemBackend) handleMount(
 			logical.ErrInvalidRequest
 	}
 
+	// Only set plugin-name if mount is of type plugin
+	if logicalType == "plugin" && apiConfig.PluginName != "" {
+		config.PluginName = apiConfig.PluginName
+	}
+
 	// Copy over the force no cache if set
 	if apiConfig.ForceNoCache {
 		config.ForceNoCache = true
@@ -1232,25 +1297,25 @@ func handleError(
 // handleUnmount is used to unmount a path
 func (b *SystemBackend) handleUnmount(
 	req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	b.Core.clusterParamsLock.RLock()
-	repState := b.Core.replicationState
-	b.Core.clusterParamsLock.RUnlock()
+	path := data.Get("path").(string)
+	path = sanitizeMountPath(path)
 
-	suffix := strings.TrimPrefix(req.Path, "mounts/")
-	if len(suffix) == 0 {
-		return logical.ErrorResponse("path cannot be blank"), logical.ErrInvalidRequest
-	}
-
-	suffix = sanitizeMountPath(suffix)
-
-	entry := b.Core.router.MatchingMountEntry(suffix)
+	repState := b.Core.ReplicationState()
+	entry := b.Core.router.MatchingMountEntry(path)
 	if entry != nil && !entry.Local && repState == consts.ReplicationSecondary {
 		return logical.ErrorResponse("cannot unmount a non-local mount on a replication secondary"), nil
 	}
 
+	// We return success when the mount does not exists to not expose if the
+	// mount existed or not
+	match := b.Core.router.MatchingMount(path)
+	if match == "" || path != match {
+		return nil, nil
+	}
+
 	// Attempt unmount
-	if existed, err := b.Core.unmount(suffix); existed && err != nil {
-		b.Backend.Logger().Error("sys: unmount failed", "path", suffix, "error", err)
+	if err := b.Core.unmount(path); err != nil {
+		b.Backend.Logger().Error("sys: unmount failed", "path", path, "error", err)
 		return handleError(err)
 	}
 
@@ -1596,6 +1661,7 @@ func (b *SystemBackend) handleAuthTable(
 		info := map[string]interface{}{
 			"type":        entry.Type,
 			"description": entry.Description,
+			"accessor":    entry.Accessor,
 			"config": map[string]interface{}{
 				"default_lease_ttl": int64(entry.Config.DefaultLeaseTTL.Seconds()),
 				"max_lease_ttl":     int64(entry.Config.MaxLeaseTTL.Seconds()),
@@ -1623,6 +1689,14 @@ func (b *SystemBackend) handleEnableAuth(
 	path := data.Get("path").(string)
 	logicalType := data.Get("type").(string)
 	description := data.Get("description").(string)
+	pluginName := data.Get("plugin_name").(string)
+
+	var config MountConfig
+
+	// Only set plugin name if mount is of type plugin
+	if logicalType == "plugin" && pluginName != "" {
+		config.PluginName = pluginName
+	}
 
 	if logicalType == "" {
 		return logical.ErrorResponse(
@@ -1638,6 +1712,7 @@ func (b *SystemBackend) handleEnableAuth(
 		Path:        path,
 		Type:        logicalType,
 		Description: description,
+		Config:      config,
 		Local:       local,
 	}
 
@@ -1652,16 +1727,26 @@ func (b *SystemBackend) handleEnableAuth(
 // handleDisableAuth is used to disable a credential backend
 func (b *SystemBackend) handleDisableAuth(
 	req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	suffix := strings.TrimPrefix(req.Path, "auth/")
-	if len(suffix) == 0 {
-		return logical.ErrorResponse("path cannot be blank"), logical.ErrInvalidRequest
+	path := data.Get("path").(string)
+	path = sanitizeMountPath(path)
+	fullPath := credentialRoutePrefix + path
+
+	repState := b.Core.ReplicationState()
+	entry := b.Core.router.MatchingMountEntry(fullPath)
+	if entry != nil && !entry.Local && repState == consts.ReplicationSecondary {
+		return logical.ErrorResponse("cannot unmount a non-local mount on a replication secondary"), nil
 	}
 
-	suffix = sanitizeMountPath(suffix)
+	// We return success when the mount does not exists to not expose if the
+	// mount existed or not
+	match := b.Core.router.MatchingMount(fullPath)
+	if match == "" || fullPath != match {
+		return nil, nil
+	}
 
 	// Attempt disable
-	if existed, err := b.Core.disableCredential(suffix); existed && err != nil {
-		b.Backend.Logger().Error("sys: disable auth mount failed", "path", suffix, "error", err)
+	if err := b.Core.disableCredential(path); err != nil {
+		b.Backend.Logger().Error("sys: disable auth mount failed", "path", path, "error", err)
 		return handleError(err)
 	}
 	return nil, nil
@@ -2244,6 +2329,21 @@ as well as perform core operations.
 
 // sysHelp is all the help text for the sys backend.
 var sysHelp = map[string][2]string{
+	"config/cors": {
+		"Configures or returns the current configuration of CORS settings.",
+		`
+This path responds to the following HTTP methods.
+
+    GET /
+        Returns the configuration of the CORS setting.
+
+    POST /
+        Sets the comma-separated list of origins that can make cross-origin requests.
+
+    DELETE /
+        Clears the CORS configuration and disables acceptance of CORS requests.
+		`,
+	},
 	"init": {
 		"Initializes or returns the initialization status of the Vault.",
 		`
@@ -2498,6 +2598,11 @@ Example: you might have an OAuth backend for GitHub, and one for Google Apps.
 		"",
 	},
 
+	"auth_plugin": {
+		`Name of the auth plugin to use based from the name in the plugin catalog.`,
+		"",
+	},
+
 	"policy-list": {
 		`List the configured access control policies.`,
 		`
@@ -2677,22 +2782,37 @@ This path responds to the following HTTP methods.
 		"Lists the headers configured to be audited.",
 		`Returns a list of headers that have been configured to be audited.`,
 	},
-	"plugins/catalog": {
-		`Configures the plugins known to vault`,
+	"plugin-catalog": {
+		"Configures the plugins known to vault",
 		`
 This path responds to the following HTTP methods.
-    LIST /
-        Returns a list of names of configured plugins.
+		LIST /
+			Returns a list of names of configured plugins.
 
-    GET /<name>
-        Retrieve the metadata for the named plugin.
+		GET /<name>
+			Retrieve the metadata for the named plugin.
 
-    PUT /<name>
-        Add or update plugin.
+		PUT /<name>
+			Add or update plugin.
 
-    DELETE /<name>
-        Delete the plugin with the given name.
+		DELETE /<name>
+			Delete the plugin with the given name.
 		`,
+	},
+	"plugin-catalog_name": {
+		"The name of the plugin",
+		"",
+	},
+	"plugin-catalog_sha-256": {
+		`The SHA256 sum of the executable used in the 
+command field. This should be HEX encoded.`,
+		"",
+	},
+	"plugin-catalog_command": {
+		`The command used to start the plugin. The
+executable defined in this command must exist in vault's
+plugin directory.`,
+		"",
 	},
 	"leases": {
 		`View or list lease metadata.`,

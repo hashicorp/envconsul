@@ -17,6 +17,7 @@ import (
 	"github.com/armon/go-metrics"
 	mysql "github.com/go-sql-driver/mysql"
 	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/vault/helper/strutil"
 )
 
 // Unreserved tls key
@@ -75,6 +76,8 @@ func newMySQLBackend(conf map[string]string, logger log.Logger) (Backend, error)
 		if logger.IsDebug() {
 			logger.Debug("mysql: max_parallel set", "max_parallel", maxParInt)
 		}
+	} else {
+		maxParInt = DefaultParallelOperations
 	}
 
 	dsnParams := url.Values{}
@@ -93,6 +96,8 @@ func newMySQLBackend(conf map[string]string, logger log.Logger) (Backend, error)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to mysql: %v", err)
 	}
+
+	db.SetMaxOpenConns(maxParInt)
 
 	// Create the required database if it doesn't exists.
 	if _, err := db.Exec("CREATE DATABASE IF NOT EXISTS " + database); err != nil {
@@ -222,7 +227,7 @@ func (m *MySQLBackend) List(prefix string) ([]string, error) {
 			keys = append(keys, key)
 		} else if i != -1 {
 			// Add truncated 'folder' paths
-			keys = appendIfMissing(keys, string(key[:i+1]))
+			keys = strutil.AppendIfMissing(keys, string(key[:i+1]))
 		}
 	}
 
