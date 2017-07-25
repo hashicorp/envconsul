@@ -4,32 +4,39 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
+	"net/http"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
+
+	log "github.com/mgutz/logxi/v1"
 
 	"github.com/armon/go-metrics"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/hashicorp/errwrap"
+	cleanhttp "github.com/hashicorp/go-cleanhttp"
 	"github.com/hashicorp/vault/helper/awsutil"
+	"github.com/hashicorp/vault/helper/consts"
 )
 
 // S3Backend is a physical backend that stores data
 // within an S3 bucket.
 type S3Backend struct {
-	bucket string
-	client *s3.S3
-	logger *log.Logger
+	bucket     string
+	client     *s3.S3
+	logger     log.Logger
+	permitPool *PermitPool
 }
 
 // newS3Backend constructs a S3 backend using a pre-existing
 // bucket. Credentials can be provided to the backend, sourced
 // from the environment, AWS credential files or by IAM role.
-func newS3Backend(conf map[string]string, logger *log.Logger) (Backend, error) {
+func newS3Backend(conf map[string]string, logger log.Logger) (Backend, error) {
 
 	bucket := os.Getenv("AWS_S3_BUCKET")
 	if bucket == "" {
@@ -73,10 +80,16 @@ func newS3Backend(conf map[string]string, logger *log.Logger) (Backend, error) {
 		return nil, err
 	}
 
+	pooledTransport := cleanhttp.DefaultPooledTransport()
+	pooledTransport.MaxIdleConnsPerHost = consts.ExpirationRestoreWorkerCount
+
 	s3conn := s3.New(session.New(&aws.Config{
 		Credentials: creds,
-		Endpoint:    aws.String(endpoint),
-		Region:      aws.String(region),
+		HTTPClient: &http.Client{
+			Transport: pooledTransport,
+		},
+		Endpoint: aws.String(endpoint),
+		Region:   aws.String(region),
 	}))
 
 	_, err = s3conn.HeadBucket(&s3.HeadBucketInput{Bucket: &bucket})
@@ -84,10 +97,23 @@ func newS3Backend(conf map[string]string, logger *log.Logger) (Backend, error) {
 		return nil, fmt.Errorf("unable to access bucket '%s': %v", bucket, err)
 	}
 
+	maxParStr, ok := conf["max_parallel"]
+	var maxParInt int
+	if ok {
+		maxParInt, err = strconv.Atoi(maxParStr)
+		if err != nil {
+			return nil, errwrap.Wrapf("failed parsing max_parallel parameter: {{err}}", err)
+		}
+		if logger.IsDebug() {
+			logger.Debug("s3: max_parallel set", "max_parallel", maxParInt)
+		}
+	}
+
 	s := &S3Backend{
-		client: s3conn,
-		bucket: bucket,
-		logger: logger,
+		client:     s3conn,
+		bucket:     bucket,
+		logger:     logger,
+		permitPool: NewPermitPool(maxParInt),
 	}
 	return s, nil
 }
@@ -95,6 +121,9 @@ func newS3Backend(conf map[string]string, logger *log.Logger) (Backend, error) {
 // Put is used to insert or update an entry
 func (s *S3Backend) Put(entry *Entry) error {
 	defer metrics.MeasureSince([]string{"s3", "put"}, time.Now())
+
+	s.permitPool.Acquire()
+	defer s.permitPool.Release()
 
 	_, err := s.client.PutObject(&s3.PutObjectInput{
 		Bucket: aws.String(s.bucket),
@@ -113,6 +142,9 @@ func (s *S3Backend) Put(entry *Entry) error {
 func (s *S3Backend) Get(key string) (*Entry, error) {
 	defer metrics.MeasureSince([]string{"s3", "get"}, time.Now())
 
+	s.permitPool.Acquire()
+	defer s.permitPool.Release()
+
 	resp, err := s.client.GetObject(&s3.GetObjectInput{
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(key),
@@ -121,9 +153,8 @@ func (s *S3Backend) Get(key string) (*Entry, error) {
 		// Return nil on 404s, error on anything else
 		if awsErr.StatusCode() == 404 {
 			return nil, nil
-		} else {
-			return nil, err
 		}
+		return nil, err
 	}
 	if err != nil {
 		return nil, err
@@ -150,6 +181,9 @@ func (s *S3Backend) Get(key string) (*Entry, error) {
 func (s *S3Backend) Delete(key string) error {
 	defer metrics.MeasureSince([]string{"s3", "delete"}, time.Now())
 
+	s.permitPool.Acquire()
+	defer s.permitPool.Release()
+
 	_, err := s.client.DeleteObject(&s3.DeleteObjectInput{
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(key),
@@ -167,28 +201,41 @@ func (s *S3Backend) Delete(key string) error {
 func (s *S3Backend) List(prefix string) ([]string, error) {
 	defer metrics.MeasureSince([]string{"s3", "list"}, time.Now())
 
-	resp, err := s.client.ListObjects(&s3.ListObjectsInput{
+	s.permitPool.Acquire()
+	defer s.permitPool.Release()
+
+	params := &s3.ListObjectsV2Input{
 		Bucket: aws.String(s.bucket),
 		Prefix: aws.String(prefix),
-	})
-	if err != nil {
-		return nil, err
-	}
-	if resp == nil {
-		return nil, fmt.Errorf("nil response from S3 but no error")
 	}
 
 	keys := []string{}
-	for _, key := range resp.Contents {
-		key := strings.TrimPrefix(*key.Key, prefix)
 
-		if i := strings.Index(key, "/"); i == -1 {
-			// Add objects only from the current 'folder'
-			keys = append(keys, key)
-		} else if i != -1 {
-			// Add truncated 'folder' paths
-			keys = appendIfMissing(keys, key[:i+1])
-		}
+	err := s.client.ListObjectsV2Pages(params,
+		func(page *s3.ListObjectsV2Output, lastPage bool) bool {
+			if page != nil {
+				for _, key := range page.Contents {
+					// Avoid panic
+					if key == nil {
+						continue
+					}
+
+					key := strings.TrimPrefix(*key.Key, prefix)
+
+					if i := strings.Index(key, "/"); i == -1 {
+						// Add objects only from the current 'folder'
+						keys = append(keys, key)
+					} else if i != -1 {
+						// Add truncated 'folder' paths
+						keys = appendIfMissing(keys, key[:i+1])
+					}
+				}
+			}
+			return true
+		})
+
+	if err != nil {
+		return nil, err
 	}
 
 	sort.Strings(keys)

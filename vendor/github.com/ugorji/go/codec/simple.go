@@ -166,7 +166,17 @@ func (d *simpleDecDriver) readNextBd() {
 	d.bdRead = true
 }
 
+func (d *simpleDecDriver) uncacheRead() {
+	if d.bdRead {
+		d.r.unreadn1()
+		d.bdRead = false
+	}
+}
+
 func (d *simpleDecDriver) ContainerType() (vt valueType) {
+	if !d.bdRead {
+		d.readNextBd()
+	}
 	if d.bd == simpleVdNil {
 		return valueTypeNil
 	} else if d.bd == simpleVdByteArray || d.bd == simpleVdByteArray+1 ||
@@ -308,11 +318,17 @@ func (d *simpleDecDriver) DecodeBool() (b bool) {
 }
 
 func (d *simpleDecDriver) ReadMapStart() (length int) {
+	if !d.bdRead {
+		d.readNextBd()
+	}
 	d.bdRead = false
 	return d.decLen()
 }
 
 func (d *simpleDecDriver) ReadArrayStart() (length int) {
+	if !d.bdRead {
+		d.readNextBd()
+	}
 	d.bdRead = false
 	return d.decLen()
 }
@@ -340,7 +356,7 @@ func (d *simpleDecDriver) decLen() int {
 		}
 		return int(ui)
 	}
-	d.d.errorf("decLen: Cannot read length: bd%8 must be in range 0..4. Got: %d", d.bd%8)
+	d.d.errorf("decLen: Cannot read length: bd%%8 must be in range 0..4. Got: %d", d.bd%8)
 	return -1
 }
 
@@ -365,7 +381,7 @@ func (d *simpleDecDriver) DecodeBytes(bs []byte, isstring, zerocopy bool) (bsOut
 			bs = d.b[:]
 		}
 	}
-	return decByteSlice(d.r, clen, bs)
+	return decByteSlice(d.r, clen, d.d.h.MaxInitLen, bs)
 }
 
 func (d *simpleDecDriver) DecodeExt(rv interface{}, xtag uint64, ext Ext) (realxtag uint64) {
@@ -474,7 +490,7 @@ func (d *simpleDecDriver) DecodeNaked() {
 // SimpleHandle is a Handle for a very simple encoding format.
 //
 // simple is a simplistic codec similar to binc, but not as compact.
-//   - Encoding of a value is always preceeded by the descriptor byte (bd)
+//   - Encoding of a value is always preceded by the descriptor byte (bd)
 //   - True, false, nil are encoded fully in 1 byte (the descriptor)
 //   - Integers (intXXX, uintXXX) are encoded in 1, 2, 4 or 8 bytes (plus a descriptor byte).
 //     There are positive (uintXXX and intXXX >= 0) and negative (intXXX < 0) integers.
@@ -503,7 +519,7 @@ func (h *SimpleHandle) newEncDriver(e *Encoder) encDriver {
 }
 
 func (h *SimpleHandle) newDecDriver(d *Decoder) decDriver {
-	return &simpleDecDriver{d: d, r: d.r, h: h, br: d.bytes}
+	return &simpleDecDriver{d: d, h: h, r: d.r, br: d.bytes}
 }
 
 func (e *simpleEncDriver) reset() {
@@ -511,7 +527,7 @@ func (e *simpleEncDriver) reset() {
 }
 
 func (d *simpleDecDriver) reset() {
-	d.r = d.d.r
+	d.r, d.br = d.d.r, d.d.bytes
 	d.bd, d.bdRead = 0, false
 }
 

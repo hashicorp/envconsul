@@ -2,7 +2,10 @@ package shamir
 
 import (
 	"crypto/rand"
+	"crypto/subtle"
 	"fmt"
+	mathrand "math/rand"
+	"time"
 )
 
 const (
@@ -28,13 +31,11 @@ func makePolynomial(intercept, degree uint8) (polynomial, error) {
 	// Ensure the intercept is set
 	p.coefficients[0] = intercept
 
-	// Assign random co-efficients to the polynomial, ensuring
-	// the highest order co-efficient is non-zero
-	for p.coefficients[degree] == 0 {
-		if _, err := rand.Read(p.coefficients[1:]); err != nil {
-			return p, err
-		}
+	// Assign random co-efficients to the polynomial
+	if _, err := rand.Read(p.coefficients[1:]); err != nil {
+		return p, err
 	}
+
 	return p, nil
 }
 
@@ -80,30 +81,62 @@ func interpolatePolynomial(x_samples, y_samples []uint8, x uint8) uint8 {
 // div divides two numbers in GF(2^8)
 func div(a, b uint8) uint8 {
 	if b == 0 {
+		// leaks some timing information but we don't care anyways as this
+		// should never happen, hence the panic
 		panic("divide by zero")
 	}
-	if a == 0 {
-		return 0
-	}
 
+	var goodVal, zero uint8
 	log_a := logTable[a]
 	log_b := logTable[b]
 	diff := (int(log_a) - int(log_b)) % 255
 	if diff < 0 {
 		diff += 255
 	}
-	return expTable[diff]
+
+	ret := expTable[diff]
+
+	// Ensure we return zero if a is zero but aren't subject to timing attacks
+	goodVal = ret
+
+	if subtle.ConstantTimeByteEq(a, 0) == 1 {
+		ret = zero
+	} else {
+		ret = goodVal
+	}
+
+	return ret
 }
 
 // mult multiplies two numbers in GF(2^8)
 func mult(a, b uint8) (out uint8) {
-	if a == 0 || b == 0 {
-		return 0
-	}
+	var goodVal, zero uint8
 	log_a := logTable[a]
 	log_b := logTable[b]
 	sum := (int(log_a) + int(log_b)) % 255
-	return expTable[sum]
+
+	ret := expTable[sum]
+
+	// Ensure we return zero if either a or be are zero but aren't subject to
+	// timing attacks
+	goodVal = ret
+
+	if subtle.ConstantTimeByteEq(a, 0) == 1 {
+		ret = zero
+	} else {
+		ret = goodVal
+	}
+
+	if subtle.ConstantTimeByteEq(b, 0) == 1 {
+		ret = zero
+	} else {
+		// This operation does not do anything logically useful. It
+		// only ensures a constant number of assignments to thwart
+		// timing attacks.
+		goodVal = zero
+	}
+
+	return ret
 }
 
 // add combines two numbers in GF(2^8)
@@ -135,13 +168,17 @@ func Split(secret []byte, parts, threshold int) ([][]byte, error) {
 		return nil, fmt.Errorf("cannot split an empty secret")
 	}
 
+	// Generate random list of x coordinates
+	mathrand.Seed(time.Now().UnixNano())
+	xCoordinates := mathrand.Perm(255)
+
 	// Allocate the output array, initialize the final byte
 	// of the output with the offset. The representation of each
 	// output is {y1, y2, .., yN, x}.
 	out := make([][]byte, parts)
 	for idx := range out {
 		out[idx] = make([]byte, len(secret)+1)
-		out[idx][len(secret)] = uint8(idx) + 1
+		out[idx][len(secret)] = uint8(xCoordinates[idx]) + 1
 	}
 
 	// Construct a random polynomial for each byte of the secret.
@@ -158,7 +195,7 @@ func Split(secret []byte, parts, threshold int) ([][]byte, error) {
 		// We cheat by encoding the x value once as the final index,
 		// so that it only needs to be stored once.
 		for i := 0; i < parts; i++ {
-			x := uint8(i) + 1
+			x := uint8(xCoordinates[i]) + 1
 			y := p.evaluate(x)
 			out[i][idx] = y
 		}

@@ -1,7 +1,116 @@
 Consul Template Changelog
 =========================
 
-## v0.18.0-rc2 (January 12, 2016)
+## v0.19.0 (June 29, 2017)
+
+BREAKING CHANGES:
+
+  * All previous deprecation errors have been removed and associated configs or
+      CLI options are no longer valid. It is highly recommended that you run
+      v0.18.5 and resolve any deprecations before upgrading to this version!
+
+IMPROVEMENTS:
+
+  * Add new configuration option `vault.grace`, which configures the grace
+      period between lease renewal and secret re-acquisition. When renewing a
+      secret, if the remaining lease is less than or equal to the configured
+      grace, Consul Template will request a new credential. This prevents Vault
+      from revoking the credential at expiration and Consul Template having a
+      stale credential. **If you set this to a value that is higher than your
+      default TTL or max TTL, Consul Template will always read a new secret!**
+  * Add a new option to `datacenters` to optionally ignore inaccessible
+      datacenters [GH-908].
+
+BUG FIXES:
+
+  * Use the logger as soon as its available for output [GH-947]
+  * Update Consul API library to fix a bug where custom CA configuration aws
+      ignored [GH-965]
+
+
+## v0.18.5 (May 25, 2017)
+
+BREAKING CHANGES:
+
+  * Retry now has a sane maximum default. Previous versions of Consul Template
+      would retry indefinitely, potentially allowing the time between retries to
+      reach days, months, or years due to the exponential nature. Users wishing
+      to use the old behavior should set `max_backoff = 0` in their
+      configurations. [GH-940]
+
+IMPROVEMENTS:
+
+  * Add support for `MaxBackoff` in Retry options [GH-938, GH-939]
+  * Compile with Go 1.8.3
+
+## v0.18.4 (May 25, 2017)
+
+BUG FIXES:
+
+  * Compile with go 1.8.2 for the security fix. The code is exactly the same as
+      v0.18.3.
+
+## v0.18.3 (May 9, 2017)
+
+IMPROVEMENTS:
+
+  * Add support for local datacenter in node queries [GH-862, GH-927]
+  * Add support for service tags on health checks [Consul vendor update]
+
+BUG FIXES:
+
+  * Seed the random generator for splay values  
+  * Reset retries counter on successful contact [GH-931]
+  * Return a nil slice instead of an error for non-existent maps
+      [GH-906, GH-932]
+  * Do not return data in dedup mode if the template is unchanged
+      [GH-933 GH-698]
+
+NOTABLE:
+
+  * Consul Template is now built with Go 1.8.1
+  * Update internal library to Consul 0.8.2 - this should not affect any users
+
+## v0.18.2 (March 28, 2017)
+
+IMPROVEMENTS:
+
+  * Add missing HTTP transport configuration options
+  * Add `modulo` function for performing modulo math
+
+BUG FIXES:
+
+  * Default transport max idle connections based on `GOMAXPROCS`
+  * Read `VAULT_*` envvars before finalizing [GH-914, GH-916]
+  * Register `[]*KeyPair` as a gob [GH-893]
+
+## v0.18.1 (February 7, 2017)
+
+IMPROVEMENTS:
+
+  * Add support for tagged addresses and metadata [GH-863]
+  * Add `.exe` extension to Windows binaries [GH-875]
+  * Add support for customizing the low-level transport details for Consul and
+      Vault [GH-880, GH-877]
+  * Read token from `~/.vault-token` if it exists [GH-878, GH-884]
+
+BUG FIXES:
+
+  * Resolve an issue with filters on health service dependencies [GH-857]
+  * Restore ability to reload configurations from disk [GH-866]
+  * Move `env` back to a helper function [GH-882]
+
+    This was causing a lot of issues for users, and it required many folks to
+    re-write their templates for the small benefit of people running in
+    de-duplicate mode who did not understand the trade-offs. The README is now
+    updated with the trade-offs of running in dedup mode and the expected `env`
+    behavior has been restored.
+
+  * Do not loop indefinitely if the dedup manager is unable to acquire a lock
+      [GH-864]
+
+
+## v0.18.0 (January 20, 2017)
 
 NEW FEATURES:
 
@@ -62,6 +171,9 @@ BREAKING CHANGES:
 
   * The `env` function is now treated as a dependency instead of a helper. For
       most users, there will be no impact.
+
+  * This release is compiled with Golang v1.8. We do not expect this to cause
+      any issues, but it is worth calling out.
 
 DEPRECATIONS:
 

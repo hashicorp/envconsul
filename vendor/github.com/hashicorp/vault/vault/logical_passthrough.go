@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
+	"github.com/hashicorp/vault/helper/jsonutil"
+	"github.com/hashicorp/vault/helper/parseutil"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 )
@@ -33,17 +34,6 @@ func LeaseSwitchedPassthroughBackend(conf *logical.BackendConfig, leases bool) (
 		Paths: []*framework.Path{
 			&framework.Path{
 				Pattern: ".*",
-				Fields: map[string]*framework.FieldSchema{
-					//TODO: Deprecated in 0.3; remove in 0.4
-					"lease": &framework.FieldSchema{
-						Type:        framework.TypeString,
-						Description: "Lease time for this key when read. Ex: 1h",
-					},
-					"ttl": &framework.FieldSchema{
-						Type:        framework.TypeString,
-						Description: "TTL time for this key when read. Ex: 1h",
-					},
-				},
 
 				Callbacks: map[logical.Operation]framework.OperationFunc{
 					logical.ReadOperation:   b.handleRead,
@@ -118,7 +108,8 @@ func (b *PassthroughBackend) handleRead(
 
 	// Decode the data
 	var rawData map[string]interface{}
-	if err := json.Unmarshal(out.Value, &rawData); err != nil {
+
+	if err := jsonutil.DecodeJSON(out.Value, &rawData); err != nil {
 		return nil, fmt.Errorf("json decoding failed: %v", err)
 	}
 
@@ -135,19 +126,17 @@ func (b *PassthroughBackend) handleRead(
 	}
 
 	// Check if there is a ttl key
-	var ttl string
-	ttl, _ = rawData["ttl"].(string)
-	if len(ttl) == 0 {
-		ttl, _ = rawData["lease"].(string)
-	}
 	ttlDuration := b.System().DefaultLeaseTTL()
-	if len(ttl) != 0 {
-		parsedDuration, err := time.ParseDuration(ttl)
-		if err != nil {
-			resp.AddWarning(fmt.Sprintf("failed to parse stored ttl '%s' for entry; using default", ttl))
-		} else {
-			ttlDuration = parsedDuration
+	ttlRaw, ok := rawData["ttl"]
+	if !ok {
+		ttlRaw, ok = rawData["lease"]
+	}
+	if ok {
+		dur, err := parseutil.ParseDurationSecond(ttlRaw)
+		if err == nil {
+			ttlDuration = dur
 		}
+
 		if b.generateLeases {
 			resp.Secret.Renewable = true
 		}
@@ -163,23 +152,6 @@ func (b *PassthroughBackend) handleWrite(
 	// Check that some fields are given
 	if len(req.Data) == 0 {
 		return logical.ErrorResponse("missing data fields"), nil
-	}
-
-	// Check if there is a ttl key; verify parseability if so
-	var ttl string
-	ttl = data.Get("ttl").(string)
-	if len(ttl) == 0 {
-		ttl = data.Get("lease").(string)
-	}
-	if len(ttl) != 0 {
-		_, err := time.ParseDuration(ttl)
-		if err != nil {
-			return logical.ErrorResponse("failed to parse ttl for entry"), nil
-		}
-		// Verify that ttl isn't the *only* thing we have
-		if len(req.Data) == 1 {
-			return nil, fmt.Errorf("missing data; only ttl found")
-		}
 	}
 
 	// JSON encode the data

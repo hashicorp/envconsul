@@ -1,0 +1,21 @@
+sudo: false
+
+language: go
+
+go: 
+ - 1.8
+ - 1.7
+
+install:
+  - go get -u github.com/golang/lint/golint
+  - go get -u github.com/Masterminds/glide
+  # - go get -u github.com/GoASTScanner/gas
+  - glide install
+
+script:
+  - test -z "$(go build | tee /dev/stderr)"
+  - go test -race -v
+  - test -z "$(golint | tee /dev/stderr)"
+  - test -z "$(gofmt -l *.go | tee /dev/stderr)"
+  - test -z "$(go vet | tee /dev/stderr)"
+  # - test -z "$(gas | tee /dev/stderr)"

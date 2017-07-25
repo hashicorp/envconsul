@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"regexp"
 	"runtime"
@@ -36,7 +37,7 @@ const (
 
 	// Maximum allowed depth when recursively substituing variable names.
 	_DEPTH_VALUES = 99
-	_VERSION      = "1.11.0"
+	_VERSION      = "1.28.0"
 )
 
 // Version returns current package version literal.
@@ -59,6 +60,9 @@ var (
 
 	// Explicitly write DEFAULT section header
 	DefaultHeader = false
+
+	// Indicate whether to put a line between sections
+	PrettySection = true
 )
 
 func init() {
@@ -108,7 +112,16 @@ type sourceData struct {
 }
 
 func (s *sourceData) ReadCloser() (io.ReadCloser, error) {
-	return &bytesReadCloser{bytes.NewReader(s.data)}, nil
+	return ioutil.NopCloser(bytes.NewReader(s.data)), nil
+}
+
+// sourceReadCloser represents an input stream with Close method.
+type sourceReadCloser struct {
+	reader io.ReadCloser
+}
+
+func (s *sourceReadCloser) ReadCloser() (io.ReadCloser, error) {
+	return s.reader, nil
 }
 
 // File represents a combination of a or more INI file(s) in memory.
@@ -126,20 +139,20 @@ type File struct {
 	// To keep data in order.
 	sectionList []string
 
-	// Whether the parser should ignore nonexistent files or return error.
-	looseMode bool
+	options LoadOptions
 
 	NameMapper
+	ValueMapper
 }
 
 // newFile initializes File object with given data sources.
-func newFile(dataSources []dataSource, looseMode bool) *File {
+func newFile(dataSources []dataSource, opts LoadOptions) *File {
 	return &File{
 		BlockMode:   true,
 		dataSources: dataSources,
 		sections:    make(map[string]*Section),
 		sectionList: make([]string, 0, 10),
-		looseMode:   looseMode,
+		options:     opts,
 	}
 }
 
@@ -149,12 +162,33 @@ func parseDataSource(source interface{}) (dataSource, error) {
 		return sourceFile{s}, nil
 	case []byte:
 		return &sourceData{s}, nil
+	case io.ReadCloser:
+		return &sourceReadCloser{s}, nil
 	default:
 		return nil, fmt.Errorf("error parsing data source: unknown type '%s'", s)
 	}
 }
 
-func loadSources(looseMode bool, source interface{}, others ...interface{}) (_ *File, err error) {
+type LoadOptions struct {
+	// Loose indicates whether the parser should ignore nonexistent files or return error.
+	Loose bool
+	// Insensitive indicates whether the parser forces all section and key names to lowercase.
+	Insensitive bool
+	// IgnoreContinuation indicates whether to ignore continuation lines while parsing.
+	IgnoreContinuation bool
+	// IgnoreInlineComment indicates whether to ignore comments at the end of value and treat it as part of value.
+	IgnoreInlineComment bool
+	// AllowBooleanKeys indicates whether to allow boolean type keys or treat as value is missing.
+	// This type of keys are mostly used in my.cnf.
+	AllowBooleanKeys bool
+	// AllowShadows indicates whether to keep track of keys with same name under same section.
+	AllowShadows bool
+	// Some INI formats allow group blocks that store a block of raw content that doesn't otherwise
+	// conform to key/value pairs. Specify the names of those blocks here.
+	UnparseableSections []string
+}
+
+func LoadSources(opts LoadOptions, source interface{}, others ...interface{}) (_ *File, err error) {
 	sources := make([]dataSource, len(others)+1)
 	sources[0], err = parseDataSource(source)
 	if err != nil {
@@ -166,7 +200,7 @@ func loadSources(looseMode bool, source interface{}, others ...interface{}) (_ *
 			return nil, err
 		}
 	}
-	f := newFile(sources, looseMode)
+	f := newFile(sources, opts)
 	if err = f.Reload(); err != nil {
 		return nil, err
 	}
@@ -177,13 +211,25 @@ func loadSources(looseMode bool, source interface{}, others ...interface{}) (_ *
 // Arguments can be mixed of file name with string type, or raw data in []byte.
 // It will return error if list contains nonexistent files.
 func Load(source interface{}, others ...interface{}) (*File, error) {
-	return loadSources(false, source, others...)
+	return LoadSources(LoadOptions{}, source, others...)
 }
 
 // LooseLoad has exactly same functionality as Load function
 // except it ignores nonexistent files instead of returning error.
 func LooseLoad(source interface{}, others ...interface{}) (*File, error) {
-	return loadSources(true, source, others...)
+	return LoadSources(LoadOptions{Loose: true}, source, others...)
+}
+
+// InsensitiveLoad has exactly same functionality as Load function
+// except it forces all section and key names to be lowercased.
+func InsensitiveLoad(source interface{}, others ...interface{}) (*File, error) {
+	return LoadSources(LoadOptions{Insensitive: true}, source, others...)
+}
+
+// InsensitiveLoad has exactly same functionality as Load function
+// except it allows have shadow keys.
+func ShadowLoad(source interface{}, others ...interface{}) (*File, error) {
+	return LoadSources(LoadOptions{AllowShadows: true}, source, others...)
 }
 
 // Empty returns an empty file object.
@@ -197,6 +243,8 @@ func Empty() *File {
 func (f *File) NewSection(name string) (*Section, error) {
 	if len(name) == 0 {
 		return nil, errors.New("error creating new section: empty section name")
+	} else if f.options.Insensitive && name != DEFAULT_SECTION {
+		name = strings.ToLower(name)
 	}
 
 	if f.BlockMode {
@@ -213,6 +261,18 @@ func (f *File) NewSection(name string) (*Section, error) {
 	return f.sections[name], nil
 }
 
+// NewRawSection creates a new section with an unparseable body.
+func (f *File) NewRawSection(name, body string) (*Section, error) {
+	section, err := f.NewSection(name)
+	if err != nil {
+		return nil, err
+	}
+
+	section.isRawSection = true
+	section.rawBody = body
+	return section, nil
+}
+
 // NewSections creates a list of sections.
 func (f *File) NewSections(names ...string) (err error) {
 	for _, name := range names {
@@ -227,6 +287,8 @@ func (f *File) NewSections(names ...string) (err error) {
 func (f *File) GetSection(name string) (*Section, error) {
 	if len(name) == 0 {
 		name = DEFAULT_SECTION
+	} else if f.options.Insensitive {
+		name = strings.ToLower(name)
 	}
 
 	if f.BlockMode {
@@ -260,6 +322,11 @@ func (f *File) Sections() []*Section {
 		sections[i] = f.Section(f.sectionList[i])
 	}
 	return sections
+}
+
+// ChildSections returns a list of child sections of given section name.
+func (f *File) ChildSections(name string) []*Section {
+	return f.Section(name).ChildSections()
 }
 
 // SectionStrings returns list of section names.
@@ -304,7 +371,7 @@ func (f *File) Reload() (err error) {
 	for _, s := range f.dataSources {
 		if err = f.reload(s); err != nil {
 			// In loose mode, we create an empty default section for nonexistent files.
-			if os.IsNotExist(err) && f.looseMode {
+			if os.IsNotExist(err) && f.options.Loose {
 				f.parse(bytes.NewBuffer(nil))
 				continue
 			}
@@ -364,17 +431,35 @@ func (f *File) WriteToIndent(w io.Writer, indent string) (n int64, err error) {
 			}
 		}
 
-		// Count and generate alignment length and buffer spaces
+		if sec.isRawSection {
+			if _, err = buf.WriteString(sec.rawBody); err != nil {
+				return 0, err
+			}
+			continue
+		}
+
+		// Count and generate alignment length and buffer spaces using the
+		// longest key. Keys may be modifed if they contain certain characters so
+		// we need to take that into account in our calculation.
 		alignLength := 0
 		if PrettyFormat {
-			for i := 0; i < len(sec.keyList); i++ {
-				if len(sec.keyList[i]) > alignLength {
-					alignLength = len(sec.keyList[i])
+			for _, kname := range sec.keyList {
+				keyLength := len(kname)
+				// First case will surround key by ` and second by """
+				if strings.ContainsAny(kname, "\"=:") {
+					keyLength += 2
+				} else if strings.Contains(kname, "`") {
+					keyLength += 6
+				}
+
+				if keyLength > alignLength {
+					alignLength = keyLength
 				}
 			}
 		}
 		alignSpaces := bytes.Repeat([]byte(" "), alignLength)
 
+	KEY_LIST:
 		for _, kname := range sec.keyList {
 			key := sec.Key(kname)
 			if len(key.Comment) > 0 {
@@ -394,37 +479,48 @@ func (f *File) WriteToIndent(w io.Writer, indent string) (n int64, err error) {
 			}
 
 			switch {
-			case key.isAutoIncr:
+			case key.isAutoIncrement:
 				kname = "-"
 			case strings.ContainsAny(kname, "\"=:"):
 				kname = "`" + kname + "`"
 			case strings.Contains(kname, "`"):
 				kname = `"""` + kname + `"""`
 			}
-			if _, err = buf.WriteString(kname); err != nil {
-				return 0, err
-			}
 
-			// Write out alignment spaces before "=" sign
-			if PrettyFormat {
-				buf.Write(alignSpaces[:alignLength-len(kname)])
-			}
+			for _, val := range key.ValueWithShadows() {
+				if _, err = buf.WriteString(kname); err != nil {
+					return 0, err
+				}
 
-			val := key.value
-			// In case key value contains "\n", "`", "\"", "#" or ";"
-			if strings.ContainsAny(val, "\n`") {
-				val = `"""` + val + `"""`
-			} else if strings.ContainsAny(val, "#;") {
-				val = "`" + val + "`"
-			}
-			if _, err = buf.WriteString(equalSign + val + LineBreak); err != nil {
-				return 0, err
+				if key.isBooleanType {
+					if kname != sec.keyList[len(sec.keyList)-1] {
+						buf.WriteString(LineBreak)
+					}
+					continue KEY_LIST
+				}
+
+				// Write out alignment spaces before "=" sign
+				if PrettyFormat {
+					buf.Write(alignSpaces[:alignLength-len(kname)])
+				}
+
+				// In case key value contains "\n", "`", "\"", "#" or ";"
+				if strings.ContainsAny(val, "\n`") {
+					val = `"""` + val + `"""`
+				} else if !f.options.IgnoreInlineComment && strings.ContainsAny(val, "#;") {
+					val = "`" + val + "`"
+				}
+				if _, err = buf.WriteString(equalSign + val + LineBreak); err != nil {
+					return 0, err
+				}
 			}
 		}
 
-		// Put a line between sections
-		if _, err = buf.WriteString(LineBreak); err != nil {
-			return 0, err
+		if PrettySection {
+			// Put a line between sections
+			if _, err = buf.WriteString(LineBreak); err != nil {
+				return 0, err
+			}
 		}
 	}
 

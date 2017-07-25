@@ -4,8 +4,8 @@ CURRENT_DIR := $(dir $(realpath $(MKFILE_PATH)))
 CURRENT_DIR := $(CURRENT_DIR:/=)
 
 # Get the project metadata
-GOVERSION := 1.7.4
-VERSION := 0.18.0-rc2
+GOVERSION := 1.8.3
+VERSION := 0.19.0
 PROJECT := github.com/hashicorp/consul-template
 OWNER := $(dir $(PROJECT))
 OWNER := $(notdir $(OWNER:/=))
@@ -31,7 +31,7 @@ TEST ?= ./...
 GOFILES = $(shell go list $(TEST) | grep -v /vendor/)
 
 # Tags specific for building
-GOTAGS ?= 
+GOTAGS ?=
 
 # Number of procs to use
 GOMAXPROCS ?= 4
@@ -82,7 +82,7 @@ bin-local:
 bootstrap:
 	@echo "==> Bootstrapping ${PROJECT}..."
 	@for t in ${EXTERNAL_TOOLS}; do \
-		echo "--> Installing "$$t"..." ; \
+		echo "--> Installing $$t" ; \
 		go get -u "$$t"; \
 	done
 
@@ -116,6 +116,14 @@ endif
 
 # dist builds the binaries and then signs and packages them for distribution
 dist:
+ifndef GPG_KEY
+	@echo "==> WARNING: No GPG key specified! Without a GPG key, this release"
+	@echo "             will not be signed. Abort now to prevent building an"
+	@echo "             unsigned release, or wait 5 seconds to continue."
+	@echo ""
+	@echo "--> Press CTRL + C to abort..."
+	@sleep 5
+endif
 	@${MAKE} -f "${MKFILE_PATH}" bin DIST=1
 	@echo "==> Tagging release (v${VERSION})..."
 ifdef GPG_KEY
@@ -132,31 +140,54 @@ endif
 	@echo ""
 	@echo "And then upload the binaries in dist/ to GitHub!"
 
-# docker builds the docker container
-docker:
-	@echo "==> Building container..."
+# docker-scratch builds the scratch container image
+docker-scratch:
+	@echo "==> Building scratch image..."
 	@docker build \
 		--pull \
 		--rm \
-		--file="docker/Dockerfile" \
+		--file="docker/scratch/Dockerfile" \
+		--squash \
 		--tag="${OWNER}/${NAME}" \
 		--tag="${OWNER}/${NAME}:${VERSION}" \
 		"${CURRENT_DIR}"
 
-# docker-push pushes the container to the registry
+# docker-alpine builds the alpine-based image
+docker-alpine:
+	@echo "==> Building alpine image..."
+	@docker build \
+		--pull \
+		--rm \
+		--file="docker/alpine/Dockerfile" \
+		--squash \
+		--tag="${OWNER}/${NAME}:alpine" \
+		--tag="${OWNER}/${NAME}:${VERSION}-alpine" \
+		"${CURRENT_DIR}"
+
+# docker builds the docker container image
+docker: docker-scratch docker-alpine
+
+# docker-push pushes the image to the registry
 docker-push:
 	@echo "==> Pushing to Docker registry..."
 	@docker push "${OWNER}/${NAME}:latest"
+	@docker push "${OWNER}/${NAME}:alpine"
 	@docker push "${OWNER}/${NAME}:${VERSION}"
+	@docker push "${OWNER}/${NAME}:${VERSION}-alpine"
+
+# generate runs the code generator
+generate:
+	@echo "==> Generating ${PROJECT}..."
+	@go generate ${GOFILES}
 
 # test runs the test suite
 test:
 	@echo "==> Testing ${PROJECT}..."
-	@go test -timeout=60s -parallel=10 -tags="${GOTAGS}" ${GOFILES} ${TESTARGS}
+	@go test -timeout=60s -parallel=20 -tags="${GOTAGS}" ${GOFILES} ${TESTARGS}
 
 # test-race runs the race checker
 test-race:
 	@echo "==> Testing ${PROJECT} (race)..."
 	@go test -timeout=60s -race -tags="${GOTAGS}" ${GOFILES} ${TESTARGS}
 
-.PHONY: bin bin-local bootstrap deps dev dist docker docker-push test test-race
+.PHONY: bin bin-local bootstrap deps dev dist docker docker-push generate test test-race

@@ -2,11 +2,13 @@ package http
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/hashicorp/vault/vault"
+	"github.com/hashicorp/vault/version"
 )
 
 func handleSysHealth(core *vault.Core) http.Handler {
@@ -14,6 +16,8 @@ func handleSysHealth(core *vault.Core) http.Handler {
 		switch r.Method {
 		case "GET":
 			handleSysHealthGet(core, w, r)
+		case "HEAD":
+			handleSysHealthHead(core, w, r)
 		default:
 			respondError(w, http.StatusMethodNotAllowed, nil)
 		}
@@ -34,32 +38,65 @@ func fetchStatusCode(r *http.Request, field string) (int, bool, bool) {
 }
 
 func handleSysHealthGet(core *vault.Core, w http.ResponseWriter, r *http.Request) {
+	code, body, err := getSysHealth(core, r)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, nil)
+		return
+	}
 
+	if body == nil {
+		respondError(w, code, nil)
+		return
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(code)
+
+	// Generate the response
+	enc := json.NewEncoder(w)
+	enc.Encode(body)
+}
+
+func handleSysHealthHead(core *vault.Core, w http.ResponseWriter, r *http.Request) {
+	code, body, err := getSysHealth(core, r)
+	if err != nil {
+		code = http.StatusInternalServerError
+	}
+
+	if body != nil {
+		w.Header().Add("Content-Type", "application/json")
+	}
+	w.WriteHeader(code)
+}
+
+func getSysHealth(core *vault.Core, r *http.Request) (int, *HealthResponse, error) {
 	// Check if being a standby is allowed for the purpose of a 200 OK
 	_, standbyOK := r.URL.Query()["standbyok"]
 
-	// FIXME: Change the sealed code to http.StatusServiceUnavailable at some
-	// point
-	sealedCode := http.StatusInternalServerError
+	uninitCode := http.StatusNotImplemented
+	if code, found, ok := fetchStatusCode(r, "uninitcode"); !ok {
+		return http.StatusBadRequest, nil, nil
+	} else if found {
+		uninitCode = code
+	}
+
+	sealedCode := http.StatusServiceUnavailable
 	if code, found, ok := fetchStatusCode(r, "sealedcode"); !ok {
-		respondError(w, http.StatusBadRequest, nil)
-		return
+		return http.StatusBadRequest, nil, nil
 	} else if found {
 		sealedCode = code
 	}
 
 	standbyCode := http.StatusTooManyRequests // Consul warning code
 	if code, found, ok := fetchStatusCode(r, "standbycode"); !ok {
-		respondError(w, http.StatusBadRequest, nil)
-		return
+		return http.StatusBadRequest, nil, nil
 	} else if found {
 		standbyCode = code
 	}
 
 	activeCode := http.StatusOK
 	if code, found, ok := fetchStatusCode(r, "activecode"); !ok {
-		respondError(w, http.StatusBadRequest, nil)
-		return
+		return http.StatusBadRequest, nil, nil
 	} else if found {
 		activeCode = code
 	}
@@ -69,19 +106,32 @@ func handleSysHealthGet(core *vault.Core, w http.ResponseWriter, r *http.Request
 	standby, _ := core.Standby()
 	init, err := core.Initialized()
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err)
-		return
+		return http.StatusInternalServerError, nil, err
 	}
 
 	// Determine the status code
 	code := activeCode
 	switch {
 	case !init:
-		code = http.StatusInternalServerError
+		code = uninitCode
 	case sealed:
 		code = sealedCode
 	case !standbyOK && standby:
 		code = standbyCode
+	}
+
+	// Fetch the local cluster name and identifier
+	var clusterName, clusterID string
+	if !sealed {
+		cluster, err := core.Cluster()
+		if err != nil {
+			return http.StatusInternalServerError, nil, err
+		}
+		if cluster == nil {
+			return http.StatusInternalServerError, nil, fmt.Errorf("failed to fetch cluster details")
+		}
+		clusterName = cluster.Name
+		clusterID = cluster.ID
 	}
 
 	// Format the body
@@ -90,18 +140,19 @@ func handleSysHealthGet(core *vault.Core, w http.ResponseWriter, r *http.Request
 		Sealed:        sealed,
 		Standby:       standby,
 		ServerTimeUTC: time.Now().UTC().Unix(),
+		Version:       version.GetVersion().VersionNumber(),
+		ClusterName:   clusterName,
+		ClusterID:     clusterID,
 	}
-
-	// Generate the response
-	w.Header().Add("Content-Type", "application/json")
-	w.WriteHeader(code)
-	enc := json.NewEncoder(w)
-	enc.Encode(body)
+	return code, body, nil
 }
 
 type HealthResponse struct {
-	Initialized   bool  `json:"initialized"`
-	Sealed        bool  `json:"sealed"`
-	Standby       bool  `json:"standby"`
-	ServerTimeUTC int64 `json:"server_time_utc"`
+	Initialized   bool   `json:"initialized"`
+	Sealed        bool   `json:"sealed"`
+	Standby       bool   `json:"standby"`
+	ServerTimeUTC int64  `json:"server_time_utc"`
+	Version       string `json:"version"`
+	ClusterName   string `json:"cluster_name,omitempty"`
+	ClusterID     string `json:"cluster_id,omitempty"`
 }

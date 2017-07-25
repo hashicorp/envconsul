@@ -2,11 +2,13 @@ package vault
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/armon/go-metrics"
 	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/golang-lru"
+	"github.com/hashicorp/vault/helper/consts"
 	"github.com/hashicorp/vault/helper/strutil"
 	"github.com/hashicorp/vault/logical"
 )
@@ -19,14 +21,81 @@ const (
 	// policyCacheSize is the number of policies that are kept cached
 	policyCacheSize = 1024
 
-	// cubbyholeResponseWrappingPolicyName is the name of the fixed policy
-	cubbyholeResponseWrappingPolicyName = "cubbyhole-response-wrapping"
+	// responseWrappingPolicyName is the name of the fixed policy
+	responseWrappingPolicyName = "response-wrapping"
 
-	// cubbyholeResponseWrappingPolicy is the policy that ensures cubbyhole
-	// response wrapping can always succeed
-	cubbyholeResponseWrappingPolicy = `
+	// responseWrappingPolicy is the policy that ensures cubbyhole response
+	// wrapping can always succeed. Note that sys/wrapping/lookup isn't
+	// contained here because using it would revoke the token anyways, so there
+	// isn't much point.
+	responseWrappingPolicy = `
 path "cubbyhole/response" {
     capabilities = ["create", "read"]
+}
+
+path "sys/wrapping/unwrap" {
+    capabilities = ["update"]
+}
+`
+
+	// defaultPolicy is the "default" policy
+	defaultPolicy = `
+# Allow tokens to look up their own properties
+path "auth/token/lookup-self" {
+    capabilities = ["read"]
+}
+
+# Allow tokens to renew themselves
+path "auth/token/renew-self" {
+    capabilities = ["update"]
+}
+
+# Allow tokens to revoke themselves
+path "auth/token/revoke-self" {
+    capabilities = ["update"]
+}
+
+# Allow a token to look up its own capabilities on a path
+path "sys/capabilities-self" {
+    capabilities = ["update"]
+}
+
+# Allow a token to renew a lease via lease_id in the request body; old path for
+# old clients, new path for newer
+path "sys/renew" {
+    capabilities = ["update"]
+}
+path "sys/leases/renew" {
+    capabilities = ["update"]
+}
+
+# Allow looking up lease properties. This requires knowing the lease ID ahead
+# of time and does not divulge any sensitive information.
+path "sys/leases/lookup" {
+    capabilities = ["update"]
+}
+
+# Allow a token to manage its own cubbyhole
+path "cubbyhole/*" {
+    capabilities = ["create", "read", "update", "delete", "list"]
+}
+
+# Allow a token to wrap arbitrary values in a response-wrapping token
+path "sys/wrapping/wrap" {
+    capabilities = ["update"]
+}
+
+# Allow a token to look up the creation time and TTL of a given
+# response-wrapping token
+path "sys/wrapping/lookup" {
+    capabilities = ["update"]
+}
+
+# Allow a token to unwrap a response-wrapping token. This is a convenience to
+# avoid client token swapping since this is also part of the response wrapping
+# policy.
+path "sys/wrapping/unwrap" {
+    capabilities = ["update"]
 }
 `
 )
@@ -34,7 +103,10 @@ path "cubbyhole/response" {
 var (
 	immutablePolicies = []string{
 		"root",
-		cubbyholeResponseWrappingPolicyName,
+		responseWrappingPolicyName,
+	}
+	nonAssignablePolicies = []string{
+		responseWrappingPolicyName,
 	}
 )
 
@@ -72,7 +144,13 @@ func (c *Core) setupPolicyStore() error {
 	view := c.systemBarrierView.SubView(policySubPath)
 
 	// Create the policy store
-	c.policyStore = NewPolicyStore(view, &dynamicSystemView{core: c})
+	sysView := &dynamicSystemView{core: c}
+	c.policyStore = NewPolicyStore(view, sysView)
+
+	if sysView.ReplicationState() == consts.ReplicationSecondary {
+		// Policies will sync from the primary
+		return nil
+	}
 
 	// Ensure that the default policy exists, and if not, create it
 	policy, err := c.policyStore.GetPolicy("default")
@@ -87,12 +165,12 @@ func (c *Core) setupPolicyStore() error {
 	}
 
 	// Ensure that the cubbyhole response wrapping policy exists
-	policy, err = c.policyStore.GetPolicy(cubbyholeResponseWrappingPolicyName)
+	policy, err = c.policyStore.GetPolicy(responseWrappingPolicyName)
 	if err != nil {
-		return errwrap.Wrapf("error fetching default policy from store: {{err}}", err)
+		return errwrap.Wrapf("error fetching response-wrapping policy from store: {{err}}", err)
 	}
-	if policy == nil || policy.Raw != cubbyholeResponseWrappingPolicy {
-		err := c.policyStore.createCubbyholeResponseWrappingPolicy()
+	if policy == nil || policy.Raw != responseWrappingPolicy {
+		err := c.policyStore.createResponseWrappingPolicy()
 		if err != nil {
 			return err
 		}
@@ -106,6 +184,16 @@ func (c *Core) setupPolicyStore() error {
 func (c *Core) teardownPolicyStore() error {
 	c.policyStore = nil
 	return nil
+}
+
+func (ps *PolicyStore) invalidate(name string) {
+	if ps.lru == nil {
+		// Nothing to do if the cache is not used
+		return
+	}
+
+	// This may come with a prefixed "/" due to joining the file path
+	ps.lru.Remove(strings.TrimPrefix(name, "/"))
 }
 
 // SetPolicy is used to create or update the given policy
@@ -210,7 +298,25 @@ func (ps *PolicyStore) ListPolicies() ([]string, error) {
 	defer metrics.MeasureSince([]string{"policy", "list_policies"}, time.Now())
 	// Scan the view, since the policy names are the same as the
 	// key names.
-	return CollectKeys(ps.view)
+	keys, err := logical.CollectKeys(ps.view)
+
+	for _, nonAssignable := range nonAssignablePolicies {
+		deleteIndex := -1
+		//Find indices of non-assignable policies in keys
+		for index, key := range keys {
+			if key == nonAssignable {
+				// Delete collection outside the loop
+				deleteIndex = index
+				break
+			}
+		}
+		// Remove non-assignable policies when found
+		if deleteIndex != -1 {
+			keys = append(keys[:deleteIndex], keys[deleteIndex+1:]...)
+		}
+	}
+
+	return keys, err
 }
 
 // DeletePolicy is used to delete the named policy
@@ -255,27 +361,7 @@ func (ps *PolicyStore) ACL(names ...string) (*ACL, error) {
 }
 
 func (ps *PolicyStore) createDefaultPolicy() error {
-	policy, err := Parse(`
-path "auth/token/lookup-self" {
-    capabilities = ["read"]
-}
-
-path "auth/token/renew-self" {
-    capabilities = ["update"]
-}
-
-path "auth/token/revoke-self" {
-    capabilities = ["update"]
-}
-
-path "cubbyhole/*" {
-    capabilities = ["create", "read", "update", "delete", "list"]
-}
-
-path "cubbyhole" {
-    capabilities = ["list"]
-}
-`)
+	policy, err := Parse(defaultPolicy)
 	if err != nil {
 		return errwrap.Wrapf("error parsing default policy: {{err}}", err)
 	}
@@ -288,16 +374,16 @@ path "cubbyhole" {
 	return ps.setPolicyInternal(policy)
 }
 
-func (ps *PolicyStore) createCubbyholeResponseWrappingPolicy() error {
-	policy, err := Parse(cubbyholeResponseWrappingPolicy)
+func (ps *PolicyStore) createResponseWrappingPolicy() error {
+	policy, err := Parse(responseWrappingPolicy)
 	if err != nil {
-		return errwrap.Wrapf(fmt.Sprintf("error parsing %s policy: {{err}}", cubbyholeResponseWrappingPolicyName), err)
+		return errwrap.Wrapf(fmt.Sprintf("error parsing %s policy: {{err}}", responseWrappingPolicyName), err)
 	}
 
 	if policy == nil {
-		return fmt.Errorf("parsing %s policy resulted in nil policy", cubbyholeResponseWrappingPolicyName)
+		return fmt.Errorf("parsing %s policy resulted in nil policy", responseWrappingPolicyName)
 	}
 
-	policy.Name = cubbyholeResponseWrappingPolicyName
+	policy.Name = responseWrappingPolicyName
 	return ps.setPolicyInternal(policy)
 }

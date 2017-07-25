@@ -12,7 +12,7 @@ import (
 )
 
 // Levels are the log levels we respond to=o.
-var Levels = []logutils.LogLevel{"DEBUG", "INFO", "WARN", "ERR"}
+var Levels = []logutils.LogLevel{"TRACE", "DEBUG", "INFO", "WARN", "ERR"}
 
 // Config is the configuration for this log setup.
 type Config struct {
@@ -61,6 +61,7 @@ func Setup(config *Config) error {
 		logOutput = io.MultiWriter(logFilter)
 	}
 
+	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds | log.LUTC)
 	log.SetOutput(logOutput)
 
 	return nil

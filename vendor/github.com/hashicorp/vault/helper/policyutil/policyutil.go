@@ -7,6 +7,17 @@ import (
 	"github.com/hashicorp/vault/helper/strutil"
 )
 
+const (
+	AddDefaultPolicy      = true
+	DoNotAddDefaultPolicy = false
+)
+
+// ParsePolicies parses a comma-delimited list of policies.
+// The resulting collection will have no duplicate elements.
+// If 'root' policy was present in the list of policies, then
+// all other policies will be ignored, the result will contain
+// just the 'root'. In cases where 'root' is not present, if
+// 'default' policy is not already present, it will be added.
 func ParsePolicies(policiesRaw string) []string {
 	if policiesRaw == "" {
 		return []string{"default"}
@@ -14,10 +25,18 @@ func ParsePolicies(policiesRaw string) []string {
 
 	policies := strings.Split(policiesRaw, ",")
 
-	return SanitizePolicies(policies)
+	return SanitizePolicies(policies, true)
 }
 
-func SanitizePolicies(policies []string) []string {
+// SanitizePolicies performs the common input validation tasks
+// which are performed on the list of policies across Vault.
+// The resulting collection will have no duplicate elements.
+// If 'root' policy was present in the list of policies, then
+// all other policies will be ignored, the result will contain
+// just the 'root'. In cases where 'root' is not present, if
+// 'default' policy is not already present, it will be added
+// if addDefault is set to true.
+func SanitizePolicies(policies []string, addDefault bool) []string {
 	defaultFound := false
 	for i, p := range policies {
 		policies[i] = strings.ToLower(strings.TrimSpace(p))
@@ -38,14 +57,14 @@ func SanitizePolicies(policies []string) []string {
 	}
 
 	// Always add 'default' except only if the policies contain 'root'.
-	if len(policies) == 0 || !defaultFound {
+	if addDefault && (len(policies) == 0 || !defaultFound) {
 		policies = append(policies, "default")
 	}
 
-	return strutil.RemoveDuplicates(policies)
+	return strutil.RemoveDuplicates(policies, true)
 }
 
-// ComparePolicies checks whether the given policy sets are equivalent, as in,
+// EquivalentPolicies checks whether the given policy sets are equivalent, as in,
 // they contain the same values. The benefit of this method is that it leaves
 // the "default" policy out of its comparisons as it may be added later by core
 // after a set of policies has been saved by a backend.

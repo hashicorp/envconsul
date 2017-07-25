@@ -1,14 +1,17 @@
 package vault
 
 import (
-	"encoding/json"
-	"sort"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/armon/go-metrics"
 	"github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/vault/helper/consts"
+	"github.com/hashicorp/vault/helper/jsonutil"
+	"github.com/hashicorp/vault/helper/policyutil"
 	"github.com/hashicorp/vault/helper/strutil"
+	"github.com/hashicorp/vault/helper/wrapping"
 	"github.com/hashicorp/vault/logical"
 )
 
@@ -17,10 +20,10 @@ func (c *Core) HandleRequest(req *logical.Request) (resp *logical.Response, err 
 	c.stateLock.RLock()
 	defer c.stateLock.RUnlock()
 	if c.sealed {
-		return nil, ErrSealed
+		return nil, consts.ErrSealed
 	}
 	if c.standby {
-		return nil, ErrStandby
+		return nil, consts.ErrStandby
 	}
 
 	// Allowing writing to a path ending in / makes it extremely difficult to
@@ -53,33 +56,57 @@ func (c *Core) HandleRequest(req *logical.Request) (resp *logical.Response, err 
 	}
 
 	// We are wrapping if there is anything to wrap (not a nil response) and a
-	// TTL was specified for the token
-	wrapping := resp != nil && resp.WrapInfo != nil && resp.WrapInfo.TTL != 0
+	// TTL was specified for the token. Errors on a call should be returned to
+	// the caller, so wrapping is turned off if an error is hit and the error
+	// is logged to the audit log.
+	wrapping := resp != nil &&
+		err == nil &&
+		!resp.IsError() &&
+		resp.WrapInfo != nil &&
+		resp.WrapInfo.TTL != 0
 
 	if wrapping {
-		cubbyResp, err := c.wrapInCubbyhole(req, resp)
+		cubbyResp, cubbyErr := c.wrapInCubbyhole(req, resp)
 		// If not successful, returns either an error response from the
-		// cubbyhole backend or an error; if either is set, return
-		if cubbyResp != nil || err != nil {
-			return cubbyResp, err
+		// cubbyhole backend or an error; if either is set, set resp and err to
+		// those and continue so that that's what we audit log. Otherwise
+		// finish the wrapping and audit log that.
+		if cubbyResp != nil || cubbyErr != nil {
+			resp = cubbyResp
+			err = cubbyErr
+		} else {
+			wrappingResp := &logical.Response{
+				WrapInfo: resp.WrapInfo,
+				Warnings: resp.Warnings,
+			}
+			resp = wrappingResp
 		}
+	}
+
+	auditResp := resp
+	// When unwrapping we want to log the actual response that will be written
+	// out. We still want to return the raw value to avoid automatic updating
+	// to any of it.
+	if req.Path == "sys/wrapping/unwrap" &&
+		resp != nil &&
+		resp.Data != nil &&
+		resp.Data[logical.HTTPRawBody] != nil {
+
+		// Decode the JSON
+		httpResp := &logical.HTTPResponse{}
+		err := jsonutil.DecodeJSON(resp.Data[logical.HTTPRawBody].([]byte), httpResp)
+		if err != nil {
+			c.logger.Error("core: failed to unmarshal wrapped HTTP response for audit logging", "error", err)
+			return nil, ErrInternalError
+		}
+
+		auditResp = logical.HTTPResponseToLogicalResponse(httpResp)
 	}
 
 	// Create an audit trail of the response
-	if err := c.auditBroker.LogResponse(auth, req, resp, err); err != nil {
-		c.logger.Printf("[ERR] core: failed to audit response (request path: %s): %v",
-			req.Path, err)
+	if auditErr := c.auditBroker.LogResponse(auth, req, auditResp, c.auditedHeaders, err); auditErr != nil {
+		c.logger.Error("core: failed to audit response", "request_path", req.Path, "error", auditErr)
 		return nil, ErrInternalError
-	}
-
-	// If we are wrapping, now is when we create a new response object with the
-	// wrapped information, since the original response has been audit logged
-	if wrapping {
-		wrappingResp := &logical.Response{
-			WrapInfo: resp.WrapInfo,
-		}
-		wrappingResp.CloneWarnings(resp)
-		resp = wrappingResp
 	}
 
 	return
@@ -96,7 +123,7 @@ func (c *Core) handleRequest(req *logical.Request) (retResp *logical.Response, r
 		var err error
 		te, err = c.tokenStore.UseToken(te)
 		if err != nil {
-			c.logger.Printf("[ERR] core: failed to use token: %v", err)
+			c.logger.Error("core: failed to use token", "error", err)
 			retErr = multierror.Append(retErr, ErrInternalError)
 			return nil, nil, retErr
 		}
@@ -112,7 +139,7 @@ func (c *Core) handleRequest(req *logical.Request) (retResp *logical.Response, r
 			defer func(id string) {
 				err = c.tokenStore.Revoke(id)
 				if err != nil {
-					c.logger.Printf("[ERR] core: failed to revoke token: %v", err)
+					c.logger.Error("core: failed to revoke token", "error", err)
 					retResp = nil
 					retAuth = nil
 					retErr = multierror.Append(retErr, ErrInternalError)
@@ -137,48 +164,73 @@ func (c *Core) handleRequest(req *logical.Request) (retResp *logical.Response, r
 			errType = logical.ErrInvalidRequest
 		}
 
-		if err := c.auditBroker.LogRequest(auth, req, ctErr); err != nil {
-			c.logger.Printf("[ERR] core: failed to audit request with path (%s): %v",
-				req.Path, err)
+		if err := c.auditBroker.LogRequest(auth, req, c.auditedHeaders, ctErr); err != nil {
+			c.logger.Error("core: failed to audit request", "path", req.Path, "error", err)
 		}
 
 		if errType != nil {
 			retErr = multierror.Append(retErr, errType)
 		}
-		return logical.ErrorResponse(ctErr.Error()), nil, retErr
+		return logical.ErrorResponse(ctErr.Error()), auth, retErr
 	}
 
 	// Attach the display name
 	req.DisplayName = auth.DisplayName
 
 	// Create an audit trail of the request
-	if err := c.auditBroker.LogRequest(auth, req, nil); err != nil {
-		c.logger.Printf("[ERR] core: failed to audit request with path (%s): %v",
-			req.Path, err)
+	if err := c.auditBroker.LogRequest(auth, req, c.auditedHeaders, nil); err != nil {
+		c.logger.Error("core: failed to audit request", "path", req.Path, "error", err)
 		retErr = multierror.Append(retErr, ErrInternalError)
 		return nil, auth, retErr
 	}
 
 	// Route the request
-	resp, err := c.router.Route(req)
+	resp, routeErr := c.router.Route(req)
 	if resp != nil {
-		// We don't allow backends to specify this, so ensure it's not set
-		resp.WrapInfo = nil
+		// If wrapping is used, use the shortest between the request and response
+		var wrapTTL time.Duration
+		var wrapFormat string
 
-		if req.WrapTTL != 0 {
-			resp.WrapInfo = &logical.WrapInfo{
-				TTL: req.WrapTTL,
+		// Ensure no wrap info information is set other than, possibly, the TTL
+		if resp.WrapInfo != nil {
+			if resp.WrapInfo.TTL > 0 {
+				wrapTTL = resp.WrapInfo.TTL
+			}
+			wrapFormat = resp.WrapInfo.Format
+			resp.WrapInfo = nil
+		}
+
+		if req.WrapInfo != nil {
+			if req.WrapInfo.TTL > 0 {
+				switch {
+				case wrapTTL == 0:
+					wrapTTL = req.WrapInfo.TTL
+				case req.WrapInfo.TTL < wrapTTL:
+					wrapTTL = req.WrapInfo.TTL
+				}
+			}
+			// If the wrap format hasn't been set by the response, set it to
+			// the request format
+			if req.WrapInfo.Format != "" && wrapFormat == "" {
+				wrapFormat = req.WrapInfo.Format
+			}
+		}
+
+		if wrapTTL > 0 {
+			resp.WrapInfo = &wrapping.ResponseWrapInfo{
+				TTL:    wrapTTL,
+				Format: wrapFormat,
 			}
 		}
 	}
 
 	// If there is a secret, we must register it with the expiration manager.
 	// We exclude renewal of a lease, since it does not need to be re-registered
-	if resp != nil && resp.Secret != nil && !strings.HasPrefix(req.Path, "sys/renew/") {
+	if resp != nil && resp.Secret != nil && !strings.HasPrefix(req.Path, "sys/renew") {
 		// Get the SystemView for the mount
 		sysView := c.router.MatchingSystemView(req.Path)
 		if sysView == nil {
-			c.logger.Println("[ERR] core: unable to retrieve system view from router")
+			c.logger.Error("core: unable to retrieve system view from router")
 			retErr = multierror.Append(retErr, ErrInternalError)
 			return nil, auth, retErr
 		}
@@ -199,7 +251,7 @@ func (c *Core) handleRequest(req *logical.Request) (retResp *logical.Response, r
 		registerLease := true
 		matchingBackend := c.router.MatchingBackend(req.Path)
 		if matchingBackend == nil {
-			c.logger.Println("[ERR] core: unable to retrieve generic backend from router")
+			c.logger.Error("core: unable to retrieve generic backend from router")
 			retErr = multierror.Append(retErr, ErrInternalError)
 			return nil, auth, retErr
 		}
@@ -213,9 +265,7 @@ func (c *Core) handleRequest(req *logical.Request) (retResp *logical.Response, r
 		if registerLease {
 			leaseID, err := c.expiration.Register(req, resp)
 			if err != nil {
-				c.logger.Printf(
-					"[ERR] core: failed to register lease "+
-						"(request path: %s): %v", req.Path, err)
+				c.logger.Error("core: failed to register lease", "request_path", req.Path, "error", err)
 				retErr = multierror.Append(retErr, ErrInternalError)
 				return nil, auth, retErr
 			}
@@ -228,9 +278,7 @@ func (c *Core) handleRequest(req *logical.Request) (retResp *logical.Response, r
 	// since it does not need to be re-registered
 	if resp != nil && resp.Auth != nil && !strings.HasPrefix(req.Path, "auth/token/renew") {
 		if !strings.HasPrefix(req.Path, "auth/token/") {
-			c.logger.Printf(
-				"[ERR] core: unexpected Auth response for non-token backend "+
-					"(request path: %s)", req.Path)
+			c.logger.Error("core: unexpected Auth response for non-token backend", "request_path", req.Path)
 			retErr = multierror.Append(retErr, ErrInternalError)
 			return nil, auth, retErr
 		}
@@ -239,22 +287,29 @@ func (c *Core) handleRequest(req *logical.Request) (retResp *logical.Response, r
 		// here because roles allow suffixes.
 		te, err := c.tokenStore.Lookup(resp.Auth.ClientToken)
 		if err != nil {
-			c.logger.Printf("[ERR] core: failed to lookup token: %v", err)
+			c.logger.Error("core: failed to look up token", "error", err)
 			retErr = multierror.Append(retErr, ErrInternalError)
-			return nil, nil, retErr
+			return nil, auth, retErr
 		}
 
 		if err := c.expiration.RegisterAuth(te.Path, resp.Auth); err != nil {
-			c.logger.Printf("[ERR] core: failed to register token lease "+
-				"(request path: %s): %v", req.Path, err)
+			c.tokenStore.Revoke(te.ID)
+			c.logger.Error("core: failed to register token lease", "request_path", req.Path, "error", err)
 			retErr = multierror.Append(retErr, ErrInternalError)
 			return nil, auth, retErr
 		}
 	}
 
+	if resp != nil &&
+		req.Path == "cubbyhole/response" &&
+		len(te.Policies) == 1 &&
+		te.Policies[0] == responseWrappingPolicyName {
+		resp.AddWarning("Reading from 'cubbyhole/response' is deprecated. Please use sys/wrapping/unwrap to unwrap responses, as it provides additional security checks and other benefits.")
+	}
+
 	// Return the response and error
-	if err != nil {
-		retErr = multierror.Append(retErr, err)
+	if routeErr != nil {
+		retErr = multierror.Append(retErr, routeErr)
 	}
 	return resp, auth, retErr
 }
@@ -265,19 +320,59 @@ func (c *Core) handleLoginRequest(req *logical.Request) (*logical.Response, *log
 	defer metrics.MeasureSince([]string{"core", "handle_login_request"}, time.Now())
 
 	// Create an audit trail of the request, auth is not available on login requests
-	if err := c.auditBroker.LogRequest(nil, req, nil); err != nil {
-		c.logger.Printf("[ERR] core: failed to audit request with path %s: %v",
-			req.Path, err)
+	if err := c.auditBroker.LogRequest(nil, req, c.auditedHeaders, nil); err != nil {
+		c.logger.Error("core: failed to audit request", "path", req.Path, "error", err)
+		return nil, nil, ErrInternalError
+	}
+
+	// The token store uses authentication even when creating a new token,
+	// so it's handled in handleRequest. It should not be reached here.
+	if strings.HasPrefix(req.Path, "auth/token/") {
+		c.logger.Error("core: unexpected login request for token backend", "request_path", req.Path)
 		return nil, nil, ErrInternalError
 	}
 
 	// Route the request
-	resp, err := c.router.Route(req)
+	resp, routeErr := c.router.Route(req)
+	if resp != nil {
+		// If wrapping is used, use the shortest between the request and response
+		var wrapTTL time.Duration
+		var wrapFormat string
+
+		// Ensure no wrap info information is set other than, possibly, the TTL
+		if resp.WrapInfo != nil {
+			if resp.WrapInfo.TTL > 0 {
+				wrapTTL = resp.WrapInfo.TTL
+			}
+			wrapFormat = resp.WrapInfo.Format
+			resp.WrapInfo = nil
+		}
+
+		if req.WrapInfo != nil {
+			if req.WrapInfo.TTL > 0 {
+				switch {
+				case wrapTTL == 0:
+					wrapTTL = req.WrapInfo.TTL
+				case req.WrapInfo.TTL < wrapTTL:
+					wrapTTL = req.WrapInfo.TTL
+				}
+			}
+			if req.WrapInfo.Format != "" && wrapFormat == "" {
+				wrapFormat = req.WrapInfo.Format
+			}
+		}
+
+		if wrapTTL > 0 {
+			resp.WrapInfo = &wrapping.ResponseWrapInfo{
+				TTL:    wrapTTL,
+				Format: wrapFormat,
+			}
+		}
+	}
 
 	// A login request should never return a secret!
 	if resp != nil && resp.Secret != nil {
-		c.logger.Printf("[ERR] core: unexpected Secret response for login path"+
-			"(request path: %s)", req.Path)
+		c.logger.Error("core: unexpected Secret response for login path", "request_path", req.Path)
 		return nil, nil, ErrInternalError
 	}
 
@@ -285,6 +380,10 @@ func (c *Core) handleLoginRequest(req *logical.Request) (*logical.Response, *log
 	var auth *logical.Auth
 	if resp != nil && resp.Auth != nil {
 		auth = resp.Auth
+
+		if strutil.StrListSubset(auth.Policies, []string{"root"}) {
+			return logical.ErrorResponse("authentication backends cannot create root tokens"), nil, logical.ErrInvalidRequest
+		}
 
 		// Determine the source of the login
 		source := c.router.MatchingMount(req.Path)
@@ -296,13 +395,12 @@ func (c *Core) handleLoginRequest(req *logical.Request) (*logical.Response, *log
 
 		sysView := c.router.MatchingSystemView(req.Path)
 		if sysView == nil {
-			c.logger.Printf("[ERR] core: unable to look up sys view for login path"+
-				"(request path: %s)", req.Path)
+			c.logger.Error("core: unable to look up sys view for login path", "request_path", req.Path)
 			return nil, nil, ErrInternalError
 		}
 
-		// Set the default lease if non-provided, root tokens are exempt
-		if auth.TTL == 0 && !strutil.StrListContains(auth.Policies, "root") {
+		// Set the default lease if not provided
+		if auth.TTL == 0 {
 			auth.TTL = sysView.DefaultLeaseTTL()
 		}
 
@@ -319,35 +417,20 @@ func (c *Core) handleLoginRequest(req *logical.Request) (*logical.Response, *log
 			DisplayName:  auth.DisplayName,
 			CreationTime: time.Now().Unix(),
 			TTL:          auth.TTL,
+			NumUses:      auth.NumUses,
 		}
 
-		if strutil.StrListSubset(te.Policies, []string{"root"}) {
-			te.Policies = []string{"root"}
-		} else {
-			// Use a map to filter out/prevent duplicates
-			policyMap := map[string]bool{}
-			for _, policy := range te.Policies {
-				if policy == "" {
-					// Don't allow a policy with no name, even though it is a valid
-					// slice member
-					continue
-				}
-				policyMap[policy] = true
+		te.Policies = policyutil.SanitizePolicies(te.Policies, true)
+
+		// Prevent internal policies from being assigned to tokens
+		for _, policy := range te.Policies {
+			if strutil.StrListContains(nonAssignablePolicies, policy) {
+				return logical.ErrorResponse(fmt.Sprintf("cannot assign policy %q", policy)), nil, logical.ErrInvalidRequest
 			}
-
-			// Add the default policy
-			policyMap["default"] = true
-
-			te.Policies = []string{}
-			for k, _ := range policyMap {
-				te.Policies = append(te.Policies, k)
-			}
-
-			sort.Strings(te.Policies)
 		}
 
 		if err := c.tokenStore.create(&te); err != nil {
-			c.logger.Printf("[ERR] core: failed to create token: %v", err)
+			c.logger.Error("core: failed to create token", "error", err)
 			return nil, auth, ErrInternalError
 		}
 
@@ -358,8 +441,8 @@ func (c *Core) handleLoginRequest(req *logical.Request) (*logical.Response, *log
 
 		// Register with the expiration manager
 		if err := c.expiration.RegisterAuth(te.Path, auth); err != nil {
-			c.logger.Printf("[ERR] core: failed to register token lease "+
-				"(request path: %s): %v", req.Path, err)
+			c.tokenStore.Revoke(te.ID)
+			c.logger.Error("core: failed to register token lease", "request_path", req.Path, "error", err)
 			return nil, auth, ErrInternalError
 		}
 
@@ -367,83 +450,5 @@ func (c *Core) handleLoginRequest(req *logical.Request) (*logical.Response, *log
 		req.DisplayName = auth.DisplayName
 	}
 
-	return resp, auth, err
-}
-
-func (c *Core) wrapInCubbyhole(req *logical.Request, resp *logical.Response) (*logical.Response, error) {
-	// If we are wrapping, the first part (performed in this functions) happens
-	// before auditing so that resp.WrapInfo.Token can contain the HMAC'd
-	// wrapping token ID in the audit logs, so that it can be determined from
-	// the audit logs whether the token was ever actually used.
-	te := TokenEntry{
-		Path:         req.Path,
-		Policies:     []string{"cubbyhole-response-wrapping"},
-		CreationTime: time.Now().Unix(),
-		TTL:          resp.WrapInfo.TTL,
-		NumUses:      1,
-	}
-
-	if err := c.tokenStore.create(&te); err != nil {
-		c.logger.Printf("[ERR] core: failed to create wrapping token: %v", err)
-		return nil, ErrInternalError
-	}
-
-	resp.WrapInfo.Token = te.ID
-
-	httpResponse := logical.SanitizeResponse(resp)
-
-	// Because of the way that JSON encodes (likely just in Go) we actually get
-	// mixed-up values for ints if we simply put this object in the response
-	// and encode the whole thing; so instead we marshal it first, then store
-	// the string response. This actually ends up making it easier on the
-	// client side, too, as it becomes a straight read-string-pass-to-unmarshal
-	// operation.
-
-	marshaledResponse, err := json.Marshal(httpResponse)
-	if err != nil {
-		c.logger.Printf("[ERR] core: failed to marshal wrapped response: %v", err)
-		return nil, ErrInternalError
-	}
-
-	cubbyReq := &logical.Request{
-		Operation:   logical.CreateOperation,
-		Path:        "cubbyhole/response",
-		ClientToken: te.ID,
-		Data: map[string]interface{}{
-			"response": string(marshaledResponse),
-		},
-	}
-
-	cubbyResp, err := c.router.Route(cubbyReq)
-	if err != nil {
-		// Revoke since it's not yet being tracked for expiration
-		c.tokenStore.Revoke(te.ID)
-		c.logger.Printf("[ERR] core: failed to store wrapped response information: %v", err)
-		return nil, ErrInternalError
-	}
-	if cubbyResp != nil && cubbyResp.IsError() {
-		c.tokenStore.Revoke(te.ID)
-		c.logger.Printf("[ERR] core: failed to store wrapped response information: %v", cubbyResp.Data["error"])
-		return cubbyResp, nil
-	}
-
-	auth := &logical.Auth{
-		ClientToken: te.ID,
-		Policies:    []string{"cubbyhole-response-wrapping"},
-		LeaseOptions: logical.LeaseOptions{
-			TTL:       te.TTL,
-			Renewable: false,
-		},
-	}
-
-	// Register the wrapped token with the expiration manager
-	if err := c.expiration.RegisterAuth(te.Path, auth); err != nil {
-		// Revoke since it's not yet being tracked for expiration
-		c.tokenStore.Revoke(te.ID)
-		c.logger.Printf("[ERR] core: failed to register cubbyhole wrapping token lease "+
-			"(request path: %s): %v", req.Path, err)
-		return nil, ErrInternalError
-	}
-
-	return nil, nil
+	return resp, auth, routeErr
 }

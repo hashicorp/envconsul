@@ -2,10 +2,22 @@ package physical
 
 import (
 	"fmt"
-	"log"
+	"sync"
+
+	log "github.com/mgutz/logxi/v1"
 )
 
 const DefaultParallelOperations = 128
+
+// The operation type
+type Operation string
+
+const (
+	DeleteOperation Operation = "delete"
+	GetOperation              = "get"
+	ListOperation             = "list"
+	PutOperation              = "put"
+)
 
 // ShutdownSignal
 type ShutdownChannel chan struct{}
@@ -38,12 +50,21 @@ type Backend interface {
 type HABackend interface {
 	// LockWith is used for mutual exclusion based on the given key.
 	LockWith(key, value string) (Lock, error)
+
+	// Whether or not HA functionality is enabled
+	HAEnabled() bool
 }
 
-// AdvertiseDetect is an optional interface that an HABackend
-// can implement. If they do, an advertise address can be automatically
+// Purgable is an optional interface for backends that support
+// purging of their caches.
+type Purgable interface {
+	Purge()
+}
+
+// RedirectDetect is an optional interface that an HABackend
+// can implement. If they do, a redirect address can be automatically
 // detected.
-type AdvertiseDetect interface {
+type RedirectDetect interface {
 	// DetectHostAddr is used to detect the host address
 	DetectHostAddr() (string, error)
 }
@@ -68,7 +89,7 @@ type ServiceDiscovery interface {
 
 	// Run executes any background service discovery tasks until the
 	// shutdown channel is closed.
-	RunServiceDiscovery(shutdownCh ShutdownChannel, advertiseAddr string, activeFunc activeFunction, sealedFunc sealedFunction) error
+	RunServiceDiscovery(waitGroup *sync.WaitGroup, shutdownCh ShutdownChannel, redirectAddr string, activeFunc activeFunction, sealedFunc sealedFunction) error
 }
 
 type Lock interface {
@@ -92,11 +113,11 @@ type Entry struct {
 }
 
 // Factory is the factory function to create a physical backend.
-type Factory func(config map[string]string, logger *log.Logger) (Backend, error)
+type Factory func(config map[string]string, logger log.Logger) (Backend, error)
 
 // NewBackend returns a new backend with the given type and configuration.
 // The backend is looked up in the builtinBackends variable.
-func NewBackend(t string, logger *log.Logger, conf map[string]string) (Backend, error) {
+func NewBackend(t string, logger log.Logger, conf map[string]string) (Backend, error) {
 	f, ok := builtinBackends[t]
 	if !ok {
 		return nil, fmt.Errorf("unknown physical backend type: %s", t)
@@ -107,22 +128,34 @@ func NewBackend(t string, logger *log.Logger, conf map[string]string) (Backend, 
 // BuiltinBackends is the list of built-in physical backends that can
 // be used with NewBackend.
 var builtinBackends = map[string]Factory{
-	"inmem": func(_ map[string]string, logger *log.Logger) (Backend, error) {
+	"inmem": func(_ map[string]string, logger log.Logger) (Backend, error) {
 		return NewInmem(logger), nil
 	},
-	"consul":     newConsulBackend,
-	"zookeeper":  newZookeeperBackend,
-	"file":       newFileBackend,
-	"s3":         newS3Backend,
-	"azure":      newAzureBackend,
-	"dynamodb":   newDynamoDBBackend,
-	"etcd":       newEtcdBackend,
-	"mysql":      newMySQLBackend,
-	"postgresql": newPostgreSQLBackend,
+	"inmem_transactional": func(_ map[string]string, logger log.Logger) (Backend, error) {
+		return NewTransactionalInmem(logger), nil
+	},
+	"inmem_ha": func(_ map[string]string, logger log.Logger) (Backend, error) {
+		return NewInmemHA(logger), nil
+	},
+	"inmem_transactional_ha": func(_ map[string]string, logger log.Logger) (Backend, error) {
+		return NewTransactionalInmemHA(logger), nil
+	},
+	"file_transactional": newTransactionalFileBackend,
+	"consul":             newConsulBackend,
+	"zookeeper":          newZookeeperBackend,
+	"file":               newFileBackend,
+	"s3":                 newS3Backend,
+	"azure":              newAzureBackend,
+	"dynamodb":           newDynamoDBBackend,
+	"etcd":               newEtcdBackend,
+	"mssql":              newMsSQLBackend,
+	"mysql":              newMySQLBackend,
+	"postgresql":         newPostgreSQLBackend,
+	"swift":              newSwiftBackend,
+	"gcs":                newGCSBackend,
 }
 
-// PermitPool is a wrapper around a semaphore library to keep things
-// agnostic
+// PermitPool is used to limit maximum outstanding requests
 type PermitPool struct {
 	sem chan int
 }

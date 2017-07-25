@@ -1,0 +1,32 @@
+
+[[constraint]]
+  name = "github.com/hashicorp/consul"
+  version = "0.9.0"
+
+[[constraint]]
+  name = "github.com/hashicorp/consul-template"
+  version = "0.19.0"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/hashicorp/go-gatedio"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/hashicorp/go-multierror"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/hashicorp/hcl"
+
+[[constraint]]
+  name = "github.com/hashicorp/vault"
+  version = "0.7.3"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/mitchellh/mapstructure"
+
+[[constraint]]
+  name = "github.com/pkg/errors"
+  version = "0.8.0"

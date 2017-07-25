@@ -1,11 +1,11 @@
 package framework
 
 import (
+	"encoding/json"
 	"fmt"
-	"strconv"
-	"strings"
-	"time"
 
+	"github.com/hashicorp/vault/helper/parseutil"
+	"github.com/hashicorp/vault/helper/strutil"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -31,7 +31,8 @@ func (d *FieldData) Validate() error {
 		}
 
 		switch schema.Type {
-		case TypeBool, TypeInt, TypeMap, TypeDurationSecond, TypeString:
+		case TypeBool, TypeInt, TypeMap, TypeDurationSecond, TypeString, TypeSlice,
+			TypeStringSlice, TypeCommaStringSlice:
 			_, _, err := d.getPrimitive(field, schema)
 			if err != nil {
 				return fmt.Errorf("Error converting input %v for field %s: %s", value, field, err)
@@ -61,6 +62,18 @@ func (d *FieldData) Get(k string) interface{} {
 	}
 
 	return value
+}
+
+// GetDefaultOrZero gets the default value set on the schema for the given
+// field. If there is no default value set, the zero value of the type
+// will be returned.
+func (d *FieldData) GetDefaultOrZero(k string) interface{} {
+	schema, ok := d.Schema[k]
+	if !ok {
+		panic(fmt.Sprintf("field %s not in the schema", k))
+	}
+
+	return schema.DefaultOrZero()
 }
 
 // GetOk gets the value for the given field. The second return value
@@ -94,7 +107,8 @@ func (d *FieldData) GetOkErr(k string) (interface{}, bool, error) {
 	}
 
 	switch schema.Type {
-	case TypeBool, TypeInt, TypeMap, TypeDurationSecond, TypeString:
+	case TypeBool, TypeInt, TypeMap, TypeDurationSecond, TypeString,
+		TypeSlice, TypeStringSlice, TypeCommaStringSlice:
 		return d.getPrimitive(k, schema)
 	default:
 		return nil, false,
@@ -150,26 +164,51 @@ func (d *FieldData) getPrimitive(
 		case float64:
 			result = int(inp)
 		case string:
-			// Look for a suffix otherwise its a plain second value
-			if strings.HasSuffix(inp, "s") || strings.HasSuffix(inp, "m") || strings.HasSuffix(inp, "h") {
-				dur, err := time.ParseDuration(inp)
-				if err != nil {
-					return nil, true, err
-				}
-				result = int(dur.Seconds())
-			} else {
-				// Plain integer
-				val, err := strconv.ParseInt(inp, 10, 64)
-				if err != nil {
-					return nil, true, err
-				}
-				result = int(val)
+			dur, err := parseutil.ParseDurationSecond(inp)
+			if err != nil {
+				return nil, true, err
 			}
-
+			result = int(dur.Seconds())
+		case json.Number:
+			valInt64, err := inp.Int64()
+			if err != nil {
+				return nil, true, err
+			}
+			result = int(valInt64)
 		default:
 			return nil, false, fmt.Errorf("invalid input '%v'", raw)
 		}
 		return result, true, nil
+
+	case TypeSlice:
+		var result []interface{}
+		if err := mapstructure.WeakDecode(raw, &result); err != nil {
+			return nil, true, err
+		}
+		return result, true, nil
+
+	case TypeStringSlice:
+		var result []string
+		if err := mapstructure.WeakDecode(raw, &result); err != nil {
+			return nil, true, err
+		}
+		return strutil.TrimStrings(result), true, nil
+
+	case TypeCommaStringSlice:
+		var result []string
+		config := &mapstructure.DecoderConfig{
+			Result:           &result,
+			WeaklyTypedInput: true,
+			DecodeHook:       mapstructure.StringToSliceHookFunc(","),
+		}
+		decoder, err := mapstructure.NewDecoder(config)
+		if err != nil {
+			return nil, false, err
+		}
+		if err := decoder.Decode(raw); err != nil {
+			return nil, false, err
+		}
+		return strutil.TrimStrings(result), true, nil
 
 	default:
 		panic(fmt.Sprintf("Unknown type: %s", schema.Type))

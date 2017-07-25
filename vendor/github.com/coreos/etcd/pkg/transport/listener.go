@@ -25,57 +25,34 @@ import (
 	"fmt"
 	"math/big"
 	"net"
-	"net/http"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/coreos/etcd/pkg/tlsutil"
 )
 
-func NewListener(addr string, scheme string, tlscfg *tls.Config) (net.Listener, error) {
-	nettype := "tcp"
-	if scheme == "unix" {
-		// unix sockets via unix://laddr
-		nettype = scheme
-	}
-
-	l, err := net.Listen(nettype, addr)
-	if err != nil {
+func NewListener(addr, scheme string, tlsinfo *TLSInfo) (l net.Listener, err error) {
+	if l, err = newListener(addr, scheme); err != nil {
 		return nil, err
 	}
-
-	if scheme == "https" {
-		if tlscfg == nil {
-			return nil, fmt.Errorf("cannot listen on TLS for %s: KeyFile and CertFile are not presented", scheme+"://"+addr)
-		}
-
-		l = tls.NewListener(l, tlscfg)
-	}
-
-	return l, nil
+	return wrapTLS(addr, scheme, tlsinfo, l)
 }
 
-func NewTransport(info TLSInfo, dialtimeoutd time.Duration) (*http.Transport, error) {
-	cfg, err := info.ClientConfig()
-	if err != nil {
-		return nil, err
+func newListener(addr string, scheme string) (net.Listener, error) {
+	if scheme == "unix" || scheme == "unixs" {
+		// unix sockets via unix://laddr
+		return NewUnixListener(addr)
 	}
+	return net.Listen("tcp", addr)
+}
 
-	t := &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
-		Dial: (&net.Dialer{
-			Timeout: dialtimeoutd,
-			// value taken from http.DefaultTransport
-			KeepAlive: 30 * time.Second,
-		}).Dial,
-		// value taken from http.DefaultTransport
-		TLSHandshakeTimeout: 10 * time.Second,
-		TLSClientConfig:     cfg,
+func wrapTLS(addr, scheme string, tlsinfo *TLSInfo, l net.Listener) (net.Listener, error) {
+	if scheme != "https" && scheme != "unixs" {
+		return l, nil
 	}
-
-	return t, nil
+	return newTLSListener(l, tlsinfo)
 }
 
 type TLSInfo struct {
@@ -84,6 +61,13 @@ type TLSInfo struct {
 	CAFile         string
 	TrustedCAFile  string
 	ClientCertAuth bool
+
+	// ServerName ensures the cert matches the given host in case of discovery / virtual hosting
+	ServerName string
+
+	// HandshakeFailure is optionally called when a connection fails to handshake. The
+	// connection will be closed immediately afterwards.
+	HandshakeFailure func(*tls.Conn, error)
 
 	selfCert bool
 
@@ -105,8 +89,8 @@ func SelfCert(dirpath string, hosts []string) (info TLSInfo, err error) {
 		return
 	}
 
-	certPath := path.Join(dirpath, "cert.pem")
-	keyPath := path.Join(dirpath, "key.pem")
+	certPath := filepath.Join(dirpath, "cert.pem")
+	keyPath := filepath.Join(dirpath, "key.pem")
 	_, errcert := os.Stat(certPath)
 	_, errkey := os.Stat(keyPath)
 	if errcert == nil && errkey == nil {
@@ -134,10 +118,11 @@ func SelfCert(dirpath string, hosts []string) (info TLSInfo, err error) {
 	}
 
 	for _, host := range hosts {
-		if ip := net.ParseIP(host); ip != nil {
+		h, _, _ := net.SplitHostPort(host)
+		if ip := net.ParseIP(h); ip != nil {
 			tmpl.IPAddresses = append(tmpl.IPAddresses, ip)
 		} else {
-			tmpl.DNSNames = append(tmpl.DNSNames, strings.Split(host, ":")[0])
+			tmpl.DNSNames = append(tmpl.DNSNames, h)
 		}
 	}
 
@@ -184,7 +169,16 @@ func (info TLSInfo) baseConfig() (*tls.Config, error) {
 
 	cfg := &tls.Config{
 		Certificates: []tls.Certificate{*tlsCert},
-		MinVersion:   tls.VersionTLS10,
+		MinVersion:   tls.VersionTLS12,
+		ServerName:   info.ServerName,
+	}
+	// this only reloads certs when there's a client request
+	// TODO: support server-side refresh (e.g. inotify, SIGHUP), caching
+	cfg.GetCertificate = func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+		return tlsutil.NewCert(info.CertFile, info.KeyFile, info.parseFunc)
+	}
+	cfg.GetClientCertificate = func(unused *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+		return tlsutil.NewCert(info.CertFile, info.KeyFile, info.parseFunc)
 	}
 	return cfg, nil
 }
@@ -222,6 +216,9 @@ func (info TLSInfo) ServerConfig() (*tls.Config, error) {
 		cfg.ClientCAs = cp
 	}
 
+	// "h2" NextProtos is necessary for enabling HTTP2 for go's HTTP server
+	cfg.NextProtos = []string{"h2"}
+
 	return cfg, nil
 }
 
@@ -236,7 +233,7 @@ func (info TLSInfo) ClientConfig() (*tls.Config, error) {
 			return nil, err
 		}
 	} else {
-		cfg = &tls.Config{}
+		cfg = &tls.Config{ServerName: info.ServerName}
 	}
 
 	CAFiles := info.cafiles()
@@ -251,4 +248,13 @@ func (info TLSInfo) ClientConfig() (*tls.Config, error) {
 		cfg.InsecureSkipVerify = true
 	}
 	return cfg, nil
+}
+
+// IsClosedConnError returns true if the error is from closing listener, cmux.
+// copied from golang.org/x/net/http2/http2.go
+func IsClosedConnError(err error) bool {
+	// 'use of closed network connection' (Go <=1.8)
+	// 'use of closed file or network connection' (Go >1.8, internal/poll.ErrClosing)
+	// 'mux: listener closed' (cmux.ErrListenerClosed)
+	return err != nil && strings.Contains(err.Error(), "closed")
 }

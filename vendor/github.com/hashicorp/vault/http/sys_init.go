@@ -1,6 +1,7 @@
 package http
 
 import (
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"net/http"
@@ -37,7 +38,7 @@ func handleSysInitGet(core *vault.Core, w http.ResponseWriter, r *http.Request) 
 func handleSysInitPut(core *vault.Core, w http.ResponseWriter, r *http.Request) {
 	// Parse the request
 	var req InitRequest
-	if err := parseRequest(r, &req); err != nil {
+	if err := parseRequest(r, w, &req); err != nil {
 		respondError(w, http.StatusBadRequest, err)
 		return
 	}
@@ -80,7 +81,25 @@ func handleSysInitPut(core *vault.Core, w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	result, initErr := core.Initialize(barrierConfig, recoveryConfig)
+	if len(barrierConfig.PGPKeys) > 0 && len(barrierConfig.PGPKeys) != barrierConfig.SecretShares-barrierConfig.StoredShares {
+		respondError(w, http.StatusBadRequest, fmt.Errorf("incorrect number of PGP keys"))
+		return
+	}
+
+	if core.SealAccess().RecoveryKeySupported() {
+		if len(recoveryConfig.PGPKeys) > 0 && len(recoveryConfig.PGPKeys) != recoveryConfig.SecretShares-recoveryConfig.StoredShares {
+			respondError(w, http.StatusBadRequest, fmt.Errorf("incorrect number of PGP keys for recovery"))
+			return
+		}
+	}
+
+	initParams := &vault.InitParams{
+		BarrierConfig:   barrierConfig,
+		RecoveryConfig:  recoveryConfig,
+		RootTokenPGPKey: req.RootTokenPGPKey,
+	}
+
+	result, initErr := core.Initialize(initParams)
 	if initErr != nil {
 		if !errwrap.ContainsType(initErr, new(vault.NonFatalError)) {
 			respondError(w, http.StatusBadRequest, initErr)
@@ -93,19 +112,24 @@ func handleSysInitPut(core *vault.Core, w http.ResponseWriter, r *http.Request) 
 
 	// Encode the keys
 	keys := make([]string, 0, len(result.SecretShares))
+	keysB64 := make([]string, 0, len(result.SecretShares))
 	for _, k := range result.SecretShares {
 		keys = append(keys, hex.EncodeToString(k))
+		keysB64 = append(keysB64, base64.StdEncoding.EncodeToString(k))
 	}
 
 	resp := &InitResponse{
 		Keys:      keys,
+		KeysB64:   keysB64,
 		RootToken: result.RootToken,
 	}
 
 	if len(result.RecoveryShares) > 0 {
 		resp.RecoveryKeys = make([]string, 0, len(result.RecoveryShares))
+		resp.RecoveryKeysB64 = make([]string, 0, len(result.RecoveryShares))
 		for _, k := range result.RecoveryShares {
 			resp.RecoveryKeys = append(resp.RecoveryKeys, hex.EncodeToString(k))
+			resp.RecoveryKeysB64 = append(resp.RecoveryKeysB64, base64.StdEncoding.EncodeToString(k))
 		}
 	}
 
@@ -122,12 +146,15 @@ type InitRequest struct {
 	RecoveryShares    int      `json:"recovery_shares"`
 	RecoveryThreshold int      `json:"recovery_threshold"`
 	RecoveryPGPKeys   []string `json:"recovery_pgp_keys"`
+	RootTokenPGPKey   string   `json:"root_token_pgp_key"`
 }
 
 type InitResponse struct {
-	Keys         []string `json:"keys"`
-	RecoveryKeys []string `json:"recovery_keys,omitempty"`
-	RootToken    string   `json:"root_token"`
+	Keys            []string `json:"keys"`
+	KeysB64         []string `json:"keys_base64"`
+	RecoveryKeys    []string `json:"recovery_keys,omitempty"`
+	RecoveryKeysB64 []string `json:"recovery_keys_base64,omitempty"`
+	RootToken       string   `json:"root_token"`
 }
 
 type InitStatusResponse struct {

@@ -2,12 +2,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/mitchellh/cli"
 	"io/ioutil"
 	"log"
 	"os"
 
+	"github.com/hashicorp/consul/command"
 	"github.com/hashicorp/consul/lib"
+	"github.com/mitchellh/cli"
 )
 
 func init() {
@@ -21,26 +22,29 @@ func main() {
 func realMain() int {
 	log.SetOutput(ioutil.Discard)
 
-	// Get the command line args. We shortcut "--version" and "-v" to
-	// just show the version.
 	args := os.Args[1:]
 	for _, arg := range args {
 		if arg == "--" {
 			break
 		}
+
 		if arg == "-v" || arg == "--version" {
-			newArgs := make([]string, len(args)+1)
-			newArgs[0] = "version"
-			copy(newArgs[1:], args)
-			args = newArgs
+			args = []string{"version"}
 			break
+		}
+	}
+
+	var cmds []string
+	for c := range command.Commands {
+		if c != "configtest" {
+			cmds = append(cmds, c)
 		}
 	}
 
 	cli := &cli.CLI{
 		Args:     args,
-		Commands: Commands,
-		HelpFunc: cli.BasicHelpFunc("consul"),
+		Commands: command.Commands,
+		HelpFunc: cli.FilteredHelpFunc(cmds, cli.BasicHelpFunc("consul")),
 	}
 
 	exitCode, err := cli.Run()
