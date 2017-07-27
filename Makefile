@@ -113,7 +113,7 @@ dev:
 		go install -ldflags "${LD_FLAGS}"
 .PHONY: dev
 
-# Create a docker compile target for each container. This will creat
+# Create a docker compile target for each container. This will create
 # docker/scratch, etc.
 define make-docker-target
   docker/$1:
@@ -136,12 +136,19 @@ define make-docker-target
 endef
 $(foreach target,$(DOCKER_TARGETS),$(eval $(call make-docker-target,$(target))))
 
-# docker-push pushes the images to the registry
-docker-push:
-	@echo "==> Pushing ${PROJECT} to Docker registry"
-	@docker push "${OWNER}/${NAME}:latest"
-	@docker push "${OWNER}/${NAME}:${VERSION}"
-.PHONY: docker-push
+# Create a docker push target for each container. This will create
+# docker-push/scratch, etc.
+define make-docker-push-target
+  docker-push/$1:
+		@echo "==> Pushing ${1} to Docker registry"
+		@docker push "${OWNER}/${NAME}:${1}"
+		@docker push "${OWNER}/${NAME}:${VERSION}-${1}"
+  .PHONY: docker-push/$1
+
+  docker-push:: docker-push/$1
+  .PHONY: docker-push
+endef
+$(foreach target,$(DOCKER_TARGETS),$(eval $(call make-docker-push-target,$(target))))
 
 # test runs the test suite.
 test:
