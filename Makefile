@@ -37,20 +37,23 @@ XC_EXCLUDE ?= darwin/arm solaris/386 solaris/arm windows/arm
 GPG_KEY ?=
 
 # List of ldflags
-LDFLAGS ?= \
+LD_FLAGS ?= \
 	-s \
 	-w \
 	-X ${PROJECT}/version.Name=${NAME} \
-	-X ${PROJECT}/version.GitCommit=${GIT_COMMIT} \
+	-X ${PROJECT}/version.GitCommit=${GIT_COMMIT}
+
+# List of Docker targets to build
+DOCKER_TARGETS ?= alpine scratch
 
 # List of tests to run
 TEST ?= ./...
 
 # Create a cross-compile target for every os-arch pairing. This will generate
-# a make target for each os/arch like "make linux_amd64" as well as generate a
+# a make target for each os/arch like "make linux/amd64" as well as generate a
 # meta target for compiling everything.
 define make-xc-target
-  $1_$2:
+  $1/$2:
   ifneq (,$(findstring ${1}/${2},$(XC_EXCLUDE)))
 		@printf "%s%20s %s\n" "-->" "${1}/${2}:" "${PROJECT} (excluded)"
   else
@@ -59,19 +62,25 @@ define make-xc-target
 			--interactive \
 			--rm \
 			--dns="8.8.8.8" \
-			--env="CGOENABLED=0" \
-			--env="GOOS=${1}" \
-			--env="GOARCH=${2}" \
 			--volume="${CURRENT_DIR}:/go/src/${PROJECT}" \
 			--workdir="/go/src/${PROJECT}" \
 			"golang:1.8" \
-			go build \
-			  -a \
-				-o "pkg/${1}_${2}/${NAME}" \
-				-ldflags "${LDFLAGS}"
+			env \
+				CGOENABLED=0 \
+				GOOS=${1} \
+				GOARCH=${2} \
+				go build \
+				  -a \
+					-o="pkg/${1}_${2}/${NAME}" \
+					-ldflags "${LD_FLAGS}"
   endif
-  .PHONY: $1_$2
-  all:: $1_$2
+  .PHONY: $1/$2
+
+  $1:: $1/$2
+  .PHONY: $1
+
+  all:: $1/$2
+  .PHONY: all
 endef
 $(foreach goarch,$(XC_ARCH),$(foreach goos,$(XC_OS),$(eval $(call make-xc-target,$(goos),$(goarch)))))
 
@@ -101,30 +110,40 @@ dev:
 		GOOS="${GOOS}" \
 		GOARCH="${GOARCH}" \
 		GOPATH="${GOPATH}" \
-		go install -ldflags "${LDFLAGS}"
+		go install -ldflags "${LD_FLAGS}"
 .PHONY: dev
 
-# docker builds the docker container.
-docker:
-	@echo "==> Building docker container for ${PROJECT}"
-	@docker build \
-		--rm \
-		--force-rm \
-		--no-cache \
-		--squash \
-		--compress \
-		--file="docker/Dockerfile" \
-		--build-arg="LDFLAGS=${LDFLAGS}" \
-		--tag="${OWNER}/${NAME}" \
-		--tag="${OWNER}/${NAME}:${VERSION}" \
-		"${CURRENT_DIR}"
 .PHONY: docker
+
+# Create a docker compile target for each container. This will creat
+# docker/scratch, etc.
+define make-docker-target
+  docker/$1:
+		@echo "==> Building ${1} Docker container for ${PROJECT}"
+		@docker build \
+			--rm \
+			--force-rm \
+			--no-cache \
+			--squash \
+			--compress \
+			--file="docker/${1}/Dockerfile" \
+			--build-arg="LD_FLAGS=${LD_FLAGS}" \
+			--tag="${OWNER}/${NAME}:${1}" \
+			--tag="${OWNER}/${NAME}:${VERSION}-${1}" \
+			"${CURRENT_DIR}"
+  .PHONY: docker/$1
+
+  docker:: docker/$1
+  .PHONY: docker
+endef
+$(foreach target,$(DOCKER_TARGETS),$(eval $(call make-docker-target,$(target))))
 
 # docker-push pushes the images to the registry
 docker-push:
 	@echo "==> Pushing ${PROJECT} to Docker registry"
 	@docker push "${OWNER}/${NAME}:latest"
 	@docker push "${OWNER}/${NAME}:${VERSION}"
+.PHONY: docker-push
 
 # test runs the test suite.
 test:

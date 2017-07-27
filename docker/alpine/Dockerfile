@@ -18,9 +18,12 @@ RUN \
 #
 # Final
 #
-FROM scratch
+FROM alpine:latest
 LABEL maintainer "Seth Vargo <seth@sethvargo.com> (@sethvargo)"
 
-ADD "https://curl.haxx.se/ca/cacert.pem" "/etc/ssl/certs/ca-certificates.crt"
+RUN \
+  apk --no-cache add ca-certificates && \
+  update-ca-certificates
+
 COPY --from=builder "/envconsul" "/envconsul"
 ENTRYPOINT ["/envconsul"]

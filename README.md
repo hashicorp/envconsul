@@ -69,7 +69,7 @@ portability for applications across systems.
 1. Run the make target for your platform and architecture.
 
     ```shell
-    $ make darwin_amd64 # or linux_amd64 or windows_amd64, etc
+    $ make darwin/amd64 # or linux/amd64 or windows/amd64, etc
     ```
 
 This process will build `envconsul` into `pkg/OS_ARCH`. You can move this into
