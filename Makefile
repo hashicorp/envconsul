@@ -113,8 +113,6 @@ dev:
 		go install -ldflags "${LD_FLAGS}"
 .PHONY: dev
 
-.PHONY: docker
-
 # Create a docker compile target for each container. This will creat
 # docker/scratch, etc.
 define make-docker-target
