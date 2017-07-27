@@ -1,565 +1,931 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
+	"os"
 	"reflect"
-	"strings"
+	"syscall"
 	"testing"
 	"time"
 
-	"github.com/hashicorp/consul-template/watch"
+	"github.com/hashicorp/consul-template/config"
 	"github.com/hashicorp/go-gatedio"
 )
 
-func TestParseFlags_consul(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	config, _, _, _, err := cli.parseFlags([]string{
-		"-consul", "12.34.56.78",
-	})
+func TestCLI_ParseFlags(t *testing.T) {
+	t.Parallel()
+
+	f, err := ioutil.TempFile("", "")
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	expected := "12.34.56.78"
-	if config.Consul != expected {
-		t.Errorf("expected %q to be %q", config.Consul, expected)
-	}
-	if !config.WasSet("consul") {
-		t.Errorf("expected consul to be set")
-	}
-}
-
-func TestParseFlags_token(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	config, _, _, _, err := cli.parseFlags([]string{
-		"-token", "abcd1234",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := "abcd1234"
-	if config.Token != expected {
-		t.Errorf("expected %q to be %q", config.Token, expected)
-	}
-	if !config.WasSet("token") {
-		t.Errorf("expected token to be set")
-	}
-}
-
-func TestParseFlags_prefix(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	config, _, _, _, err := cli.parseFlags([]string{
-		"-prefix", "global",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := &ConfigPrefix{Path: "global"}
-	if !reflect.DeepEqual(config.Prefixes[0], expected) {
-		t.Errorf("expected %#v to be %#v", config.Prefixes[0], expected)
-	}
-}
-
-func TestParseFlags_secret(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	config, _, _, _, err := cli.parseFlags([]string{
-		"-secret", "global",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := &ConfigPrefix{Path: "global"}
-	if !reflect.DeepEqual(config.Secrets[0], expected) {
-		t.Errorf("expected %#v to be %#v", config.Secrets[0], expected)
-	}
-}
-
-func TestParseFlags_authUsername(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	config, _, _, _, err := cli.parseFlags([]string{
-		"-auth", "test",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if config.Auth.Enabled != true {
-		t.Errorf("expected auth to be enabled")
-	}
-	if !config.WasSet("auth.enabled") {
-		t.Errorf("expected auth.enabled to be set")
-	}
-
-	expected := "test"
-	if config.Auth.Username != expected {
-		t.Errorf("expected %v to be %v", config.Auth.Username, expected)
-	}
-	if !config.WasSet("auth.username") {
-		t.Errorf("expected auth.username to be set")
-	}
-}
-
-func TestParseFlags_authUsernamePassword(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	config, _, _, _, err := cli.parseFlags([]string{
-		"-auth", "test:test",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if config.Auth.Enabled != true {
-		t.Errorf("expected auth to be enabled")
-	}
-	if !config.WasSet("auth.enabled") {
-		t.Errorf("expected auth.enabled to be set")
-	}
-
-	expected := "test"
-	if config.Auth.Username != expected {
-		t.Errorf("expected %v to be %v", config.Auth.Username, expected)
-	}
-	if !config.WasSet("auth.username") {
-		t.Errorf("expected auth.username to be set")
-	}
-	if config.Auth.Password != expected {
-		t.Errorf("expected %v to be %v", config.Auth.Password, expected)
-	}
-	if !config.WasSet("auth.password") {
-		t.Errorf("expected auth.password to be set")
-	}
-}
-
-func TestParseFlags_SSL(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	config, _, _, _, err := cli.parseFlags([]string{
-		"-ssl",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := true
-	if config.SSL.Enabled != expected {
-		t.Errorf("expected %v to be %v", config.SSL.Enabled, expected)
-	}
-	if !config.WasSet("ssl.enabled") {
-		t.Errorf("expected ssl.enabled to be set")
-	}
-}
-
-func TestParseFlags_noSSL(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	config, _, _, _, err := cli.parseFlags([]string{
-		"-ssl=false",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := false
-	if config.SSL.Enabled != expected {
-		t.Errorf("expected %v to be %v", config.SSL.Enabled, expected)
-	}
-	if !config.WasSet("ssl.enabled") {
-		t.Errorf("expected ssl.enabled to be set")
-	}
-}
-
-func TestParseFlags_SSLVerify(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	config, _, _, _, err := cli.parseFlags([]string{
-		"-ssl-verify",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := true
-	if config.SSL.Verify != expected {
-		t.Errorf("expected %v to be %v", config.SSL.Verify, expected)
-	}
-	if !config.WasSet("ssl.verify") {
-		t.Errorf("expected ssl.verify to be set")
-	}
-}
-
-func TestParseFlags_noSSLVerify(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	config, _, _, _, err := cli.parseFlags([]string{
-		"-ssl-verify=false",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := false
-	if config.SSL.Verify != expected {
-		t.Errorf("expected %v to be %v", config.SSL.Verify, expected)
-	}
-	if !config.WasSet("ssl.verify") {
-		t.Errorf("expected ssl.verify to be set")
-	}
-}
-
-func TestParseFlags_SSLCert(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	config, _, _, _, err := cli.parseFlags([]string{
-		"-ssl-cert", "/path/to/c1.pem",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := "/path/to/c1.pem"
-	if config.SSL.Cert != expected {
-		t.Errorf("expected %v to be %v", config.SSL.Cert, expected)
-	}
-	if !config.WasSet("ssl.cert") {
-		t.Errorf("expected ssl.cert to be set")
-	}
-}
-
-func TestParseFlags_SSLCaCert(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	config, _, _, _, err := cli.parseFlags([]string{
-		"-ssl-ca-cert", "/path/to/c2.pem",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := "/path/to/c2.pem"
-	if config.SSL.CaCert != expected {
-		t.Errorf("expected %v to be %v", config.SSL.CaCert, expected)
-	}
-	if !config.WasSet("ssl.ca_cert") {
-		t.Errorf("expected ssl.ca_cert to be set")
-	}
-}
-
-func TestParseFlags_maxStale(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	config, _, _, _, err := cli.parseFlags([]string{
-		"-max-stale", "10h",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := 10 * time.Hour
-	if config.MaxStale != expected {
-		t.Errorf("expected %q to be %q", config.MaxStale, expected)
-	}
-}
-
-func TestParseFlags_syslog(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	config, _, _, _, err := cli.parseFlags([]string{
-		"-syslog",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := true
-	if config.Syslog.Enabled != expected {
-		t.Errorf("expected %v to be %v", config.Syslog.Enabled, expected)
-	}
-	if !config.WasSet("syslog.enabled") {
-		t.Errorf("expected syslog.enabled to be set")
-	}
-}
-
-func TestParseFlags_syslogFacility(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	config, _, _, _, err := cli.parseFlags([]string{
-		"-syslog-facility", "LOCAL5",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := "LOCAL5"
-	if config.Syslog.Facility != expected {
-		t.Errorf("expected %v to be %v", config.Syslog.Facility, expected)
-	}
-	if !config.WasSet("syslog.facility") {
-		t.Errorf("expected syslog.facility to be set")
-	}
-}
-
-func TestParseFlags_wait(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	config, _, _, _, err := cli.parseFlags([]string{
-		"-wait", "10h:11h",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := &watch.Wait{
-		Min: 10 * time.Hour,
-		Max: 11 * time.Hour,
-	}
-	if !reflect.DeepEqual(config.Wait, expected) {
-		t.Errorf("expected %v to be %v", config.Wait, expected)
-	}
-	if !config.WasSet("wait") {
-		t.Errorf("expected wait to be set")
-	}
-}
-
-func TestParseFlags_waitError(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	_, _, _, _, err := cli.parseFlags([]string{
-		"-wait", "watermelon:bacon",
-	})
-	if err == nil {
-		t.Fatal("expected error, but nothing was returned")
-	}
-
-	expected := "invalid value"
-	if !strings.Contains(err.Error(), expected) {
-		t.Errorf("expected %q to contain %q", err.Error(), expected)
-	}
-}
-
-func TestParseFlags_retry(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	config, _, _, _, err := cli.parseFlags([]string{
-		"-retry", "10h",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := 10 * time.Hour
-	if config.Retry != expected {
-		t.Errorf("expected %v to be %v", config.Retry, expected)
-	}
-	if !config.WasSet("retry") {
-		t.Errorf("expected retry to be set")
-	}
-}
-
-func TestParseFlags_sanitize(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	config, _, _, _, err := cli.parseFlags([]string{
-		"-sanitize",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := true
-	if config.Sanitize != expected {
-		t.Errorf("expected %v to be %v", config.Sanitize, expected)
-	}
-	if !config.WasSet("sanitize") {
-		t.Errorf("expected sanitize to be set")
-	}
-}
-
-func TestParseFlags_splay(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	config, _, _, _, err := cli.parseFlags([]string{
-		"-splay", "10s",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := 10 * time.Second
-	if config.Splay != expected {
-		t.Errorf("expected %v to be %v", config.Splay, expected)
-	}
-	if !config.WasSet("splay") {
-		t.Errorf("expected splay to be set")
-	}
-}
-
-func TestParseFlags_timeout(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	config, _, _, _, err := cli.parseFlags([]string{
-		"-timeout", "10s",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := 10 * time.Second
-	if config.Timeout != expected {
-		t.Errorf("expected %v to be %v", config.Timeout, expected)
-	}
-	if !config.WasSet("timeout") {
-		t.Errorf("expected timeout to be set")
-	}
-}
-
-func TestParseFlags_upcase(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	config, _, _, _, err := cli.parseFlags([]string{
-		"-upcase",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := true
-	if config.Upcase != expected {
-		t.Errorf("expected %v to be %v", config.Upcase, expected)
-	}
-	if !config.WasSet("upcase") {
-		t.Errorf("expected upcase to be set")
-	}
-}
-
-func TestParseFlags_config(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	config, _, _, _, err := cli.parseFlags([]string{
-		"-config", "/path/to/file",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := "/path/to/file"
-	if config.Path != expected {
-		t.Errorf("expected %v to be %v", config.Path, expected)
-	}
-	if !config.WasSet("path") {
-		t.Errorf("expected path to be set")
-	}
-}
-
-func TestParseFlags_kill_signal(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	config, _, _, _, err := cli.parseFlags([]string{
-		"-kill-signal", "SIGHUP",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := "SIGHUP"
-	if config.KillSignal != expected {
-		t.Errorf("expected %v to be %v", config.KillSignal, expected)
-	}
-	if !config.WasSet("kill_signal") {
-		t.Errorf("expected kill_signal to be set")
-	}
-}
-
-func TestParseFlags_logLevel(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	config, _, _, _, err := cli.parseFlags([]string{
-		"-log-level", "debug",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := "debug"
-	if config.LogLevel != expected {
-		t.Errorf("expected %v to be %v", config.LogLevel, expected)
-	}
-	if !config.WasSet("log_level") {
-		t.Errorf("expected log_level to be set")
-	}
-}
-
-func TestParseFlags_once(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	_, _, once, _, err := cli.parseFlags([]string{
-		"-once",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if once != true {
-		t.Errorf("expected once to be true")
-	}
-}
-
-func TestParseFlags_version(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	_, _, _, version, err := cli.parseFlags([]string{
-		"-version",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if version != true {
-		t.Errorf("expected version to be true")
-	}
-}
-
-func TestParseFlags_pristine(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	config, _, _, _, err := cli.parseFlags([]string{
-		"-pristine",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expected := true
-	if config.Pristine != expected {
-		t.Errorf("expected %v to be %v", config.Pristine, expected)
-	}
-	if !config.WasSet("pristine") {
-		t.Errorf("expected pristine to be set")
-	}
-}
-
-func TestParseFlags_v(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	_, _, _, version, err := cli.parseFlags([]string{
-		"-v",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if version != true {
-		t.Errorf("expected version to be true")
-	}
-}
-
-func TestParseFlags_errors(t *testing.T) {
-	cli := NewCLI(ioutil.Discard, ioutil.Discard)
-	_, _, _, _, err := cli.parseFlags([]string{
-		"-totally", "-not", "-valid",
-	})
-
-	if err == nil {
-		t.Fatal("expected error, but nothing was returned")
-	}
-}
-
-func TestRun_errors(t *testing.T) {
-	buf := gatedio.NewByteBuffer()
-
-	// Returns the right exit code if no command is given
-	cli := NewCLI(ioutil.Discard, buf)
-	if code := cli.Run([]string{"envconsul"}); code != ExitCodeUsageError {
-		t.Fatalf("expected %d, got: %d", ExitCodeUsageError, code)
-	}
-
-	// Output reflects the returned error
-	out := buf.String()
-	if !strings.Contains(out, ErrMissingCommand.Error()) {
-		t.Fatalf("expected to find %q, got: %q", ErrMissingCommand.Error(), out)
-	}
-
-	// Version flag still works
-	if code := cli.Run([]string{"envconsul", "-v"}); code != 0 {
-		t.Fatalf("version command exited %d", code)
+	defer os.Remove(f.Name())
+
+	cases := []struct {
+		name string
+		f    []string
+		e    *Config
+		err  bool
+	}{
+		// Deprecations
+		// TODO: remove this in 0.8.0
+		{
+			"auth",
+			[]string{"-auth", "abcd:efgh"},
+			&Config{
+				Consul: &config.ConsulConfig{
+					Auth: &config.AuthConfig{
+						Username: config.String("abcd"),
+						Password: config.String("efgh"),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"consul",
+			[]string{"-consul", "127.0.0.1:8500"},
+			&Config{
+				Consul: &config.ConsulConfig{
+					Address: config.String("127.0.0.1:8500"),
+				},
+			},
+			false,
+		},
+		{
+			"retry",
+			[]string{"-retry", "10s"},
+			&Config{
+				Consul: &config.ConsulConfig{
+					Retry: &config.RetryConfig{
+						Backoff:    config.TimeDuration(10 * time.Second),
+						MaxBackoff: config.TimeDuration(10 * time.Second),
+					},
+				},
+				Vault: &config.VaultConfig{
+					Retry: &config.RetryConfig{
+						Backoff:    config.TimeDuration(10 * time.Second),
+						MaxBackoff: config.TimeDuration(10 * time.Second),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"splay",
+			[]string{"-splay", "10s"},
+			&Config{
+				Exec: &config.ExecConfig{
+					Splay: config.TimeDuration(10 * time.Second),
+				},
+			},
+			false,
+		},
+		{
+			"ssl",
+			[]string{"-ssl"},
+			&Config{
+				Consul: &config.ConsulConfig{
+					SSL: &config.SSLConfig{
+						Enabled: config.Bool(true),
+					},
+				},
+				Vault: &config.VaultConfig{
+					SSL: &config.SSLConfig{
+						Enabled: config.Bool(true),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"ssl_verify",
+			[]string{"-ssl-verify"},
+			&Config{
+				Consul: &config.ConsulConfig{
+					SSL: &config.SSLConfig{
+						Verify: config.Bool(true),
+					},
+				},
+				Vault: &config.VaultConfig{
+					SSL: &config.SSLConfig{
+						Verify: config.Bool(true),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"ssl_ca-cert",
+			[]string{"-ssl-ca-cert", "foo"},
+			&Config{
+				Consul: &config.ConsulConfig{
+					SSL: &config.SSLConfig{
+						CaCert: config.String("foo"),
+					},
+				},
+				Vault: &config.VaultConfig{
+					SSL: &config.SSLConfig{
+						CaCert: config.String("foo"),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"ssl_cert",
+			[]string{"-ssl-cert", "foo"},
+			&Config{
+				Consul: &config.ConsulConfig{
+					SSL: &config.SSLConfig{
+						Cert: config.String("foo"),
+					},
+				},
+				Vault: &config.VaultConfig{
+					SSL: &config.SSLConfig{
+						Cert: config.String("foo"),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"timeout",
+			[]string{"-timeout", "10s"},
+			&Config{
+				Exec: &config.ExecConfig{
+					Timeout: config.TimeDuration(10 * time.Second),
+				},
+			},
+			false,
+		},
+		{
+			"token",
+			[]string{"-token", "abcd1234"},
+			&Config{
+				Consul: &config.ConsulConfig{
+					Token: config.String("abcd1234"),
+				},
+			},
+			false,
+		},
+		// End Depreations
+		// TODO remove in 0.8.0
+
+		{
+			"config",
+			[]string{"-config", f.Name()},
+			&Config{},
+			false,
+		},
+		{
+			"config_multi",
+			[]string{
+				"-config", f.Name(),
+				"-config", f.Name(),
+			},
+			&Config{},
+			false,
+		},
+		{
+			"consul_addr",
+			[]string{"-consul-addr", "1.2.3.4"},
+			&Config{
+				Consul: &config.ConsulConfig{
+					Address: config.String("1.2.3.4"),
+				},
+			},
+			false,
+		},
+		{
+			"consul_auth_empty",
+			[]string{"-consul-auth", ""},
+			nil,
+			true,
+		},
+		{
+			"consul_auth_username",
+			[]string{"-consul-auth", "username"},
+			&Config{
+				Consul: &config.ConsulConfig{
+					Auth: &config.AuthConfig{
+						Username: config.String("username"),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"consul_auth_username_password",
+			[]string{"-consul-auth", "username:password"},
+			&Config{
+				Consul: &config.ConsulConfig{
+					Auth: &config.AuthConfig{
+						Username: config.String("username"),
+						Password: config.String("password"),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"consul-retry",
+			[]string{"-consul-retry"},
+			&Config{
+				Consul: &config.ConsulConfig{
+					Retry: &config.RetryConfig{
+						Enabled: config.Bool(true),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"consul-retry-attempts",
+			[]string{"-consul-retry-attempts", "20"},
+			&Config{
+				Consul: &config.ConsulConfig{
+					Retry: &config.RetryConfig{
+						Attempts: config.Int(20),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"consul-retry-backoff",
+			[]string{"-consul-retry-backoff", "30s"},
+			&Config{
+				Consul: &config.ConsulConfig{
+					Retry: &config.RetryConfig{
+						Backoff: config.TimeDuration(30 * time.Second),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"consul-retry-max-backoff",
+			[]string{"-consul-retry-max-backoff", "60s"},
+			&Config{
+				Consul: &config.ConsulConfig{
+					Retry: &config.RetryConfig{
+						MaxBackoff: config.TimeDuration(60 * time.Second),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"consul-ssl",
+			[]string{"-consul-ssl"},
+			&Config{
+				Consul: &config.ConsulConfig{
+					SSL: &config.SSLConfig{
+						Enabled: config.Bool(true),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"consul-ssl-ca-cert",
+			[]string{"-consul-ssl-ca-cert", "ca_cert"},
+			&Config{
+				Consul: &config.ConsulConfig{
+					SSL: &config.SSLConfig{
+						CaCert: config.String("ca_cert"),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"consul-ssl-ca-path",
+			[]string{"-consul-ssl-ca-path", "ca_path"},
+			&Config{
+				Consul: &config.ConsulConfig{
+					SSL: &config.SSLConfig{
+						CaPath: config.String("ca_path"),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"consul-ssl-cert",
+			[]string{"-consul-ssl-cert", "cert"},
+			&Config{
+				Consul: &config.ConsulConfig{
+					SSL: &config.SSLConfig{
+						Cert: config.String("cert"),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"consul-ssl-key",
+			[]string{"-consul-ssl-key", "key"},
+			&Config{
+				Consul: &config.ConsulConfig{
+					SSL: &config.SSLConfig{
+						Key: config.String("key"),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"consul-ssl-server-name",
+			[]string{"-consul-ssl-server-name", "server_name"},
+			&Config{
+				Consul: &config.ConsulConfig{
+					SSL: &config.SSLConfig{
+						ServerName: config.String("server_name"),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"consul-ssl-verify",
+			[]string{"-consul-ssl-verify"},
+			&Config{
+				Consul: &config.ConsulConfig{
+					SSL: &config.SSLConfig{
+						Verify: config.Bool(true),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"consul-token",
+			[]string{"-consul-token", "token"},
+			&Config{
+				Consul: &config.ConsulConfig{
+					Token: config.String("token"),
+				},
+			},
+			false,
+		},
+		{
+			"consul-transport-dial-keep-alive",
+			[]string{"-consul-transport-dial-keep-alive", "30s"},
+			&Config{
+				Consul: &config.ConsulConfig{
+					Transport: &config.TransportConfig{
+						DialKeepAlive: config.TimeDuration(30 * time.Second),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"consul-transport-dial-timeout",
+			[]string{"-consul-transport-dial-timeout", "30s"},
+			&Config{
+				Consul: &config.ConsulConfig{
+					Transport: &config.TransportConfig{
+						DialTimeout: config.TimeDuration(30 * time.Second),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"consul-transport-disable-keep-alives",
+			[]string{"-consul-transport-disable-keep-alives"},
+			&Config{
+				Consul: &config.ConsulConfig{
+					Transport: &config.TransportConfig{
+						DisableKeepAlives: config.Bool(true),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"consul-transport-max-idle-conns-per-host",
+			[]string{"-consul-transport-max-idle-conns-per-host", "100"},
+			&Config{
+				Consul: &config.ConsulConfig{
+					Transport: &config.TransportConfig{
+						MaxIdleConnsPerHost: config.Int(100),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"consul-transport-tls-handshake-timeout",
+			[]string{"-consul-transport-tls-handshake-timeout", "30s"},
+			&Config{
+				Consul: &config.ConsulConfig{
+					Transport: &config.TransportConfig{
+						TLSHandshakeTimeout: config.TimeDuration(30 * time.Second),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"exec",
+			[]string{"-exec", "command"},
+			&Config{
+				Exec: &config.ExecConfig{
+					Enabled: config.Bool(true),
+					Command: config.String("command"),
+				},
+			},
+			false,
+		},
+		{
+			"exec-kill-signal",
+			[]string{"-exec-kill-signal", "SIGUSR1"},
+			&Config{
+				Exec: &config.ExecConfig{
+					KillSignal: config.Signal(syscall.SIGUSR1),
+				},
+			},
+			false,
+		},
+		{
+			"exec-kill-timeout",
+			[]string{"-exec-kill-timeout", "10s"},
+			&Config{
+				Exec: &config.ExecConfig{
+					KillTimeout: config.TimeDuration(10 * time.Second),
+				},
+			},
+			false,
+		},
+		{
+			"exec-splay",
+			[]string{"-exec-splay", "10s"},
+			&Config{
+				Exec: &config.ExecConfig{
+					Splay: config.TimeDuration(10 * time.Second),
+				},
+			},
+			false,
+		},
+		{
+			"kill-signal",
+			[]string{"-kill-signal", "SIGUSR1"},
+			&Config{
+				KillSignal: config.Signal(syscall.SIGUSR1),
+			},
+			false,
+		},
+		{
+			"log-level",
+			[]string{"-log-level", "DEBUG"},
+			&Config{
+				LogLevel: config.String("DEBUG"),
+			},
+			false,
+		},
+		{
+			"max-stale",
+			[]string{"-max-stale", "10s"},
+			&Config{
+				MaxStale: config.TimeDuration(10 * time.Second),
+			},
+			false,
+		},
+		{
+			"pid-file",
+			[]string{"-pid-file", "/var/pid/file"},
+			&Config{
+				PidFile: config.String("/var/pid/file"),
+			},
+			false,
+		},
+		{
+			"prefix",
+			[]string{"-prefix", "foo/bar"},
+			&Config{
+				Prefixes: &PrefixConfigs{
+					&PrefixConfig{
+						Path: config.String("foo/bar"),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"prefix_multi",
+			[]string{
+				"-prefix", "foo/bar",
+				"-prefix", "zip/zap",
+			},
+			&Config{
+				Prefixes: &PrefixConfigs{
+					&PrefixConfig{
+						Path: config.String("foo/bar"),
+					},
+					&PrefixConfig{
+						Path: config.String("zip/zap"),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"pristine",
+			[]string{"-pristine"},
+			&Config{
+				Pristine: config.Bool(true),
+			},
+			false,
+		},
+		{
+			"reload-signal",
+			[]string{"-reload-signal", "SIGUSR1"},
+			&Config{
+				ReloadSignal: config.Signal(syscall.SIGUSR1),
+			},
+			false,
+		},
+		{
+			"sanitize",
+			[]string{"-sanitize"},
+			&Config{
+				Sanitize: config.Bool(true),
+			},
+			false,
+		},
+		{
+			"secret",
+			[]string{"-secret", "foo/bar"},
+			&Config{
+				Secrets: &PrefixConfigs{
+					&PrefixConfig{
+						Path: config.String("foo/bar"),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"secret_multi",
+			[]string{
+				"-secret", "foo/bar",
+				"-secret", "zip/zap",
+			},
+			&Config{
+				Secrets: &PrefixConfigs{
+					&PrefixConfig{
+						Path: config.String("foo/bar"),
+					},
+					&PrefixConfig{
+						Path: config.String("zip/zap"),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"syslog",
+			[]string{"-syslog"},
+			&Config{
+				Syslog: &config.SyslogConfig{
+					Enabled: config.Bool(true),
+				},
+			},
+			false,
+		},
+		{
+			"syslog-facility",
+			[]string{"-syslog-facility", "LOCAL0"},
+			&Config{
+				Syslog: &config.SyslogConfig{
+					Facility: config.String("LOCAL0"),
+				},
+			},
+			false,
+		},
+		{
+			"upcase",
+			[]string{"-upcase"},
+			&Config{
+				Upcase: config.Bool(true),
+			},
+			false,
+		},
+		{
+			"vault-addr",
+			[]string{"-vault-addr", "vault_addr"},
+			&Config{
+				Vault: &config.VaultConfig{
+					Address: config.String("vault_addr"),
+				},
+			},
+			false,
+		},
+		{
+			"vault-grace",
+			[]string{"-vault-grace", "10s"},
+			&Config{
+				Vault: &config.VaultConfig{
+					Grace: config.TimeDuration(10 * time.Second),
+				},
+			},
+			false,
+		},
+		{
+			"vault-retry",
+			[]string{"-vault-retry"},
+			&Config{
+				Vault: &config.VaultConfig{
+					Retry: &config.RetryConfig{
+						Enabled: config.Bool(true),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"vault-retry-attempts",
+			[]string{"-vault-retry-attempts", "20"},
+			&Config{
+				Vault: &config.VaultConfig{
+					Retry: &config.RetryConfig{
+						Attempts: config.Int(20),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"vault-retry-backoff",
+			[]string{"-vault-retry-backoff", "30s"},
+			&Config{
+				Vault: &config.VaultConfig{
+					Retry: &config.RetryConfig{
+						Backoff: config.TimeDuration(30 * time.Second),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"vault-retry-max-backoff",
+			[]string{"-vault-retry-max-backoff", "60s"},
+			&Config{
+				Vault: &config.VaultConfig{
+					Retry: &config.RetryConfig{
+						MaxBackoff: config.TimeDuration(60 * time.Second),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"vault-renew-token",
+			[]string{"-vault-renew-token"},
+			&Config{
+				Vault: &config.VaultConfig{
+					RenewToken: config.Bool(true),
+				},
+			},
+			false,
+		},
+		{
+			"vault-ssl",
+			[]string{"-vault-ssl"},
+			&Config{
+				Vault: &config.VaultConfig{
+					SSL: &config.SSLConfig{
+						Enabled: config.Bool(true),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"vault-ssl-ca-cert",
+			[]string{"-vault-ssl-ca-cert", "ca_cert"},
+			&Config{
+				Vault: &config.VaultConfig{
+					SSL: &config.SSLConfig{
+						CaCert: config.String("ca_cert"),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"vault-ssl-ca-path",
+			[]string{"-vault-ssl-ca-path", "ca_path"},
+			&Config{
+				Vault: &config.VaultConfig{
+					SSL: &config.SSLConfig{
+						CaPath: config.String("ca_path"),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"vault-ssl-cert",
+			[]string{"-vault-ssl-cert", "cert"},
+			&Config{
+				Vault: &config.VaultConfig{
+					SSL: &config.SSLConfig{
+						Cert: config.String("cert"),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"vault-ssl-key",
+			[]string{"-vault-ssl-key", "key"},
+			&Config{
+				Vault: &config.VaultConfig{
+					SSL: &config.SSLConfig{
+						Key: config.String("key"),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"vault-ssl-server-name",
+			[]string{"-vault-ssl-server-name", "server_name"},
+			&Config{
+				Vault: &config.VaultConfig{
+					SSL: &config.SSLConfig{
+						ServerName: config.String("server_name"),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"vault-ssl-verify",
+			[]string{"-vault-ssl-verify"},
+			&Config{
+				Vault: &config.VaultConfig{
+					SSL: &config.SSLConfig{
+						Verify: config.Bool(true),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"vault-token",
+			[]string{"-vault-token", "token"},
+			&Config{
+				Vault: &config.VaultConfig{
+					Token: config.String("token"),
+				},
+			},
+			false,
+		},
+		{
+			"vault-transport-dial-keep-alive",
+			[]string{"-vault-transport-dial-keep-alive", "30s"},
+			&Config{
+				Vault: &config.VaultConfig{
+					Transport: &config.TransportConfig{
+						DialKeepAlive: config.TimeDuration(30 * time.Second),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"vault-transport-dial-timeout",
+			[]string{"-vault-transport-dial-timeout", "30s"},
+			&Config{
+				Vault: &config.VaultConfig{
+					Transport: &config.TransportConfig{
+						DialTimeout: config.TimeDuration(30 * time.Second),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"vault-transport-disable-keep-alives",
+			[]string{"-vault-transport-disable-keep-alives"},
+			&Config{
+				Vault: &config.VaultConfig{
+					Transport: &config.TransportConfig{
+						DisableKeepAlives: config.Bool(true),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"vault-transport-max-idle-conns-per-host",
+			[]string{"-vault-transport-max-idle-conns-per-host", "100"},
+			&Config{
+				Vault: &config.VaultConfig{
+					Transport: &config.TransportConfig{
+						MaxIdleConnsPerHost: config.Int(100),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"vault-transport-tls-handshake-timeout",
+			[]string{"-vault-transport-tls-handshake-timeout", "30s"},
+			&Config{
+				Vault: &config.VaultConfig{
+					Transport: &config.TransportConfig{
+						TLSHandshakeTimeout: config.TimeDuration(30 * time.Second),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"vault-unwrap-token",
+			[]string{"-vault-unwrap-token"},
+			&Config{
+				Vault: &config.VaultConfig{
+					UnwrapToken: config.Bool(true),
+				},
+			},
+			false,
+		},
+		{
+			"wait_min",
+			[]string{"-wait", "10s"},
+			&Config{
+				Wait: &config.WaitConfig{
+					Min: config.TimeDuration(10 * time.Second),
+					Max: config.TimeDuration(40 * time.Second),
+				},
+			},
+			false,
+		},
+		{
+			"wait_min_max",
+			[]string{"-wait", "10s:30s"},
+			&Config{
+				Wait: &config.WaitConfig{
+					Min: config.TimeDuration(10 * time.Second),
+					Max: config.TimeDuration(30 * time.Second),
+				},
+			},
+			false,
+		},
+
+		// Edge cases
+		{
+			"command",
+			[]string{"my", "command", "to", "run"},
+			&Config{
+				Exec: &config.ExecConfig{
+					Enabled: config.Bool(true),
+					Command: config.String("my command to run"),
+				},
+			},
+			false,
+		},
+		{
+			"command_and_exec",
+			[]string{
+				"-exec", "command 1",
+				"command", "2",
+			},
+			&Config{
+				Exec: &config.ExecConfig{
+					Enabled: config.Bool(true),
+					Command: config.String("command 1"),
+				},
+			},
+			false,
+		},
+	}
+
+	for i, tc := range cases {
+		t.Run(fmt.Sprintf("%d_%s", i, tc.name), func(t *testing.T) {
+			out := gatedio.NewByteBuffer()
+			cli := NewCLI(out, out)
+
+			a, _, _, _, err := cli.ParseFlags(tc.f)
+			if (err != nil) != tc.err {
+				t.Fatal(err)
+			}
+
+			if tc.e != nil {
+				tc.e = DefaultConfig().Merge(tc.e)
+			}
+
+			if !reflect.DeepEqual(tc.e, a) {
+				t.Errorf("\nexp: %#v\nact: %#v\nout: %q", tc.e, a, out.String())
+			}
+		})
 	}
 }

@@ -4,16 +4,19 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
+	"github.com/hashicorp/consul-template/config"
 	"github.com/hashicorp/consul-template/logging"
-	"github.com/hashicorp/consul-template/watch"
+	"github.com/hashicorp/consul-template/manager"
+	"github.com/hashicorp/consul-template/signals"
+	"github.com/hashicorp/envconsul/version"
 )
 
 // Exit codes are int values that represent an exit code for a particular error.
@@ -22,14 +25,11 @@ import (
 const (
 	ExitCodeOK int = 0
 
-	// Errors start at 10
 	ExitCodeError = 10 + iota
 	ExitCodeInterrupt
-	ExitCodeLoggingError
 	ExitCodeParseFlagsError
 	ExitCodeRunnerError
 	ExitCodeConfigError
-	ExitCodeUsageError
 )
 
 var (
@@ -45,6 +45,9 @@ type CLI struct {
 	// write messages from the CLI.
 	outStream, errStream io.Writer
 
+	// signalCh is the channel where the cli receives signals.
+	signalCh chan os.Signal
+
 	// stopCh is an internal channel used to trigger a shutdown of the CLI.
 	stopCh  chan struct{}
 	stopped bool
@@ -55,6 +58,7 @@ func NewCLI(out, err io.Writer) *CLI {
 	return &CLI{
 		outStream: out,
 		errStream: err,
+		signalCh:  make(chan os.Signal, 1),
 		stopCh:    make(chan struct{}),
 	}
 }
@@ -63,52 +67,70 @@ func NewCLI(out, err io.Writer) *CLI {
 // status from the command.
 func (cli *CLI) Run(args []string) int {
 	// Parse the flags and args
-	config, command, once, version, err := cli.parseFlags(args[1:])
+	cfg, paths, once, isVersion, err := cli.ParseFlags(args[1:])
 	if err != nil {
-		return cli.handleError(err, ExitCodeParseFlagsError)
+		if err == flag.ErrHelp {
+			fmt.Fprintf(cli.errStream, usage, version.Name)
+			return 0
+		}
+		fmt.Fprintln(cli.errStream, err.Error())
+		return ExitCodeParseFlagsError
 	}
 
 	// Save original config (defaults + parsed flags) for handling reloads
-	baseConfig := config
+	cliConfig := cfg.Copy()
+
+	// Load configuration paths, with CLI taking precendence
+	cfg, err = loadConfigs(paths, cliConfig)
+	if err != nil {
+		return logError(err, ExitCodeConfigError)
+	}
+
+	cfg.Finalize()
 
 	// Setup the config and logging
-	config, err = cli.setup(config)
+	cfg, err = cli.setup(cfg)
 	if err != nil {
-		return cli.handleError(err, ExitCodeConfigError)
+		return logError(err, ExitCodeConfigError)
 	}
 
 	// Print version information for debugging
-	log.Printf("[INFO] %s", humanVersion)
+	log.Printf("[INFO] %s", version.HumanVersion)
 
 	// If the version was requested, return an "error" containing the version
 	// information. This might sound weird, but most *nix applications actually
 	// print their version on stderr anyway.
-	if version {
+	if isVersion {
 		log.Printf("[DEBUG] (cli) version flag was given, exiting now")
-		fmt.Fprintf(cli.errStream, "%s\n", humanVersion)
+		fmt.Fprintf(cli.errStream, "%s\n", version.HumanVersion)
 		return ExitCodeOK
 	}
 
 	// Return an error if no command was given
-	if len(command) == 0 {
-		return cli.handleError(ErrMissingCommand, ExitCodeUsageError)
+	if !config.StringPresent(cfg.Exec.Command) {
+		return logError(ErrMissingCommand, ExitCodeConfigError)
 	}
 
 	// Initial runner
-	runner, err := NewRunner(config, command, once)
+	runner, err := NewRunner(cfg, once)
 	if err != nil {
-		return cli.handleError(err, ExitCodeRunnerError)
+		return logError(err, ExitCodeRunnerError)
 	}
 	go runner.Start()
 
 	// Listen for signals
-	signalCh := make(chan os.Signal, 1)
-	signal.Notify(signalCh)
+	signal.Notify(cli.signalCh)
 
 	for {
 		select {
 		case err := <-runner.ErrCh:
-			return cli.handleError(err, ExitCodeRunnerError)
+			// Check if the runner's error returned a specific exit status, and return
+			// that value. If no value was given, return a generic exit status.
+			code := ExitCodeRunnerError
+			if typed, ok := err.(manager.ErrExitable); ok {
+				code = typed.ExitStatus()
+			}
+			return logError(err, code)
 		case <-runner.DoneCh:
 			return ExitCodeOK
 		case code := <-runner.ExitCh:
@@ -119,32 +141,48 @@ func (cli *CLI) Run(args []string) int {
 				return ExitCodeOK
 			} else {
 				err := fmt.Errorf("unexpected exit from subprocess (%d)", code)
-				return cli.handleError(err, code)
+				return logError(err, code)
 			}
-		case s := <-signalCh:
-			// Propogate the signal to the child process
-			runner.Signal(s)
+		case s := <-cli.signalCh:
+			log.Printf("[DEBUG] (cli) receiving signal %q", s)
 
 			switch s {
-			case syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT:
-				fmt.Fprintf(cli.errStream, "Received interrupt, cleaning up...\n")
+			case *cfg.ReloadSignal:
+				fmt.Fprintf(cli.errStream, "Reloading configuration...\n")
 				runner.Stop()
-				return ExitCodeInterrupt
-			case syscall.SIGHUP:
-				fmt.Fprintf(cli.errStream, "Received HUP, reloading configuration...\n")
-				runner.Stop()
+
+				// Re-parse any configuration files or paths
+				cfg, err = loadConfigs(paths, cliConfig)
+				if err != nil {
+					return logError(err, ExitCodeConfigError)
+				}
+				cfg.Finalize()
 
 				// Load the new configuration from disk
-				config, err = cli.setup(baseConfig)
+				cfg, err = cli.setup(cfg)
 				if err != nil {
-					return cli.handleError(err, ExitCodeConfigError)
+					return logError(err, ExitCodeConfigError)
 				}
 
-				runner, err = NewRunner(config, command, once)
+				runner, err = NewRunner(cfg, once)
 				if err != nil {
-					return cli.handleError(err, ExitCodeRunnerError)
+					return logError(err, ExitCodeRunnerError)
 				}
 				go runner.Start()
+			case *cfg.KillSignal:
+				fmt.Fprintf(cli.errStream, "Cleaning up...\n")
+				runner.Stop()
+				return ExitCodeInterrupt
+			case signals.SignalLookup["SIGCHLD"]:
+				// The SIGCHLD signal is sent to the parent of a child process when it
+				// exits, is interrupted, or resumes after being interrupted. We ignore
+				// this signal because the child process is monitored on its own.
+				//
+				// Also, the reason we do a lookup instead of a direct syscall.SIGCHLD
+				// is because that isn't defined on Windows.
+			default:
+				// Propogate the signal to the child process
+				runner.Signal(s)
 			}
 		case <-cli.stopCh:
 			return ExitCodeOK
@@ -165,277 +203,682 @@ func (cli *CLI) stop() {
 	cli.stopped = true
 }
 
-// parseFlags is a helper function for parsing command line flags using Go's
+// ParseFlags is a helper function for parsing command line flags using Go's
 // Flag library. This is extracted into a helper to keep the main function
 // small, but it also makes writing tests for parsing command line arguments
 // much easier and cleaner.
-func (cli *CLI) parseFlags(args []string) (*Config, []string, bool, bool, error) {
-	var once, version bool
-	var config = DefaultConfig()
+func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error) {
+	var once, isVersion bool
+	var c = DefaultConfig()
+
+	// configPaths stores the list of configuration paths on disk
+	configPaths := make([]string, 0, 6)
 
 	// Parse the flags and options
-	flags := flag.NewFlagSet(Name, flag.ContinueOnError)
-	flags.SetOutput(cli.errStream)
-	flags.Usage = func() { fmt.Fprintf(cli.errStream, usage, Name) }
+	flags := flag.NewFlagSet(version.Name, flag.ContinueOnError)
+	flags.SetOutput(ioutil.Discard)
+	flags.Usage = func() {}
 
 	flags.Var((funcVar)(func(s string) error {
-		config.Consul = s
-		config.set("consul")
-		return nil
-	}), "consul", "")
-
-	flags.Var((funcVar)(func(s string) error {
-		config.Token = s
-		config.set("token")
-		return nil
-	}), "token", "")
-
-	flags.Var((funcVar)(func(s string) error {
-		s = strings.TrimPrefix(s, "/")
-		if config.Prefixes == nil {
-			config.Prefixes = make([]*ConfigPrefix, 0, 1)
-		}
-		config.Prefixes = append(config.Prefixes, &ConfigPrefix{
-			Path: s,
-		})
-		return nil
-	}), "prefix", "")
-
-	flags.Var((funcVar)(func(s string) error {
-		s = strings.TrimPrefix(s, "/")
-		if config.Secrets == nil {
-			config.Secrets = make([]*ConfigPrefix, 0, 1)
-		}
-		config.Secrets = append(config.Secrets, &ConfigPrefix{
-			Path: s,
-		})
-		return nil
-	}), "secret", "")
-
-	flags.Var((funcVar)(func(s string) error {
-		config.Auth.Enabled = true
-		config.set("auth.enabled")
-		if strings.Contains(s, ":") {
-			split := strings.SplitN(s, ":", 2)
-			config.Auth.Username = split[0]
-			config.set("auth.username")
-			config.Auth.Password = split[1]
-			config.set("auth.password")
-		} else {
-			config.Auth.Username = s
-			config.set("auth.username")
-		}
-		return nil
-	}), "auth", "")
-
-	flags.Var((funcBoolVar)(func(b bool) error {
-		config.SSL.Enabled = b
-		config.set("ssl")
-		config.set("ssl.enabled")
-		return nil
-	}), "ssl", "")
-
-	flags.Var((funcBoolVar)(func(b bool) error {
-		config.SSL.Verify = b
-		config.set("ssl.verify")
-		return nil
-	}), "ssl-verify", "")
-
-	flags.Var((funcVar)(func(s string) error {
-		config.SSL.Cert = s
-		config.set("ssl.cert")
-		return nil
-	}), "ssl-cert", "")
-
-	flags.Var((funcVar)(func(s string) error {
-		config.SSL.CaCert = s
-		config.set("ssl.ca_cert")
-		return nil
-	}), "ssl-ca-cert", "")
-
-	flags.Var((funcDurationVar)(func(d time.Duration) error {
-		config.MaxStale = d
-		config.set("max_stale")
-		return nil
-	}), "max-stale", "")
-
-	flags.Var((funcBoolVar)(func(b bool) error {
-		config.Syslog.Enabled = b
-		config.set("syslog.enabled")
-		return nil
-	}), "syslog", "")
-
-	flags.Var((funcVar)(func(s string) error {
-		config.Syslog.Facility = s
-		config.set("syslog.facility")
-		return nil
-	}), "syslog-facility", "")
-
-	flags.Var((funcVar)(func(s string) error {
-		w, err := watch.ParseWait(s)
-		if err != nil {
-			return err
-		}
-		config.Wait.Min = w.Min
-		config.Wait.Max = w.Max
-		config.set("wait")
-		return nil
-	}), "wait", "")
-
-	flags.Var((funcDurationVar)(func(d time.Duration) error {
-		config.Retry = d
-		config.set("retry")
-		return nil
-	}), "retry", "")
-
-	flags.Var((funcBoolVar)(func(b bool) error {
-		config.Sanitize = b
-		config.set("sanitize")
-		return nil
-	}), "sanitize", "")
-
-	flags.Var((funcDurationVar)(func(d time.Duration) error {
-		config.Splay = d
-		config.set("splay")
-		return nil
-	}), "splay", "")
-
-	flags.Var((funcDurationVar)(func(d time.Duration) error {
-		config.Timeout = d
-		config.set("timeout")
-		return nil
-	}), "timeout", "")
-
-	flags.Var((funcBoolVar)(func(b bool) error {
-		config.Upcase = b
-		config.set("upcase")
-		return nil
-	}), "upcase", "")
-
-	flags.Var((funcVar)(func(s string) error {
-		config.Path = s
-		config.set("path")
+		configPaths = append(configPaths, s)
 		return nil
 	}), "config", "")
 
 	flags.Var((funcVar)(func(s string) error {
-		config.KillSignal = s
-		config.set("kill_signal")
+		c.Consul.Address = config.String(s)
+		return nil
+	}), "consul-addr", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		a, err := config.ParseAuthConfig(s)
+		if err != nil {
+			return err
+		}
+		c.Consul.Auth = a
+		return nil
+	}), "consul-auth", "")
+
+	flags.Var((funcBoolVar)(func(b bool) error {
+		c.Consul.Retry.Enabled = config.Bool(b)
+		return nil
+	}), "consul-retry", "")
+
+	flags.Var((funcIntVar)(func(i int) error {
+		c.Consul.Retry.Attempts = config.Int(i)
+		return nil
+	}), "consul-retry-attempts", "")
+
+	flags.Var((funcDurationVar)(func(d time.Duration) error {
+		c.Consul.Retry.Backoff = config.TimeDuration(d)
+		return nil
+	}), "consul-retry-backoff", "")
+
+	flags.Var((funcDurationVar)(func(d time.Duration) error {
+		c.Consul.Retry.MaxBackoff = config.TimeDuration(d)
+		return nil
+	}), "consul-retry-max-backoff", "")
+
+	flags.Var((funcBoolVar)(func(b bool) error {
+		c.Consul.SSL.Enabled = config.Bool(b)
+		return nil
+	}), "consul-ssl", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		c.Consul.SSL.CaCert = config.String(s)
+		return nil
+	}), "consul-ssl-ca-cert", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		c.Consul.SSL.CaPath = config.String(s)
+		return nil
+	}), "consul-ssl-ca-path", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		c.Consul.SSL.Cert = config.String(s)
+		return nil
+	}), "consul-ssl-cert", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		c.Consul.SSL.Key = config.String(s)
+		return nil
+	}), "consul-ssl-key", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		c.Consul.SSL.ServerName = config.String(s)
+		return nil
+	}), "consul-ssl-server-name", "")
+
+	flags.Var((funcBoolVar)(func(b bool) error {
+		c.Consul.SSL.Verify = config.Bool(b)
+		return nil
+	}), "consul-ssl-verify", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		c.Consul.Token = config.String(s)
+		return nil
+	}), "consul-token", "")
+
+	flags.Var((funcDurationVar)(func(d time.Duration) error {
+		c.Consul.Transport.DialKeepAlive = config.TimeDuration(d)
+		return nil
+	}), "consul-transport-dial-keep-alive", "")
+
+	flags.Var((funcDurationVar)(func(d time.Duration) error {
+		c.Consul.Transport.DialTimeout = config.TimeDuration(d)
+		return nil
+	}), "consul-transport-dial-timeout", "")
+
+	flags.Var((funcBoolVar)(func(b bool) error {
+		c.Consul.Transport.DisableKeepAlives = config.Bool(b)
+		return nil
+	}), "consul-transport-disable-keep-alives", "")
+
+	flags.Var((funcIntVar)(func(i int) error {
+		c.Consul.Transport.MaxIdleConnsPerHost = config.Int(i)
+		return nil
+	}), "consul-transport-max-idle-conns-per-host", "")
+
+	flags.Var((funcDurationVar)(func(d time.Duration) error {
+		c.Consul.Transport.TLSHandshakeTimeout = config.TimeDuration(d)
+		return nil
+	}), "consul-transport-tls-handshake-timeout", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		c.Exec.Enabled = config.Bool(true)
+		c.Exec.Command = config.String(s)
+		return nil
+	}), "exec", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		sig, err := signals.Parse(s)
+		if err != nil {
+			return err
+		}
+		c.Exec.KillSignal = config.Signal(sig)
+		return nil
+	}), "exec-kill-signal", "")
+
+	flags.Var((funcDurationVar)(func(d time.Duration) error {
+		c.Exec.KillTimeout = config.TimeDuration(d)
+		return nil
+	}), "exec-kill-timeout", "")
+
+	flags.Var((funcDurationVar)(func(d time.Duration) error {
+		c.Exec.Splay = config.TimeDuration(d)
+		return nil
+	}), "exec-splay", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		sig, err := signals.Parse(s)
+		if err != nil {
+			return err
+		}
+		c.KillSignal = config.Signal(sig)
 		return nil
 	}), "kill-signal", "")
 
 	flags.Var((funcVar)(func(s string) error {
-		config.LogLevel = s
-		config.set("log_level")
+		c.LogLevel = config.String(s)
 		return nil
 	}), "log-level", "")
 
+	flags.Var((funcDurationVar)(func(d time.Duration) error {
+		c.MaxStale = config.TimeDuration(d)
+		return nil
+	}), "max-stale", "")
+
+	flags.BoolVar(&once, "once", false, "")
+
+	flags.Var((funcVar)(func(s string) error {
+		c.PidFile = config.String(s)
+		return nil
+	}), "pid-file", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		p, err := ParsePrefixConfig(s)
+		if err != nil {
+			return err
+		}
+		*c.Prefixes = append(*c.Prefixes, p)
+		return nil
+	}), "prefix", "")
+
 	flags.Var((funcBoolVar)(func(b bool) error {
-		config.Pristine = b
-		config.set("pristine")
+		c.Pristine = config.Bool(b)
 		return nil
 	}), "pristine", "")
 
-	flags.BoolVar(&once, "once", false, "")
-	flags.BoolVar(&version, "v", false, "")
-	flags.BoolVar(&version, "version", false, "")
+	flags.Var((funcVar)(func(s string) error {
+		sig, err := signals.Parse(s)
+		if err != nil {
+			return err
+		}
+		c.ReloadSignal = config.Signal(sig)
+		return nil
+	}), "reload-signal", "")
+
+	flags.Var((funcBoolVar)(func(b bool) error {
+		c.Sanitize = config.Bool(b)
+		return nil
+	}), "sanitize", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		p, err := ParsePrefixConfig(s)
+		if err != nil {
+			return err
+		}
+		*c.Secrets = append(*c.Secrets, p)
+		return nil
+	}), "secret", "")
+
+	flags.Var((funcBoolVar)(func(b bool) error {
+		c.Syslog.Enabled = config.Bool(b)
+		return nil
+	}), "syslog", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		c.Syslog.Facility = config.String(s)
+		return nil
+	}), "syslog-facility", "")
+
+	flags.Var((funcBoolVar)(func(b bool) error {
+		c.Upcase = config.Bool(b)
+		return nil
+	}), "upcase", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		c.Vault.Address = config.String(s)
+		return nil
+	}), "vault-addr", "")
+
+	flags.Var((funcDurationVar)(func(t time.Duration) error {
+		c.Vault.Grace = config.TimeDuration(t)
+		return nil
+	}), "vault-grace", "")
+
+	flags.Var((funcBoolVar)(func(b bool) error {
+		c.Vault.RenewToken = config.Bool(b)
+		return nil
+	}), "vault-renew-token", "")
+
+	flags.Var((funcBoolVar)(func(b bool) error {
+		c.Vault.Retry.Enabled = config.Bool(b)
+		return nil
+	}), "vault-retry", "")
+
+	flags.Var((funcIntVar)(func(i int) error {
+		c.Vault.Retry.Attempts = config.Int(i)
+		return nil
+	}), "vault-retry-attempts", "")
+
+	flags.Var((funcDurationVar)(func(d time.Duration) error {
+		c.Vault.Retry.Backoff = config.TimeDuration(d)
+		return nil
+	}), "vault-retry-backoff", "")
+
+	flags.Var((funcDurationVar)(func(d time.Duration) error {
+		c.Vault.Retry.MaxBackoff = config.TimeDuration(d)
+		return nil
+	}), "vault-retry-max-backoff", "")
+
+	flags.Var((funcBoolVar)(func(b bool) error {
+		c.Vault.SSL.Enabled = config.Bool(b)
+		return nil
+	}), "vault-ssl", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		c.Vault.SSL.CaCert = config.String(s)
+		return nil
+	}), "vault-ssl-ca-cert", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		c.Vault.SSL.CaPath = config.String(s)
+		return nil
+	}), "vault-ssl-ca-path", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		c.Vault.SSL.Cert = config.String(s)
+		return nil
+	}), "vault-ssl-cert", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		c.Vault.SSL.Key = config.String(s)
+		return nil
+	}), "vault-ssl-key", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		c.Vault.SSL.ServerName = config.String(s)
+		return nil
+	}), "vault-ssl-server-name", "")
+
+	flags.Var((funcBoolVar)(func(b bool) error {
+		c.Vault.SSL.Verify = config.Bool(b)
+		return nil
+	}), "vault-ssl-verify", "")
+
+	flags.Var((funcDurationVar)(func(d time.Duration) error {
+		c.Vault.Transport.DialKeepAlive = config.TimeDuration(d)
+		return nil
+	}), "vault-transport-dial-keep-alive", "")
+
+	flags.Var((funcDurationVar)(func(d time.Duration) error {
+		c.Vault.Transport.DialTimeout = config.TimeDuration(d)
+		return nil
+	}), "vault-transport-dial-timeout", "")
+
+	flags.Var((funcBoolVar)(func(b bool) error {
+		c.Vault.Transport.DisableKeepAlives = config.Bool(b)
+		return nil
+	}), "vault-transport-disable-keep-alives", "")
+
+	flags.Var((funcIntVar)(func(i int) error {
+		c.Vault.Transport.MaxIdleConnsPerHost = config.Int(i)
+		return nil
+	}), "vault-transport-max-idle-conns-per-host", "")
+
+	flags.Var((funcDurationVar)(func(d time.Duration) error {
+		c.Vault.Transport.TLSHandshakeTimeout = config.TimeDuration(d)
+		return nil
+	}), "vault-transport-tls-handshake-timeout", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		c.Vault.Token = config.String(s)
+		return nil
+	}), "vault-token", "")
+
+	flags.Var((funcBoolVar)(func(b bool) error {
+		c.Vault.UnwrapToken = config.Bool(b)
+		return nil
+	}), "vault-unwrap-token", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		w, err := config.ParseWaitConfig(s)
+		if err != nil {
+			return err
+		}
+		c.Wait = w
+		return nil
+	}), "wait", "")
+
+	flags.BoolVar(&isVersion, "v", false, "")
+	flags.BoolVar(&isVersion, "version", false, "")
+
+	// Deprecations
+	// TODO remove in 0.8.0
+	flags.Var((funcVar)(func(s string) error {
+		log.Printf("[WARN] -auth is now -consul-auth")
+		a, err := config.ParseAuthConfig(s)
+		if err != nil {
+			return err
+		}
+		c.Consul.Auth = a
+		return nil
+	}), "auth", "")
+	flags.Var((funcVar)(func(s string) error {
+		log.Printf("[WARN] -consul is now -consul-addr")
+		c.Consul.Address = config.String(s)
+		return nil
+	}), "consul", "")
+	flags.Var((funcDurationVar)(func(d time.Duration) error {
+		log.Printf("[WARN] -retry is now -consul-retry-* and -vault-retry-*")
+		c.Consul.Retry.Backoff = config.TimeDuration(d)
+		c.Consul.Retry.MaxBackoff = config.TimeDuration(d)
+		c.Vault.Retry.Backoff = config.TimeDuration(d)
+		c.Vault.Retry.MaxBackoff = config.TimeDuration(d)
+		return nil
+	}), "retry", "")
+	flags.Var((funcDurationVar)(func(d time.Duration) error {
+		log.Printf("[WARN] -splay is now -exec-splay")
+		c.Exec.Splay = config.TimeDuration(d)
+		return nil
+	}), "splay", "")
+	flags.Var((funcBoolVar)(func(b bool) error {
+		log.Printf("[WARN] -ssl is now -consul-ssl-* and -vault-ssl-*")
+		c.Consul.SSL.Enabled = config.Bool(b)
+		c.Vault.SSL.Enabled = config.Bool(b)
+		return nil
+	}), "ssl", "")
+	flags.Var((funcBoolVar)(func(b bool) error {
+		log.Printf("[WARN] -ssl-verify is now -consul-ssl-verify and -vault-ssl-verify")
+		c.Consul.SSL.Verify = config.Bool(b)
+		c.Vault.SSL.Verify = config.Bool(b)
+		return nil
+	}), "ssl-verify", "")
+	flags.Var((funcVar)(func(s string) error {
+		log.Printf("[WARN] -ssl-ca-cert is now -consul-ssl-ca-cert and -vault-ssl-ca-cert")
+		c.Consul.SSL.CaCert = config.String(s)
+		c.Vault.SSL.CaCert = config.String(s)
+		return nil
+	}), "ssl-ca-cert", "")
+	flags.Var((funcVar)(func(s string) error {
+		log.Printf("[WARN] -ssl-cert is now -consul-ssl-cert and -vault-ssl-cert")
+		c.Consul.SSL.Cert = config.String(s)
+		c.Vault.SSL.Cert = config.String(s)
+		return nil
+	}), "ssl-cert", "")
+	flags.Var((funcDurationVar)(func(d time.Duration) error {
+		log.Printf("[WARN] -timeout is now -exec-timeout")
+		c.Exec.Timeout = config.TimeDuration(d)
+		return nil
+	}), "timeout", "")
+	flags.Var((funcVar)(func(s string) error {
+		log.Printf("[WARN] -token is now -consul-token")
+		c.Consul.Token = config.String(s)
+		return nil
+	}), "token", "")
+	// End deprecations
+	// TODO remove in 0.8.0
 
 	// If there was a parser error, stop
 	if err := flags.Parse(args); err != nil {
 		return nil, nil, false, false, err
 	}
 
-	return config, flags.Args(), once, version, nil
+	// Convert any arguments given after to the command, but a command specified
+	// via the flag takes precedence.
+	if c.Exec.Command == nil {
+		if command := strings.Join(flags.Args(), " "); command != "" {
+			c.Exec.Enabled = config.Bool(true)
+			c.Exec.Command = config.String(command)
+		}
+	}
+
+	return c, configPaths, once, isVersion, nil
 }
 
-// handleError outputs the given error's Error() to the errStream and returns
-// the given exit status.
-func (cli *CLI) handleError(err error, status int) int {
-	log.Printf("[ERR] %s", err.Error())
-	return status
-}
+// loadConfigs loads the configuration from the list of paths. The optional
+// configuration is the list of overrides to apply at the very end, taking
+// precendence over any configurations that were loaded from the paths. If any
+// errors occur when reading or parsing those sub-configs, it is returned.
+func loadConfigs(paths []string, o *Config) (*Config, error) {
+	finalC := DefaultConfig()
 
-// setup sets up the CLI with the configuration from disk.
-func (cli *CLI) setup(config *Config) (*Config, error) {
-	if config.Path != "" {
-		newConfig, err := ConfigFromPath(config.Path)
+	for _, path := range paths {
+		c, err := FromPath(path)
 		if err != nil {
 			return nil, err
 		}
 
-		// Merge ensuring that the CLI options still take precedence
-		newConfig.Merge(config)
-		config = newConfig
+		finalC = finalC.Merge(c)
 	}
 
-	// Setup the logging
+	finalC = finalC.Merge(o)
+	finalC.Finalize()
+	return finalC, nil
+}
+
+// logError logs an error message and then returns the given status.
+func logError(err error, status int) int {
+	log.Printf("[ERR] (cli) %s", err)
+	return status
+}
+
+func (cli *CLI) setup(conf *Config) (*Config, error) {
 	if err := logging.Setup(&logging.Config{
-		Name:           Name,
-		Level:          config.LogLevel,
-		Syslog:         config.Syslog.Enabled,
-		SyslogFacility: config.Syslog.Facility,
+		Name:           version.Name,
+		Level:          config.StringVal(conf.LogLevel),
+		Syslog:         config.BoolVal(conf.Syslog.Enabled),
+		SyslogFacility: config.StringVal(conf.Syslog.Facility),
 		Writer:         cli.errStream,
 	}); err != nil {
 		return nil, err
 	}
 
-	return config, nil
+	return conf, nil
 }
 
-const usage = `
-Usage: %s [options] <command>
+const usage = `Usage: %s [options] <command>
 
-  Watches values from Consul's K/V store and sets environment variables when
-  Consul values are changed.
+  Watches values from Consul's K/V store and Vault secrets to set environment
+  variables when the values are changed. It spawns a child process populated
+  with the environment variables.
 
 Options:
 
-  -auth=<user[:pass]>          Sets the basic authentication username (and password)
-  -consul=<address>            Sets the address of the Consul instance
-  -max-stale=<duration>        Sets the maximum staleness and allow stale queries to
-                               Consul which will distribute work among all servers
-                               instead of just the leader
-  -retry=<duration>            The amount of time to wait if Consul returns an
-                               error when communicating with the API
-  -ssl                         Use SSL when connecting to Consul
-  -ssl-verify                  Verify certificates when connecting via SSL
-  -token=<token>               Sets the Consul API token
+  -config=<path>
+      Sets the path to a configuration file or folder on disk. This can be
+      specified multiple times to load multiple files or folders. If multiple
+      values are given, they are merged left-to-right, and CLI arguments take
+      the top-most precedence.
 
-  -log-level=<level>           Sets the logging level - valid values are "debug",
-                               "info", "warn" (default), and "err"
-  -syslog                      Send the output to syslog instead of standard error
-                               and standard out. The syslog facility defaults to
-                               LOCAL0 and can be changed using a configuration file
-  -syslog-facility=<f>         Sets the facility where syslog should log. If this
-                               attribute is supplied, the -syslog flag must also be
-                               supplied.
+  -consul-addr=<address>
+      Sets the address of the Consul instance
 
-  -wait=<duration[:duration]>  Sets the 'minimum[:maximum]' amount of time to wait
-                               before triggering a restart
-  -splay=<duration>            The maximum time to wait before sending kill signal
-                               to the program, from which a random value is chosen
-  -timeout=<duration>          Time to wait after sending the kill signal to the
-                               program before forcibly killing it
+  -consul-auth=<username[:password]>
+      Set the basic authentication username and password for communicating
+      with Consul.
 
-  -prefix=<prefix>             A prefix to watch, multiple prefixes are merged from
-                               left to right, with the right-most result taking
-                               precedence, including any values specified with
-                               -secret
-  -secret=<prefix>             A secret path to watch in Vault, multiple prefixes
-                               are merged from left to right, with the right-most
-                               result taking precedence, including any values
-                               specified with -prefix
+  -consul-retry
+      Use retry logic when communication with Consul fails
 
-  -sanitize                    Replace invalid characters in keys to underscores
-  -upcase                      Convert all environment variable keys to uppercase
-  -pristine                    Only use variables retrieved from Consul, do not
-                               inherit existing environment variables
+  -consul-retry-attempts=<int>
+      The number of attempts to use when retrying failed communications
 
-  -kill-signal=<signal>        The signal to send to kill the process. Defaults to
-                               SIGTERM
+  -consul-retry-backoff=<duration>
+      The base amount to use for the backoff duration. This number will be
+      increased exponentially for each retry attempt.
 
-  -config=<path>               Sets the path to a configuration file on disk
+  -consul-retry-max-backoff=<duration>
+      The maximum limit of the retry backoff duration. Default is one minute.
+      0 means infinite. The backoff will increase exponentially until given value.
 
-  -once                        Do not run the process as a daemon
-  -version                     Print the version of this daemon
+  -consul-ssl
+      Use SSL when connecting to Consul
+
+  -consul-ssl-ca-cert=<string>
+      Validate server certificate against this CA certificate file list
+
+  -consul-ssl-ca-path=<string>
+      Sets the path to the CA to use for TLS verification
+
+  -consul-ssl-cert=<string>
+      SSL client certificate to send to server
+
+  -consul-ssl-key=<string>
+      SSL/TLS private key for use in client authentication key exchange
+
+  -consul-ssl-server-name=<string>
+      Sets the name of the server to use when validating TLS.
+
+  -consul-ssl-verify
+      Verify certificates when connecting via SSL
+
+  -consul-token=<token>
+      Sets the Consul API token
+
+  -consul-transport-dial-keep-alive=<duration>
+      Sets the amount of time to use for keep-alives
+
+  -consul-transport-dial-timeout=<duration>
+      Sets the amount of time to wait to establish a connection
+
+  -consul-transport-disable-keep-alives
+      Disables keep-alives (this will impact performance)
+
+  -consul-transport-max-idle-conns-per-host=<int>
+      Sets the maximum number of idle connections to permit per host
+
+  -consul-transport-tls-handshake-timeout=<duration>
+      Sets the handshake timeout
+
+  -exec=<command>
+      Enable exec mode to run as a supervisor-like process - the given command
+      will receive all signals provided to the parent process and will receive a
+      signal when templates change
+
+  -exec-kill-signal=<signal>
+      Signal to send when gracefully killing the process
+
+  -exec-kill-timeout=<duration>
+      Amount of time to wait before force-killing the child
+
+  -exec-reload-signal=<signal>
+      Signal to send when a reload takes place
+
+  -exec-splay=<duration>
+      Amount of time to wait before sending signals
+
+  -kill-signal=<signal>
+      Signal to listen to gracefully terminate the process
+
+  -log-level=<level>
+      Set the logging level - values are "debug", "info", "warn", and "err"
+
+  -max-stale=<duration>
+      Set the maximum staleness and allow stale queries to Consul which will
+      distribute work among all servers instead of just the leader
+
+  -once
+      Do not run the process as a daemon
+
+  -pid-file=<path>
+      Path on disk to write the PID of the process
+
+  -prefix=<prefix>
+      A prefix to watch, multiple prefixes are merged from left to right, with
+      the right-most result taking precedence, including any values specified
+      with -secret
+
+  -pristine
+      Only use values retrieved from prefixes and secrets, do not inherit the
+      existing environment variables
+
+  -reload-signal=<signal>
+      Signal to listen to reload configuration
+
+  -sanitize
+      Replace invalid characters in keys to underscores
+
+  -secret=<prefix>
+      A secret path to watch in Vault, multiple prefixes are merged from left
+      to right, with the right-most result taking precedence, including any
+      values specified with -prefix
+
+  -syslog
+      Send the output to syslog instead of standard error and standard out. The
+      syslog facility defaults to LOCAL0 and can be changed using a
+      configuration file
+
+  -syslog-facility=<facility>
+      Set the facility where syslog should log - if this attribute is supplied,
+      the -syslog flag must also be supplied
+
+  -upcase
+      Convert all environment variable keys to uppercase
+
+  -vault-addr=<address>
+      Sets the address of the Vault server
+
+  -vault-grace=<duration>
+      Sets the grace period between lease renewal and secret re-acquisition - if
+      the remaning lease duration is less than this value, Consul Template will
+      acquire a new secret from Vault
+
+  -vault-renew-token
+      Periodically renew the provided Vault API token - this defaults to "true"
+      and will renew the token at half of the lease duration
+
+  -vault-retry
+      Use retry logic when communication with Vault fails
+
+  -vault-retry-attempts=<int>
+      The number of attempts to use when retrying failed communications
+
+  -vault-retry-backoff=<duration>
+      The base amount to use for the backoff duration. This number will be
+      increased exponentially for each retry attempt.
+
+  -vault-retry-max-backoff=<duration>
+      The maximum limit of the retry backoff duration. Default is one minute.
+      0 means infinite. The backoff will increase exponentially until given value.
+
+  -vault-ssl
+      Specifies whether communications with Vault should be done via SSL
+
+  -vault-ssl-ca-cert=<string>
+      Sets the path to the CA certificate to use for TLS verification
+
+  -vault-ssl-ca-path=<string>
+      Sets the path to the CA to use for TLS verification
+
+  -vault-ssl-cert=<string>
+      Sets the path to the certificate to use for TLS verification
+
+  -vault-ssl-key=<string>
+      Sets the path to the key to use for TLS verification
+
+  -vault-ssl-server-name=<string>
+      Sets the name of the server to use when validating TLS.
+
+  -vault-ssl-verify
+      Enable SSL verification for communications with Vault.
+
+  -vault-token=<token>
+      Sets the Vault API token
+
+  -vault-transport-dial-keep-alive=<duration>
+      Sets the amount of time to use for keep-alives
+
+  -vault-transport-dial-timeout=<duration>
+      Sets the amount of time to wait to establish a connection
+
+  -vault-transport-disable-keep-alives
+      Disables keep-alives (this will impact performance)
+
+  -vault-transport-max-idle-conns-per-host=<int>
+      Sets the maximum number of idle connections to permit per host
+
+  -vault-transport-tls-handshake-timeout=<duration>
+      Sets the handshake timeout
+
+  -vault-unwrap-token
+      Unwrap the provided Vault API token (see Vault documentation for more
+      information on this feature)
+
+  -wait=<duration>
+      Sets the 'min(:max)' amount of time to wait before writing a template (and
+      triggering a command)
+
+  -v, -version
+      Print the version of this daemon
 `

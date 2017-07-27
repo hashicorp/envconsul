@@ -13,6 +13,6 @@ func init() {
 }
 
 func main() {
-	cli := &CLI{outStream: os.Stdout, errStream: os.Stderr}
+	cli := NewCLI(os.Stdout, os.Stderr)
 	os.Exit(cli.Run(os.Args))
 }

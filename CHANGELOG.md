@@ -1,7 +1,35 @@
-envconsul Changelog
-===================
+## envconsul CHANGELOG
 
-## v0.6.3.dev (Unreleased)
+## v0.7.0.dev (Unreleased)
+
+BREAKING CHANGES:
+
+  * `kill_signal` (configuration) and `-kill-signal` (CLI) now refer to the
+    signal that _Envconsul_ should listen to for termination, _not_ the signal
+    that Envconsul should send to the child process. Use `exec.kill_signal` or
+    `-exec-kill-signal` to specify the command to send to the child process.
+
+DEPRECATIONS:
+
+  * (configuration) `consul` is now `consul { address = "..." }`.
+  * (configuration) `auth` is now `consul { auth { ... } }`.
+  * (configuration) `path` is deprecated and there is no configuration file
+    replacement. Use the CLI option instead.
+  * (configuration) `splay = "..."` is now `exec { splay = "..." }`.
+  * (configuration) `retry = "..."` is now separately controlled via both the
+    `consul` and `vault` stanzas to allow for additional configuration.
+  * (configuration) `ssl {}` is now separately controlled via both the
+    `consul` and `vault` stanzas to allow for additional configuration.
+  * (configuration) `timeout = "..."` is now `exec { kill_timeout = "..." }`.
+  * (configuration) `token = "..."` is now `consul { token = "..." }`.
+
+  * (cli) `-auth` is now `-consul-auth`.
+  * (cli) `-addr` is now `-consul-addr`.
+  * (cli) `-splay` is now `-exec-splay`.
+  * (cli) `-retry` is now `-consul-retry-*` and `-vault-retry-*`.
+  * (cli) `-ssl-*` is now `-consul-ssl-*` and `-vault-ssl-*`.
+  * (cli) `-timeout` is now `-exec-kill-timeout`.
+  * (cli) `-token` is now `-consul-token`.
 
 ## v0.6.2 (Jan 13, 2017)
 

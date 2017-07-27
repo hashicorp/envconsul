@@ -2,43 +2,30 @@ package main
 
 import (
 	"bytes"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"io"
-	"io/ioutil"
 	"log"
-	"math/rand"
-	"net/http"
 	"os"
-	"os/exec"
 	"reflect"
 	"regexp"
 	"strings"
 	"sync"
-	"syscall"
-	"text/template"
 	"time"
 
-	"github.com/pkg/errors"
-
+	"github.com/hashicorp/consul-template/child"
+	"github.com/hashicorp/consul-template/config"
 	dep "github.com/hashicorp/consul-template/dependency"
-	"github.com/hashicorp/consul-template/signals"
 	"github.com/hashicorp/consul-template/watch"
-	consulapi "github.com/hashicorp/consul/api"
-	vaultapi "github.com/hashicorp/vault/api"
+	shellwords "github.com/mattn/go-shellwords"
+	"github.com/pkg/errors"
 )
 
 // Regexp for invalid characters in keys
 var InvalidRegexp = regexp.MustCompile(`[^a-zA-Z0-9_]`)
 
 type Runner struct {
-	sync.RWMutex
-
-	// // Prefix is the KeyPrefixDependency associated with this Runner.
-	// Prefix *dependency.StoreKeyPrefix
-
 	// ErrCh and DoneCh are channels where errors and finish notifications occur.
 	ErrCh  chan error
 	DoneCh chan struct{}
@@ -47,15 +34,35 @@ type Runner struct {
 	// the child processes.
 	ExitCh chan int
 
+	// child is the child process under management. This may be nil if not running
+	// in exec mode.
+	child *child.Child
+
+	// childLock is the internal lock around the child process.
+	childLock sync.RWMutex
+
 	// config is the Config that created this Runner. It is used internally to
 	// construct other objects and pass data.
 	config *Config
 
+	// configPrefixMap is a map of a dependency's hashcode back to the config
+	// prefix that created it.
+	configPrefixMap map[string]*PrefixConfig
+
+	// data is the latest representation of the data from Consul.
+	data map[string]interface{}
+
+	// dependencies is the list of dependencies this runner is watching.
+	dependencies []dep.Dependency
+
+	// dependenciesLock is a lock around touching the dependencies map.
+	dependenciesLock sync.Mutex
+
+	// env is the last compiled environment.
+	env map[string]string
+
 	// once indicates the runner should get data exactly one time and then stop.
 	once bool
-
-	// minTimer and maxTimer are used for quiescence.
-	minTimer, maxTimer <-chan time.Time
 
 	// outStream and errStream are the io.Writer streams where the runner will
 	// write information.
@@ -64,39 +71,26 @@ type Runner struct {
 	outStream, errStream io.Writer
 	inStream             io.Reader
 
+	// minTimer and maxTimer are used for quiescence.
+	minTimer, maxTimer <-chan time.Time
+
+	// stopLock is the lock around checking if the runner can be stopped
+	stopLock sync.Mutex
+
+	// stopped is a boolean of whether the runner is stopped
+	stopped bool
+
 	// watcher is the watcher this runner is using.
 	watcher *watch.Watcher
-
-	// dependencies is the list of dependencies for this runner.
-	dependencies []dep.Dependency
-
-	// configPrefixMap is a map of a dependency's hashcode back to the config
-	// prefix that created it.
-	configPrefixMap map[string]*ConfigPrefix
-
-	// data is the latest representation of the data from Consul.
-	data map[string]interface{}
-
-	// env is the last compiled environment.
-	env map[string]string
-
-	// command is the string of the command to run. cmd is the last known instance
-	// of the running command.
-	command []string
-	cmd     *exec.Cmd
-
-	// killSignal is the signal to send to kill the process.
-	killSignal os.Signal
 }
 
 // NewRunner accepts a config, command, and boolean value for once mode.
-func NewRunner(config *Config, command []string, once bool) (*Runner, error) {
-	log.Printf("[INFO] (runner) creating new runner (command: %v, once: %v)", command, once)
+func NewRunner(config *Config, once bool) (*Runner, error) {
+	log.Printf("[INFO] (runner) creating new runner (once: %v)", once)
 
 	runner := &Runner{
-		config:  config,
-		command: command,
-		once:    once,
+		config: config,
+		once:   once,
 	}
 
 	if err := runner.init(); err != nil {
@@ -120,26 +114,26 @@ func (r *Runner) Start() {
 
 	for {
 		select {
-		case data := <-r.watcher.DataCh:
-			r.Receive(data.Dependency, data.Data())
+		case data := <-r.watcher.DataCh():
+			r.Receive(data.Dependency(), data.Data())
 
 			// Drain all views that have data
 		OUTER:
 			for {
 				select {
-				case data = <-r.watcher.DataCh:
-					r.Receive(data.Dependency, data.Data())
+				case data = <-r.watcher.DataCh():
+					r.Receive(data.Dependency(), data.Data())
 				default:
 					break OUTER
 				}
 			}
 
 			// If we are waiting for quiescence, setup the timers
-			if r.config.Wait.Min != 0 && r.config.Wait.Max != 0 {
+			if config.BoolVal(r.config.Wait.Enabled) {
 				log.Printf("[INFO] (runner) quiescence timers starting")
-				r.minTimer = time.After(r.config.Wait.Min)
+				r.minTimer = time.After(config.TimeDurationVal(r.config.Wait.Min))
 				if r.maxTimer == nil {
-					r.maxTimer = time.After(r.config.Wait.Max)
+					r.maxTimer = time.After(config.TimeDurationVal(r.config.Wait.Max))
 				}
 				continue
 			}
@@ -149,7 +143,7 @@ func (r *Runner) Start() {
 		case <-r.maxTimer:
 			log.Printf("[INFO] (runner) quiescence maxTimer fired")
 			r.minTimer, r.maxTimer = nil, nil
-		case err := <-r.watcher.ErrCh:
+		case err := <-r.watcher.ErrCh():
 			// Intentionally do not send the error back up to the runner. Eventually,
 			// once Consul API implements errwrap and multierror, we can check the
 			// "type" of error and conditionally alert back.
@@ -189,49 +183,49 @@ func (r *Runner) Start() {
 
 // Stop halts the execution of this runner and its subprocesses.
 func (r *Runner) Stop() {
-	r.Lock()
-	defer r.Unlock()
+	r.stopLock.Lock()
+	defer r.stopLock.Unlock()
+
+	if r.stopped {
+		return
+	}
 
 	log.Printf("[INFO] (runner) stopping")
-	r.watcher.Stop()
+	r.stopWatcher()
+	r.stopChild()
 
-	// Stop the process if it is running
-	if r.cmd != nil {
-		log.Printf("[DEBUG] (runner) killing child process")
-		r.killProcess()
+	if err := r.deletePid(); err != nil {
+		log.Printf("[WARN] (runner) could not remove pid at %q: %s",
+			r.config.PidFile, err)
 	}
+
+	r.stopped = true
 
 	close(r.DoneCh)
 }
 
-// Receive accepts data from Consul and maps that data to the prefix.
+// Receive accepts data from and maps that data to the prefix.
 func (r *Runner) Receive(d dep.Dependency, data interface{}) {
-	r.Lock()
-	defer r.Unlock()
-	r.data[d.HashCode()] = data
+	r.dependenciesLock.Lock()
+	defer r.dependenciesLock.Unlock()
+	log.Printf("[DEBUG] (runner) receiving dependency %s", d)
+	r.data[d.String()] = data
 }
 
 // Signal sends a signal to the child process, if it exists. Any errors that
 // occur are returned.
-func (r *Runner) Signal(sig os.Signal) error {
-	r.Lock()
-	defer r.Unlock()
-
-	if r.cmd == nil || r.cmd.Process == nil {
-		log.Printf("[WARN] (runner) attempted to send %s to subprocess, "+
-			"but it does not exist ", sig.String())
+func (r *Runner) Signal(s os.Signal) error {
+	r.childLock.RLock()
+	defer r.childLock.RUnlock()
+	if r.child == nil {
 		return nil
 	}
-
-	return r.cmd.Process.Signal(sig)
+	return r.child.Signal(s)
 }
 
 // Run executes and manages the child process with the correct environment. The
 // current environment is also copied into the child process environment.
 func (r *Runner) Run() (<-chan int, error) {
-	r.Lock()
-	defer r.Unlock()
-
 	log.Printf("[INFO] (runner) running")
 
 	env := make(map[string]string)
@@ -242,17 +236,19 @@ func (r *Runner) Run() (<-chan int, error) {
 	//
 	// We iterate over the list of config prefixes so that order is maintained,
 	// since order in a map is not deterministic.
+	r.dependenciesLock.Lock()
+	defer r.dependenciesLock.Unlock()
 	for _, d := range r.dependencies {
-		data, ok := r.data[d.HashCode()]
+		data, ok := r.data[d.String()]
 		if !ok {
-			log.Printf("[INFO] (runner) missing data for %s", d.Display())
+			log.Printf("[INFO] (runner) missing data for %s", d)
 			return nil, nil
 		}
 
 		switch typed := d.(type) {
-		case *dep.StoreKeyPrefix:
+		case *dep.KVListQuery:
 			r.appendPrefixes(env, typed, data)
-		case *dep.VaultSecret:
+		case *dep.VaultReadQuery:
 			r.appendSecrets(env, typed, data)
 		default:
 			return nil, fmt.Errorf("unknown dependency type %T", typed)
@@ -260,13 +256,15 @@ func (r *Runner) Run() (<-chan int, error) {
 	}
 
 	// Print the final environment
-	log.Printf("[DEBUG] Environment:")
+	log.Printf("[TRACE] Environment:")
 	for k, v := range env {
-		log.Printf("[DEBUG]   %s=%q", k, v)
+		log.Printf("[TRACE]   %s=%q", k, v)
 	}
 
-	// If the resulting map is the same, do not do anything
-	if reflect.DeepEqual(r.env, env) {
+	// If the resulting map is the same, do not do anything. We use a length
+	// check first to get a small performance increase if something has changed
+	// so we don't immediately delegate to reflect which is slow.
+	if len(r.env) == len(env) && reflect.DeepEqual(r.env, env) {
 		log.Printf("[INFO] (runner) environment was the same")
 		return nil, nil
 	}
@@ -274,16 +272,16 @@ func (r *Runner) Run() (<-chan int, error) {
 	// Update the environment
 	r.env = env
 
-	// Restart the current process if it exists
-	if r.cmd != nil && r.cmd.Process != nil {
-		r.killProcess()
+	if r.child != nil {
+		log.Printf("[INFO] (runner) stopping existing child process")
+		r.stopChild()
 	}
 
 	// Create a new environment
 	newEnv := make(map[string]string)
 
 	// If we are not pristine, copy over all values in the current env.
-	if !r.config.Pristine {
+	if !config.BoolVal(r.config.Pristine) {
 		for _, v := range os.Environ() {
 			list := strings.SplitN(v, "=", 2)
 			newEnv[list[0]] = list[1]
@@ -301,43 +299,36 @@ func (r *Runner) Run() (<-chan int, error) {
 		cmdEnv = append(cmdEnv, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	// Create the command
-	log.Printf("[INFO] (runner) running command %s %s", r.command[0], strings.Join(r.command[1:], " "))
-	cmd := exec.Command(r.command[0], r.command[1:]...)
-	cmd.Stdin = r.inStream
-	cmd.Stdout = r.outStream
-	cmd.Stderr = r.errStream
-	cmd.Env = cmdEnv
-	err := cmd.Start()
+	p := shellwords.NewParser()
+	p.ParseEnv = true
+	p.ParseBacktick = true
+	args, err := p.Parse(config.StringVal(r.config.Exec.Command))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed parsing command")
 	}
 
-	r.cmd = cmd
+	child, err := child.New(&child.NewInput{
+		Stdin:        r.inStream,
+		Stdout:       r.outStream,
+		Stderr:       r.errStream,
+		Command:      args[0],
+		Args:         args[1:],
+		Env:          cmdEnv,
+		Timeout:      0, // Allow running indefinitely
+		ReloadSignal: config.SignalVal(r.config.Exec.ReloadSignal),
+		KillSignal:   config.SignalVal(r.config.Exec.KillSignal),
+		KillTimeout:  config.TimeDurationVal(r.config.Exec.KillTimeout),
+		Splay:        config.TimeDurationVal(r.config.Exec.Splay),
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "spawning child")
+	}
+	if err := child.Start(); err != nil {
+		return nil, errors.Wrap(err, "starting child")
+	}
+	r.child = child
 
-	// Create a new exitCh so that previously invoked commands
-	// (if any) don't cause us to exit, and start a goroutine
-	// to wait for that process to end.
-	exitCh := make(chan int, 1)
-	go func() {
-		err := cmd.Wait()
-		if err == nil {
-			exitCh <- ExitCodeOK
-			return
-		}
-
-		if exiterr, ok := err.(*exec.ExitError); ok {
-			// The program has exited with an exit code != 0
-			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-				exitCh <- status.ExitStatus()
-				return
-			}
-		}
-
-		exitCh <- ExitCodeError
-	}()
-
-	return exitCh, nil
+	return child.ExitCh(), nil
 }
 
 func applyTemplate(contents, key string) (string, error) {
@@ -361,16 +352,16 @@ func applyTemplate(contents, key string) (string, error) {
 }
 
 func (r *Runner) appendPrefixes(
-	env map[string]string, d *dep.StoreKeyPrefix, data interface{}) error {
+	env map[string]string, d *dep.KVListQuery, data interface{}) error {
 	var err error
 
 	typed, ok := data.([]*dep.KeyPair)
 	if !ok {
-		return fmt.Errorf("error converting to keypair %s", d.Display())
+		return fmt.Errorf("error converting to keypair %s", d)
 	}
 
-	// Get the ConfigPrefix so we can get configuration from it.
-	cp := r.configPrefixMap[d.HashCode()]
+	// Get the PrefixConfig so we can get configuration from it.
+	cp := r.configPrefixMap[d.String()]
 
 	// For each pair, update the environment hash. Subsequent runs could
 	// overwrite an existing key.
@@ -384,28 +375,26 @@ func (r *Runner) appendPrefixes(
 		}
 
 		// If the user specified a custom format, apply that here.
-		if cp.Format != "" {
-			key, err = applyTemplate(cp.Format, key)
+		if config.StringPresent(cp.Format) {
+			key, err = applyTemplate(config.StringVal(cp.Format), key)
 			if err != nil {
 				return err
 			}
 		}
 
-		if r.config.Sanitize {
+		if config.BoolVal(r.config.Sanitize) {
 			key = InvalidRegexp.ReplaceAllString(key, "_")
 		}
 
-		if r.config.Upcase {
+		if config.BoolVal(r.config.Upcase) {
 			key = strings.ToUpper(key)
 		}
 
 		if current, ok := env[key]; ok {
-			log.Printf("[DEBUG] (runner) overwriting %s=%q (was %q) from %s",
-				key, value, current, d.Display())
+			log.Printf("[DEBUG] (runner) overwriting %s=%q (was %q) from %s", key, value, current, d)
 			env[key] = value
 		} else {
-			log.Printf("[DEBUG] (runner) setting %s=%q from %s",
-				key, value, d.Display())
+			log.Printf("[DEBUG] (runner) setting %s=%q from %s", key, value, d)
 			env[key] = value
 		}
 	}
@@ -414,16 +403,16 @@ func (r *Runner) appendPrefixes(
 }
 
 func (r *Runner) appendSecrets(
-	env map[string]string, d *dep.VaultSecret, data interface{}) error {
+	env map[string]string, d *dep.VaultReadQuery, data interface{}) error {
 	var err error
 
 	typed, ok := data.(*dep.Secret)
 	if !ok {
-		return fmt.Errorf("error converting to secret %s", d.Display())
+		return fmt.Errorf("error converting to secret %s", d)
 	}
 
-	// Get the ConfigPrefix so we can get configuration from it.
-	cp := r.configPrefixMap[d.HashCode()]
+	// Get the PrefixConfig so we can get configuration from it.
+	cp := r.configPrefixMap[d.String()]
 
 	for key, value := range typed.Data {
 		// Ignore any keys that are empty (not sure if this is even possible in
@@ -437,37 +426,40 @@ func (r *Runner) appendSecrets(
 			continue
 		}
 
-		if !cp.NoPrefix {
+		if !config.BoolVal(cp.NoPrefix) {
 			// Replace the path slashes with an underscore.
-			path := InvalidRegexp.ReplaceAllString(d.Path, "_")
+			pc, ok := r.configPrefixMap[d.String()]
+			if !ok {
+				return fmt.Errorf("missing dependency %s", d)
+			}
+
+			path := InvalidRegexp.ReplaceAllString(config.StringVal(pc.Path), "_")
 
 			// Prefix the key value with the path value.
 			key = fmt.Sprintf("%s_%s", path, key)
 		}
 
 		// If the user specified a custom format, apply that here.
-		if cp.Format != "" {
-			key, err = applyTemplate(cp.Format, key)
+		if config.StringPresent(cp.Format) {
+			key, err = applyTemplate(config.StringVal(cp.Format), key)
 			if err != nil {
 				return err
 			}
 		}
 
-		if r.config.Sanitize {
+		if config.BoolVal(r.config.Sanitize) {
 			key = InvalidRegexp.ReplaceAllString(key, "_")
 		}
 
-		if r.config.Upcase {
+		if config.BoolVal(r.config.Upcase) {
 			key = strings.ToUpper(key)
 		}
 
 		if current, ok := env[key]; ok {
-			log.Printf("[DEBUG] (runner) overwriting %s=%q (was %q) from %s",
-				key, value, current, d.Display())
+			log.Printf("[DEBUG] (runner) overwriting %s=%q (was %q) from %s", key, value, current, d)
 			env[key] = value.(string)
 		} else {
-			log.Printf("[DEBUG] (runner) setting %s=%q from %s",
-				key, value, d.Display())
+			log.Printf("[DEBUG] (runner) setting %s=%q from %s", key, value, d)
 			env[key] = value.(string)
 		}
 	}
@@ -478,25 +470,16 @@ func (r *Runner) appendSecrets(
 // init creates the Runner's underlying data structures and returns an error if
 // any problems occur.
 func (r *Runner) init() error {
-	// Ensure we have defaults
-	config := DefaultConfig()
-	config.Merge(r.config)
-	r.config = config
+	// Ensure default configuration values
+	r.config = DefaultConfig().Merge(r.config)
+	r.config.Finalize()
 
 	// Print the final config for debugging
-	result, err := json.MarshalIndent(r.config, "", "  ")
+	result, err := json.Marshal(r.config)
 	if err != nil {
 		return err
 	}
-	log.Printf("[DEBUG] (runner) final config (tokens suppressed):\n\n%s\n\n",
-		result)
-
-	// Setup the kill signal
-	signal, err := signals.Parse(r.config.KillSignal)
-	if err != nil {
-		return errors.Wrap(err, "runner")
-	}
-	r.killSignal = signal
+	log.Printf("[DEBUG] (runner) final config: %s", result)
 
 	// Create the clientset
 	clients, err := newClientSet(r.config)
@@ -512,7 +495,7 @@ func (r *Runner) init() error {
 	r.watcher = watcher
 
 	r.data = make(map[string]interface{})
-	r.configPrefixMap = make(map[string]*ConfigPrefix)
+	r.configPrefixMap = make(map[string]*PrefixConfig)
 
 	r.inStream = os.Stdin
 	r.outStream = os.Stdout
@@ -523,106 +506,143 @@ func (r *Runner) init() error {
 	r.ExitCh = make(chan int, 1)
 
 	// Parse and add consul dependencies
-	for _, p := range r.config.Prefixes {
-		d, err := dep.ParseStoreKeyPrefix(p.Path)
+	for _, p := range *r.config.Prefixes {
+		d, err := dep.NewKVListQuery(config.StringVal(p.Path))
 		if err != nil {
 			return err
 		}
 		r.dependencies = append(r.dependencies, d)
-		r.configPrefixMap[d.HashCode()] = p
+		r.configPrefixMap[d.String()] = p
 	}
 
 	// Parse and add vault dependencies - it is important that this come after
 	// consul, because consul should never be permitted to overwrite values from
 	// vault; that would expose a security hole since access to consul is
 	// typically less controlled than access to vault.
-	for _, s := range r.config.Secrets {
-		log.Printf("looking at vault %s", s.Path)
-		d, err := dep.ParseVaultSecret(s.Path)
+	for _, s := range *r.config.Secrets {
+		path := config.StringVal(s.Path)
+		log.Printf("looking at vault %s", path)
+		d, err := dep.NewVaultReadQuery(path)
 		if err != nil {
 			return err
 		}
 		r.dependencies = append(r.dependencies, d)
-		r.configPrefixMap[d.HashCode()] = s
+		r.configPrefixMap[d.String()] = s
 	}
 
 	return nil
 }
 
-// Kill the current process in the Runner by sending the r.killSignal and, if
-// necessary, SIGKILL. It is assumed that the process is set on the Runner! It
-// is the caller's responsibility to lock the runner.
-func (r *Runner) killProcess() {
-	// Kill the process
-	exited := false
+func (r *Runner) stopWatcher() {
+	if r.watcher != nil {
+		log.Printf("[DEBUG] (runner) stopping watcher")
+		r.watcher.Stop()
+	}
+}
 
-	// If a splay value was given, sleep for a random amount of time up to the
-	// splay.
-	if r.config.Splay > 0 {
-		nanoseconds := r.config.Splay.Nanoseconds()
-		offset := rand.Int63n(nanoseconds)
+func (r *Runner) stopChild() {
+	r.childLock.RLock()
+	defer r.childLock.RUnlock()
 
-		log.Printf("[INFO] (runner) waiting %.2fs for random splay",
-			time.Duration(offset).Seconds())
+	if r.child != nil {
+		log.Printf("[DEBUG] (runner) stopping child process")
+		r.child.Stop()
+	}
+}
 
-		select {
-		case <-time.After(time.Duration(offset)):
-		case <-r.ExitCh:
-		}
+// storePid is used to write out a PID file to disk.
+func (r *Runner) storePid() error {
+	path := config.StringVal(r.config.PidFile)
+	if path == "" {
+		return nil
 	}
 
-	if err := r.cmd.Process.Signal(r.killSignal); err == nil {
-		// Wait a few seconds for it to exit
-		killCh := make(chan struct{})
-		go func() {
-			defer close(killCh)
-			r.cmd.Process.Wait()
-		}()
+	log.Printf("[INFO] creating pid file at %q", path)
 
-		select {
-		case <-killCh:
-			exited = true
-		case <-time.After(r.config.Timeout):
-		}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
+	if err != nil {
+		return fmt.Errorf("runner: could not open pid file: %s", err)
+	}
+	defer f.Close()
+
+	pid := os.Getpid()
+	_, err = f.WriteString(fmt.Sprintf("%d", pid))
+	if err != nil {
+		return fmt.Errorf("runner: could not write to pid file: %s", err)
+	}
+	return nil
+}
+
+// deletePid is used to remove the PID on exit.
+func (r *Runner) deletePid() error {
+	path := config.StringVal(r.config.PidFile)
+	if path == "" {
+		return nil
 	}
 
-	// If the process still hasn't exited
-	if !exited {
-		log.Printf("[INFO] (runner) command did not exit within %v; killing forcefully",
-			r.config.Timeout)
-		r.cmd.Process.Kill()
+	log.Printf("[DEBUG] removing pid file at %q", path)
+
+	stat, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("runner: could not remove pid file: %s", err)
+	}
+	if stat.IsDir() {
+		return fmt.Errorf("runner: specified pid file path is directory")
 	}
 
-	r.cmd = nil
+	err = os.Remove(path)
+	if err != nil {
+		return fmt.Errorf("runner: could not remove pid file: %s", err)
+	}
+	return nil
 }
 
 // newClientSet creates a new client set from the given config.
-func newClientSet(config *Config) (*dep.ClientSet, error) {
+func newClientSet(c *Config) (*dep.ClientSet, error) {
 	clients := dep.NewClientSet()
 
 	if err := clients.CreateConsulClient(&dep.CreateConsulClientInput{
-		Address:      config.Consul,
-		Token:        config.Token,
-		AuthEnabled:  config.Auth.Enabled,
-		AuthUsername: config.Auth.Username,
-		AuthPassword: config.Auth.Password,
-		SSLEnabled:   config.SSL.Enabled,
-		SSLVerify:    config.SSL.Verify,
-		SSLCert:      config.SSL.Cert,
-		SSLKey:       config.SSL.Key,
-		SSLCACert:    config.SSL.CaCert,
+		Address:                      config.StringVal(c.Consul.Address),
+		Token:                        config.StringVal(c.Consul.Token),
+		AuthEnabled:                  config.BoolVal(c.Consul.Auth.Enabled),
+		AuthUsername:                 config.StringVal(c.Consul.Auth.Username),
+		AuthPassword:                 config.StringVal(c.Consul.Auth.Password),
+		SSLEnabled:                   config.BoolVal(c.Consul.SSL.Enabled),
+		SSLVerify:                    config.BoolVal(c.Consul.SSL.Verify),
+		SSLCert:                      config.StringVal(c.Consul.SSL.Cert),
+		SSLKey:                       config.StringVal(c.Consul.SSL.Key),
+		SSLCACert:                    config.StringVal(c.Consul.SSL.CaCert),
+		SSLCAPath:                    config.StringVal(c.Consul.SSL.CaPath),
+		ServerName:                   config.StringVal(c.Consul.SSL.ServerName),
+		TransportDialKeepAlive:       config.TimeDurationVal(c.Consul.Transport.DialKeepAlive),
+		TransportDialTimeout:         config.TimeDurationVal(c.Consul.Transport.DialTimeout),
+		TransportDisableKeepAlives:   config.BoolVal(c.Consul.Transport.DisableKeepAlives),
+		TransportIdleConnTimeout:     config.TimeDurationVal(c.Consul.Transport.IdleConnTimeout),
+		TransportMaxIdleConns:        config.IntVal(c.Consul.Transport.MaxIdleConns),
+		TransportMaxIdleConnsPerHost: config.IntVal(c.Consul.Transport.MaxIdleConnsPerHost),
+		TransportTLSHandshakeTimeout: config.TimeDurationVal(c.Consul.Transport.TLSHandshakeTimeout),
 	}); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("runner: %s", err)
 	}
 
 	if err := clients.CreateVaultClient(&dep.CreateVaultClientInput{
-		Address:    config.Vault.Address,
-		Token:      config.Vault.Token,
-		SSLEnabled: config.Vault.SSL.Enabled,
-		SSLVerify:  config.Vault.SSL.Verify,
-		SSLCert:    config.Vault.SSL.Cert,
-		SSLKey:     config.Vault.SSL.Key,
-		SSLCACert:  config.Vault.SSL.CaCert,
+		Address:                      config.StringVal(c.Vault.Address),
+		Token:                        config.StringVal(c.Vault.Token),
+		UnwrapToken:                  config.BoolVal(c.Vault.UnwrapToken),
+		SSLEnabled:                   config.BoolVal(c.Vault.SSL.Enabled),
+		SSLVerify:                    config.BoolVal(c.Vault.SSL.Verify),
+		SSLCert:                      config.StringVal(c.Vault.SSL.Cert),
+		SSLKey:                       config.StringVal(c.Vault.SSL.Key),
+		SSLCACert:                    config.StringVal(c.Vault.SSL.CaCert),
+		SSLCAPath:                    config.StringVal(c.Vault.SSL.CaPath),
+		ServerName:                   config.StringVal(c.Vault.SSL.ServerName),
+		TransportDialKeepAlive:       config.TimeDurationVal(c.Vault.Transport.DialKeepAlive),
+		TransportDialTimeout:         config.TimeDurationVal(c.Vault.Transport.DialTimeout),
+		TransportDisableKeepAlives:   config.BoolVal(c.Vault.Transport.DisableKeepAlives),
+		TransportIdleConnTimeout:     config.TimeDurationVal(c.Vault.Transport.IdleConnTimeout),
+		TransportMaxIdleConns:        config.IntVal(c.Vault.Transport.MaxIdleConns),
+		TransportMaxIdleConnsPerHost: config.IntVal(c.Vault.Transport.MaxIdleConnsPerHost),
+		TransportTLSHandshakeTimeout: config.TimeDurationVal(c.Vault.Transport.TLSHandshakeTimeout),
 	}); err != nil {
 		return nil, fmt.Errorf("runner: %s", err)
 	}
@@ -630,146 +650,25 @@ func newClientSet(config *Config) (*dep.ClientSet, error) {
 	return clients, nil
 }
 
-// newConsulClient creates a new API client from the given config and
-func newConsulClient(config *Config) (*consulapi.Client, error) {
-	log.Printf("[INFO] (runner) creating consul/api client")
-
-	consulConfig := consulapi.DefaultConfig()
-
-	if config.Consul != "" {
-		log.Printf("[DEBUG] (runner) setting consul address to %s", config.Consul)
-		consulConfig.Address = config.Consul
-	}
-
-	if config.Token != "" {
-		log.Printf("[DEBUG] (runner) setting consul token")
-		consulConfig.Token = config.Token
-	}
-
-	if config.SSL.Enabled {
-		log.Printf("[DEBUG] (runner) enabling consul SSL")
-		consulConfig.Scheme = "https"
-
-		tlsConfig := &tls.Config{}
-
-		if config.SSL.Cert != "" {
-			cert, err := tls.LoadX509KeyPair(config.SSL.Cert, config.SSL.Cert)
-			if err != nil {
-				return nil, err
-			}
-			tlsConfig.Certificates = []tls.Certificate{cert}
-		}
-		if config.SSL.CaCert != "" {
-			cacert, err := ioutil.ReadFile(config.SSL.CaCert)
-			if err != nil {
-				return nil, err
-			}
-			caCertPool := x509.NewCertPool()
-			caCertPool.AppendCertsFromPEM(cacert)
-
-			tlsConfig.RootCAs = caCertPool
-		}
-		tlsConfig.BuildNameToCertificate()
-
-		if !config.SSL.Verify {
-			log.Printf("[WARN] (runner) disabling consul SSL verification")
-			tlsConfig.InsecureSkipVerify = true
-		}
-		consulConfig.HttpClient.Transport = &http.Transport{
-			TLSClientConfig: tlsConfig,
-		}
-	}
-
-	if config.Auth.Enabled {
-		log.Printf("[DEBUG] (runner) setting basic auth")
-		consulConfig.HttpAuth = &consulapi.HttpBasicAuth{
-			Username: config.Auth.Username,
-			Password: config.Auth.Password,
-		}
-	}
-
-	client, err := consulapi.NewClient(consulConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	return client, nil
-}
-
-// newVaultClient creates a new client for connecting to vault.
-func newVaultClient(config *Config) (*vaultapi.Client, error) {
-	log.Printf("[INFO] (runner) creating vault/api client")
-
-	vaultConfig := vaultapi.DefaultConfig()
-
-	if config.Vault.Address != "" {
-		log.Printf("[DEBUG] (runner) setting vault address to %s", config.Vault.Address)
-		vaultConfig.Address = config.Vault.Address
-	}
-
-	if config.Vault.SSL.Enabled {
-		log.Printf("[DEBUG] (runner) enabling vault SSL")
-		tlsConfig := &tls.Config{}
-
-		if config.Vault.SSL.Cert != "" {
-			cert, err := tls.LoadX509KeyPair(config.Vault.SSL.Cert, config.Vault.SSL.Cert)
-			if err != nil {
-				return nil, err
-			}
-			tlsConfig.Certificates = []tls.Certificate{cert}
-		}
-
-		if config.Vault.SSL.CaCert != "" {
-			cacert, err := ioutil.ReadFile(config.Vault.SSL.CaCert)
-			if err != nil {
-				return nil, err
-			}
-			caCertPool := x509.NewCertPool()
-			caCertPool.AppendCertsFromPEM(cacert)
-
-			tlsConfig.RootCAs = caCertPool
-		}
-		tlsConfig.BuildNameToCertificate()
-
-		if !config.Vault.SSL.Verify {
-			log.Printf("[WARN] (runner) disabling vault SSL verification")
-			tlsConfig.InsecureSkipVerify = true
-		}
-
-		vaultConfig.HttpClient.Transport = &http.Transport{
-			TLSClientConfig: tlsConfig,
-		}
-	}
-
-	client, err := vaultapi.NewClient(vaultConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	if config.Vault.Token != "" {
-		log.Printf("[DEBUG] (runner) setting vault token")
-		client.SetToken(config.Vault.Token)
-	}
-
-	return client, nil
-}
-
 // newWatcher creates a new watcher.
-func newWatcher(config *Config, clients *dep.ClientSet, once bool) (*watch.Watcher, error) {
-	log.Printf("[INFO] (runner) creating Watcher")
+func newWatcher(c *Config, clients *dep.ClientSet, once bool) (*watch.Watcher, error) {
+	log.Printf("[INFO] (runner) creating watcher")
 
-	watcher, err := watch.NewWatcher(&watch.WatcherConfig{
-		Clients:  clients,
-		Once:     once,
-		MaxStale: config.MaxStale,
-		RetryFunc: func(current time.Duration) time.Duration {
-			return config.Retry
-		},
-		RenewVault: config.Vault.Token != "" && config.Vault.Renew,
+	w, err := watch.NewWatcher(&watch.NewWatcherInput{
+		Clients:         clients,
+		MaxStale:        config.TimeDurationVal(c.MaxStale),
+		Once:            once,
+		RenewVault:      config.StringPresent(c.Vault.Token) && config.BoolVal(c.Vault.RenewToken),
+		RetryFuncConsul: watch.RetryFunc(c.Consul.Retry.RetryFunc()),
+		// TODO: Add a sane default retry - right now this only affects "local"
+		// dependencies like reading a file from disk.
+		RetryFuncDefault: nil,
+		RetryFuncVault:   watch.RetryFunc(c.Vault.Retry.RetryFunc()),
+		VaultGrace:       config.TimeDurationVal(c.Vault.Grace),
+		VaultToken:       config.StringVal(c.Vault.Token),
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "runner")
 	}
-
-	return watcher, err
+	return w, nil
 }
