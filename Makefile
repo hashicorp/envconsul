@@ -51,7 +51,7 @@ TEST ?= ./...
 
 # Create a cross-compile target for every os-arch pairing. This will generate
 # a make target for each os/arch like "make linux/amd64" as well as generate a
-# meta target for compiling everything.
+# meta target (build) for compiling everything.
 define make-xc-target
   $1/$2:
   ifneq (,$(findstring ${1}/${2},$(XC_EXCLUDE)))
@@ -71,7 +71,7 @@ define make-xc-target
 				GOARCH=${2} \
 				go build \
 				  -a \
-					-o="pkg/${1}_${2}/${NAME}" \
+					-o="pkg/${1}_${2}/${NAME}${3}" \
 					-ldflags "${LD_FLAGS}"
   endif
   .PHONY: $1/$2
@@ -79,10 +79,10 @@ define make-xc-target
   $1:: $1/$2
   .PHONY: $1
 
-  all:: $1/$2
-  .PHONY: all
+  build:: $1/$2
+  .PHONY: build
 endef
-$(foreach goarch,$(XC_ARCH),$(foreach goos,$(XC_OS),$(eval $(call make-xc-target,$(goos),$(goarch)))))
+$(foreach goarch,$(XC_ARCH),$(foreach goos,$(XC_OS),$(eval $(call make-xc-target,$(goos),$(goarch),$(if $(findstring windows,$(goos)),.exe,)))))
 
 # bootstrap installs the necessary go tools for development or build.
 bootstrap:
@@ -113,8 +113,15 @@ dev:
 		go install -ldflags "${LD_FLAGS}"
 .PHONY: dev
 
+# dist builds the binaries and then signs and packages them for distribution
+dist: _cleanup build _compress _checksum _sign
+.PHONY: dist
+
 # Create a docker compile target for each container. This will create
 # docker/scratch, etc.
+#
+# Create a docker push target for each container. This will create
+# docker-push/scratch, etc.
 define make-docker-target
   docker/$1:
 		@echo "==> Building ${1} Docker container for ${PROJECT}"
@@ -133,12 +140,7 @@ define make-docker-target
 
   docker:: docker/$1
   .PHONY: docker
-endef
-$(foreach target,$(DOCKER_TARGETS),$(eval $(call make-docker-target,$(target))))
 
-# Create a docker push target for each container. This will create
-# docker-push/scratch, etc.
-define make-docker-push-target
   docker-push/$1:
 		@echo "==> Pushing ${1} to Docker registry"
 		@docker push "${OWNER}/${NAME}:${1}"
@@ -148,7 +150,7 @@ define make-docker-push-target
   docker-push:: docker-push/$1
   .PHONY: docker-push
 endef
-$(foreach target,$(DOCKER_TARGETS),$(eval $(call make-docker-push-target,$(target))))
+$(foreach target,$(DOCKER_TARGETS),$(eval $(call make-docker-target,$(target))))
 
 # test runs the test suite.
 test:
@@ -161,3 +163,67 @@ test-race:
 	@echo "==> Testing ${NAME} (race)"
 	@go test -timeout=60s -race -tags="${GOTAGS}" ${GOFILES} ${TESTARGS}
 .PHONY: test-race
+
+# _cleanup removes any previous binaries
+_cleanup:
+	@rm -rf "${CURRENT_DIR}pkg/"
+	@rm -rf "${CURRENT_DIR}bin/"
+
+# _compress compresses all the binaries in pkg/* as tarball and zip.
+_compress:
+	@for platform in $$(find ./pkg -mindepth 1 -maxdepth 1 -type d); do \
+		osarch=$$(basename "$$platform"); \
+		if [ "$$osarch" = "dist" ]; then \
+			continue; \
+		fi; \
+		\
+		ext=""; \
+		if test -z "$${osarch##*windows*}"; then \
+			ext=".exe"; \
+		fi; \
+		cd "$$platform"; \
+		tar -czf "../dist/${NAME}_${VERSION}_$${osarch}.tgz" "${NAME}$${ext}"; \
+		zip -q "../dist/${NAME}_${VERSION}_$${osarch}.zip" "${NAME}$${ext}"; \
+		cd - &>/dev/null
+	done
+.PHONY: _compress
+
+# _checksum produces the checksums for the binaries in pkg/dist
+_checksum:
+	@cd "${CURRENT_DIR}/pkg/dist" && \
+		shasum --algorithm 256 * > ${CURRENT_DIR}/pkg/dist/${NAME}_${VERSION}_SHA256SUMS && \
+		cd - &>/dev/null
+.PHONY: _checksum
+
+# _sign signs the binaries using the given GPG_KEY. This should not be called
+# as a separate function.
+_sign:
+	@echo "==> Signing ${PROJECT} at v${VERSION}"
+ifndef GPG_KEY
+		@echo "==> WARNING: No GPG key specified! Without a GPG key, this release"
+		@echo "             will not be signed. Aborting..."
+		@exit 127
+else
+		@gpg \
+			--default-key "${GPG_KEY}" \
+			--detach-sig "${CURRENT_DIR}/pkg/dist/${NAME}_${VERSION}_SHA256SUMS"
+		@git commit \
+			--allow-empty \
+			--gpg-sign="${GPG_KEY}" \
+			--message "Release v${VERSION}" \
+			--quiet \
+			--signoff
+		@git tag \
+			--annotate \
+			--create-reflog \
+			--local-user "${GPG_KEY}" \
+			--message "Version ${VERSION}" \
+			--sign \
+			"v${VERSION}" master
+endif
+		@echo "--> Do not forget to run:"
+		@echo ""
+		@echo "    git push && git push --tags"
+		@echo ""
+		@echo "And then upload the binaries in dist/!"
+.PHONY: _sign
