@@ -149,7 +149,7 @@ define make-docker-target
 			"${CURRENT_DIR}"
   .PHONY: docker-build/$1
 
-  docker:: docker-build/$1
+  docker-build:: docker-build/$1
   .PHONY: docker-build
 
   docker-push/$1:
