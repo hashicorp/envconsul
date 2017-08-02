@@ -3,7 +3,7 @@
 Envconsul provides a convenient way to launch a subprocess with environment
 variables populated from HashiCorp [Consul][consul] and [Vault][vault]. The tool
 is inspired by [envdir][envdir] and [envchain][envchain], but works on many
-major operating systems without no runtime requirements. It is also available
+major operating systems with no runtime requirements. It is also available
 via a Docker container for scheduled environments.
 
 Envconsul supports [12-factor applications][12-factor] which get their
