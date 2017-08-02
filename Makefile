@@ -33,8 +33,6 @@ XC_OS ?= darwin freebsd linux netbsd openbsd solaris windows
 XC_ARCH ?= 386 amd64 arm
 XC_EXCLUDE ?= darwin/arm solaris/386 solaris/arm windows/arm
 
-XC_OS = darwin
-
 # GPG Signing key (blank by default, means no GPG signing)
 GPG_KEY ?=
 
