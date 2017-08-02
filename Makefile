@@ -114,9 +114,16 @@ dev:
 
 # dist builds the binaries and then signs and packages them for distribution
 dist:
+ifndef GPG_KEY
+	@echo "==> ERROR: No GPG key specified! Without a GPG key, this release cannot"
+	@echo "           be signed. Set the environment variable GPG_KEY to the ID of"
+	@echo "           the GPG key to continue."
+	@exit 127
+else
 	@$(MAKE) -f "${MKFILE_PATH}" _cleanup
 	@$(MAKE) -f "${MKFILE_PATH}" -j4 build
 	@$(MAKE) -f "${MKFILE_PATH}" _compress _checksum _sign
+endif
 .PHONY: dist
 
 # Create a docker compile and push target for each container. This will create
@@ -205,31 +212,25 @@ _checksum:
 # as a separate function.
 _sign:
 	@echo "==> Signing ${PROJECT} at v${VERSION}"
-ifndef GPG_KEY
-		@echo "==> WARNING: No GPG key specified! Without a GPG key, this release"
-		@echo "             will not be signed. Aborting..."
-		@exit 127
-else
-		@gpg \
-			--default-key "${GPG_KEY}" \
-			--detach-sig "${CURRENT_DIR}/pkg/dist/${NAME}_${VERSION}_SHA256SUMS"
-		@git commit \
-			--allow-empty \
-			--gpg-sign="${GPG_KEY}" \
-			--message "Release v${VERSION}" \
-			--quiet \
-			--signoff
-		@git tag \
-			--annotate \
-			--create-reflog \
-			--local-user "${GPG_KEY}" \
-			--message "Version ${VERSION}" \
-			--sign \
-			"v${VERSION}" master
-endif
-		@echo "--> Do not forget to run:"
-		@echo ""
-		@echo "    git push && git push --tags"
-		@echo ""
-		@echo "And then upload the binaries in dist/!"
+	@gpg \
+		--default-key "${GPG_KEY}" \
+		--detach-sig "${CURRENT_DIR}/pkg/dist/${NAME}_${VERSION}_SHA256SUMS"
+	@git commit \
+		--allow-empty \
+		--gpg-sign="${GPG_KEY}" \
+		--message "Release v${VERSION}" \
+		--quiet \
+		--signoff
+	@git tag \
+		--annotate \
+		--create-reflog \
+		--local-user "${GPG_KEY}" \
+		--message "Version ${VERSION}" \
+		--sign \
+		"v${VERSION}" master
+	@echo "--> Do not forget to run:"
+	@echo ""
+	@echo "    git push && git push --tags"
+	@echo ""
+	@echo "And then upload the binaries in dist/!"
 .PHONY: _sign
