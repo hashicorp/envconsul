@@ -33,6 +33,8 @@ XC_OS ?= darwin freebsd linux netbsd openbsd solaris windows
 XC_ARCH ?= 386 amd64 arm
 XC_EXCLUDE ?= darwin/arm solaris/386 solaris/arm windows/arm
 
+XC_OS = darwin
+
 # GPG Signing key (blank by default, means no GPG signing)
 GPG_KEY ?=
 
@@ -104,26 +106,24 @@ deps:
 dev:
 	@echo "==> Installing ${NAME} for ${GOOS}/${GOARCH}"
 	@env \
-		-i \
-		PATH="${PATH}" \
 		CGO_ENABLED="0" \
-		GOOS="${GOOS}" \
-		GOARCH="${GOARCH}" \
-		GOPATH="${GOPATH}" \
-		go install -ldflags "${LD_FLAGS}"
+		go install
 .PHONY: dev
 
 # dist builds the binaries and then signs and packages them for distribution
-dist: _cleanup build _compress _checksum _sign
+dist:
+	@$(MAKE) -f "${MKFILE_PATH}" _cleanup
+	@$(MAKE) -f "${MKFILE_PATH}" -j4 build
+	@$(MAKE) -f "${MKFILE_PATH}" _compress _checksum _sign
 .PHONY: dist
 
-# Create a docker compile target for each container. This will create
-# docker/scratch, etc.
-#
-# Create a docker push target for each container. This will create
-# docker-push/scratch, etc.
+# Create a docker compile and push target for each container. This will create
+# docker-build/scratch, docker-push/scratch, etc. It will also create two meta
+# targets: docker-build and docker-push, which will build and push all
+# configured Docker containers. Each container must have a folder in docker/
+# named after itself with a Dockerfile (docker/alpine/Dockerfile).
 define make-docker-target
-  docker/$1:
+  docker-build/$1:
 		@echo "==> Building ${1} Docker container for ${PROJECT}"
 		@docker build \
 			--rm \
@@ -133,16 +133,18 @@ define make-docker-target
 			--compress \
 			--file="docker/${1}/Dockerfile" \
 			--build-arg="LD_FLAGS=${LD_FLAGS}" \
+			$(if $(filter $1,scratch),--tag="${OWNER}/${NAME}",) \
 			--tag="${OWNER}/${NAME}:${1}" \
 			--tag="${OWNER}/${NAME}:${VERSION}-${1}" \
 			"${CURRENT_DIR}"
-  .PHONY: docker/$1
+  .PHONY: docker-build/$1
 
-  docker:: docker/$1
-  .PHONY: docker
+  docker:: docker-build/$1
+  .PHONY: docker-build
 
   docker-push/$1:
 		@echo "==> Pushing ${1} to Docker registry"
+		$(if $(filter $1,scratch),@docker push "${OWNER}/${NAME}",)
 		@docker push "${OWNER}/${NAME}:${1}"
 		@docker push "${OWNER}/${NAME}:${VERSION}-${1}"
   .PHONY: docker-push/$1
@@ -166,11 +168,12 @@ test-race:
 
 # _cleanup removes any previous binaries
 _cleanup:
-	@rm -rf "${CURRENT_DIR}pkg/"
-	@rm -rf "${CURRENT_DIR}bin/"
+	@rm -rf "${CURRENT_DIR}/pkg/"
+	@rm -rf "${CURRENT_DIR}/bin/"
 
 # _compress compresses all the binaries in pkg/* as tarball and zip.
 _compress:
+	@mkdir -p "${CURRENT_DIR}/pkg/dist"
 	@for platform in $$(find ./pkg -mindepth 1 -maxdepth 1 -type d); do \
 		osarch=$$(basename "$$platform"); \
 		if [ "$$osarch" = "dist" ]; then \
@@ -182,9 +185,9 @@ _compress:
 			ext=".exe"; \
 		fi; \
 		cd "$$platform"; \
-		tar -czf "../dist/${NAME}_${VERSION}_$${osarch}.tgz" "${NAME}$${ext}"; \
-		zip -q "../dist/${NAME}_${VERSION}_$${osarch}.zip" "${NAME}$${ext}"; \
-		cd - &>/dev/null
+		tar -czf "${CURRENT_DIR}/pkg/dist/${NAME}_${VERSION}_$${osarch}.tgz" "${NAME}$${ext}"; \
+		zip -q "${CURRENT_DIR}/pkg/dist/${NAME}_${VERSION}_$${osarch}.zip" "${NAME}$${ext}"; \
+		cd - &>/dev/null; \
 	done
 .PHONY: _compress
 
