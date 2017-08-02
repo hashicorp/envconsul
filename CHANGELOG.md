@@ -1,6 +1,6 @@
 ## envconsul CHANGELOG
 
-## v0.7.0.rc1 (July 27, 2017)
+## v0.7.0 (August 1, 2017)
 
 BREAKING CHANGES:
 
