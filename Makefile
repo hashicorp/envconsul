@@ -74,7 +74,8 @@ define make-xc-target
 				go build \
 				  -a \
 					-o="pkg/${1}_${2}/${NAME}${3}" \
-					-ldflags "${LD_FLAGS}"
+					-ldflags "${LD_FLAGS}" \
+					-tags "${GOTAGS}"
   endif
   .PHONY: $1/$2
 
@@ -105,9 +106,12 @@ deps:
 # dev builds and installs the project locally.
 dev:
 	@echo "==> Installing ${NAME} for ${GOOS}/${GOARCH}"
+	@rm -f "${GOPATH}/pkg/${GOOS}_${GOARCH}/${PROJECT}/version.a" # ldflags change and go doesn't detect
 	@env \
 		CGO_ENABLED="0" \
-		go install
+		go install \
+			-ldflags "${LD_FLAGS}" \
+			-tags "${GOTAGS}"
 .PHONY: dev
 
 # dist builds the binaries and then signs and packages them for distribution
@@ -133,6 +137,7 @@ define make-docker-target
 			--compress \
 			--file="docker/${1}/Dockerfile" \
 			--build-arg="LD_FLAGS=${LD_FLAGS}" \
+			--build-arg="GOTAGS=${GOTAGS}" \
 			$(if $(filter $1,scratch),--tag="${OWNER}/${NAME}",) \
 			--tag="${OWNER}/${NAME}:${1}" \
 			--tag="${OWNER}/${NAME}:${VERSION}-${1}" \
