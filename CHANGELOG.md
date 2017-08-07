@@ -1,5 +1,12 @@
 ## envconsul CHANGELOG
 
+## v0.7.1 (August 7, 2017)
+
+BUG FIXES:
+
+  * Remove dynamic linking due to a missing underscore in CGO_ENABLED during
+      compilation [GH-147]
+
 ## v0.7.0 (August 1, 2017)
 
 BREAKING CHANGES:
