@@ -66,9 +66,9 @@ define make-xc-target
 			--workdir="/go/src/${PROJECT}" \
 			"golang:1.8" \
 			env \
-				CGOENABLED=0 \
-				GOOS=${1} \
-				GOARCH=${2} \
+				CGO_ENABLED="0" \
+				GOOS="${1}" \
+				GOARCH="${2}" \
 				go build \
 				  -a \
 					-o="pkg/${1}_${2}/${NAME}${3}" \
