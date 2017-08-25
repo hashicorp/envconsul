@@ -1,5 +1,9 @@
 ## envconsul CHANGELOG
 
+## v0.7.2.dev (Unreleased)
+
+BUG FIXES:
+
 ## v0.7.2 (August 25, 2017)
 
 IMPROVEMENTS:
