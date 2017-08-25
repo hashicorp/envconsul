@@ -1,5 +1,11 @@
 ## envconsul CHANGELOG
 
+## v0.7.2 (August 25, 2017)
+
+IMPROVEMENTS:
+
+  * Compile using Go 1.9.0
+
 ## v0.7.1 (August 7, 2017)
 
 BUG FIXES:
