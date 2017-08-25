@@ -1,19 +1,80 @@
-## 0.8.0 (unreleased)
+## 0.8.1 (August 16th, 2017)
+
+DEPRECATIONS/CHANGES:
+
+ * PKI Root Generation: Calling `pki/root/generate` when a CA cert/key already
+   exists will now return a `204` instead of overwriting an existing root. If
+   you want to recreate the root, first run a delete operation on `pki/root`
+   (requires `sudo` capability), then generate it again.
+
+FEATURES:
+
+ * **Oracle Secret Backend**: There is now an external plugin to support leased
+   credentials for Oracle databases (distributed separately).
+ * **GCP IAM Auth Backend**: There is now an authentication backend that allows
+   using GCP IAM credentials to retrieve Vault tokens. This is available as
+   both a plugin and built-in to Vault.
+ * **PingID Push Support for Path-Baased MFA (Enterprise)**: PingID Push can
+   now be used for MFA with the new path-based MFA introduced in Vault
+   Enterprise 0.8.
+ * **Permitted DNS Domains Support in PKI**: The `pki` backend now supports
+   specifying permitted DNS domains for CA certificates, allowing you to
+   narrowly scope the set of domains for which a CA can issue or sign child
+   certificates.
+ * **Plugin Backend Reload Endpoint**: Plugin backends can now be triggered to
+   reload using the `sys/plugins/reload/backend` endpoint and providing either
+   the plugin name or the mounts to reload.
+ * **Self-Reloading Plugins**: The plugin system will now attempt to reload a
+   crashed or stopped plugin, once per request.
+ 
+IMPROVEMENTS:
+
+ * auth/approle: Allow array input for policies in addition to comma-delimited
+   strings [GH-3163]
+ * auth/aws: Allow using root credentials for IAM authentication [GH-3181]
+ * plugins: Send logs through Vault's logger rather than stdout [GH-3142]
+ * secret/pki: Add `pki/root` delete operation [GH-3165]
+ * secret/pki: Don't overwrite an existing root cert/key when calling generate
+   [GH-3165]
+
+BUG FIXES:
+
+ * aws: Don't prefer a nil HTTP client over an existing one [GH-3159]
+ * core: If there is an error when checking for create/update existence, return
+   500 instead of 400 [GH-3162]
+ * secret/database: Avoid creating usernames that are too long for legacy MySQL
+   [GH-3138]
+
+## 0.8.0 (August 9th, 2017)
+
+SECURITY:
+
+ * We've added a note to the docs about the way the GitHub auth backend works
+   as it may not be readily apparent that GitHub personal access tokens, which
+   are used by the backend, can be used for unauthorized access if they are
+   stolen from third party services and access to Vault is public.
 
 DEPRECATIONS/CHANGES:
 
  * Database Plugin Backends: Passwords generated for these backends now
    enforce stricter password requirements, as opposed to the previous behavior 
-   of returning a randomized UUID. Passwords are of length 20, and have a `A1a` 
+   of returning a randomized UUID. Passwords are of length 20, and have a `A1a-` 
    characters prepended to ensure stricter requirements. No regressions are 
-   expected from this change.
+   expected from this change. (For database backends that were previously
+   substituting underscores for hyphens in passwords, this will remain the
+   case.)
  * Lease Endpoints: The endpoints `sys/renew`, `sys/revoke`, `sys/revoke-prefix`,
    `sys/revoke-force` have been deprecated and relocated under `sys/leases`.
    Additionally, the deprecated path `sys/revoke-force` now requires the `sudo`
    capability.
+ * Response Wrapping Lookup Unauthenticated: The `sys/wrapping/lookup` endpoint
+   is now unauthenticated. This allows introspection of the wrapping info by
+   clients that only have the wrapping token without then invalidating the
+   token. Validation functions/checks are still performed on the token.
 
 FEATURES:
 
+ * **Cassandra Storage**: Cassandra can now be used for Vault storage
  * **CockroachDB Storage**: CockroachDB can now be used for Vault storage
  * **CouchDB Storage**: CouchDB can now be used for Vault storage
  * **SAP HANA Database Plugin**: The `databases` backend can now manage users
@@ -21,6 +82,37 @@ FEATURES:
  * **Plugin Backends**: Vault now supports running secret and auth backends as
    plugins. Plugins can be mounted like normal backends and can be developed
    independently from Vault.
+ * **PROXY Protocol Support** Vault listeners can now be configured to honor
+   PROXY protocol v1 information to allow passing real client IPs into Vault. A
+   list of authorized addresses (IPs or subnets) can be defined and
+   accept/reject behavior controlled.
+ * **Lease Lookup and Browsing in the Vault Enterprise UI**: Vault Enterprise UI
+   now supports lookup and listing of leases and the associated actions from the 
+   `sys/leases` endpoints in the API. These are located in the new top level 
+   navigation item "Leases".
+ * **Filtered Mounts for Performance Mode Replication**: Whitelists or
+   blacklists of mounts can be defined per-secondary to control which mounts
+   are actually replicated to that secondary. This can allow targeted
+   replication of specific sets of data to specific geolocations/datacenters.
+ * **Disaster Recovery Mode Replication (Enterprise Only)**: There is a new
+   replication mode, Disaster Recovery (DR), that performs full real-time
+   replication (including tokens and leases) to DR secondaries. DR secondaries
+   cannot handle client requests, but can be promoted to primary as needed for
+   failover.
+ * **Manage New Replication Features in the Vault Enterprise UI**: Support for 
+   Replication features in Vault Enterprise UI has expanded to include new DR 
+   Replication mode and management of Filtered Mounts in Performance Replication
+   mode.
+ * **Vault Identity (Enterprise Only)**: Vault's new Identity system allows
+   correlation of users across tokens. At present this is only used for MFA,
+   but will be the foundation of many other features going forward.
+ * **Duo Push, Okta Push, and TOTP MFA For All Authenticated Paths (Enterprise
+   Only)**: A brand new MFA system built on top of Identity allows MFA
+   (currently Duo Push, Okta Push, and TOTP) for any authenticated path within
+   Vault. MFA methods can be configured centrally, and TOTP keys live within
+   the user's Identity information to allow using the same key across tokens.
+   Specific MFA method(s) required for any given path within Vault can be
+   specified in normal ACL path statements.
 
 IMPROVEMENTS:
 
@@ -28,6 +120,8 @@ IMPROVEMENTS:
  * api: Add `RenewTokenAsSelf` [GH-2886]
  * api: Client timeout can now be adjusted with the `VAULT_CLIENT_TIMEOUT` env
    var or with a new API function [GH-2956]
+ * api/cli: Client will now attempt to look up SRV records for the given Vault
+   hostname [GH-3035]
  * audit/socket: Enhance reconnection logic and don't require the connection to
    be established at unseal time [GH-2934]
  * audit/file: Opportunistically try re-opening the file on error [GH-2999]
@@ -39,8 +133,13 @@ IMPROVEMENTS:
    token on stdout and does not store it via the token helper [GH-2855]
  * core: CORS allowed origins can now be configured [GH-2021]
  * core: Add metrics counters for audit log failures [GH-2863]
+ * cors: Allow setting allowed headers via the API instead of always using
+   wildcard [GH-3023]
  * secret/ssh: Allow specifying the key ID format using template values for CA
    type [GH-2888]
+ * server: Add `tls_client_ca_file` option for specifying a CA file to use for
+   client certificate verification when `tls_require_and_verify_client_cert` is
+   enabled [GH-3034]
  * storage/cockroachdb: Add CockroachDB storage backend [GH-2713]
  * storage/couchdb: Add CouchhDB storage backend [GH-2880]
  * storage/mssql: Add `max_parallel` [GH-3026]
@@ -48,6 +147,9 @@ IMPROVEMENTS:
  * storage/postgresql: Improve listing speed [GH-2945]
  * storage/s3: More efficient paging when an object has a lot of subobjects
    [GH-2780]
+ * sys/wrapping: Make `sys/wrapping/lookup` unauthenticated [GH-3084]
+ * sys/wrapping: Wrapped tokens now store the original request path of the data
+   [GH-3100]
  * telemetry: Add support for DogStatsD [GH-2490]
 
 BUG FIXES:
@@ -56,6 +158,8 @@ BUG FIXES:
  * api/leases: Fix lease lookup returning lease properties at the top level
  * audit: Fix panic when audit logging a read operation on an asymmetric
    `transit` key [GH-2958]
+ * auth/approle: Fix panic when secret and cidr list not provided in role
+   [GH-3075]
  * auth/aws: Look up proper account ID on token renew [GH-3012]
  * auth/aws: Store IAM header in all cases when it changes [GH-3004]
  * auth/ldap: Verify given certificate is PEM encoded instead of failing
@@ -65,6 +169,7 @@ BUG FIXES:
  * cli: Fix issue with parsing keys that start with special characters [GH-2998]
  * core: Relocated `sys/leases/renew` returns same payload as original 
    `sys/leases` endpoint [GH-2891]
+ * secret/ssh: Fix panic when signing with incorrect key type [GH-3072]
  * secret/totp: Ensure codes can only be used once. This makes some automated
    workflows harder but complies with the RFC. [GH-2908]
  * secret/transit: Fix locking when creating a key with unsupported options
