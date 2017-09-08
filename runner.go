@@ -105,6 +105,11 @@ func NewRunner(config *Config, once bool) (*Runner, error) {
 func (r *Runner) Start() {
 	log.Printf("[INFO] (runner) starting")
 
+	if len(r.dependencies) == 0 {
+		r.ErrCh <- errors.New("No dependencies to get variables from")
+		return
+	}
+
 	// Add each dependency to the watcher
 	for _, d := range r.dependencies {
 		r.watcher.Add(d)
