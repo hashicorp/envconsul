@@ -578,6 +578,14 @@ func TestParse(t *testing.T) {
 			false,
 		},
 		{
+			"env_prefix",
+			`env_prefix = "hello"`,
+			&Config{
+				EnvPrefix: config.String("hello"),
+			},
+			false,
+		},
+		{
 			"exec_timeout",
 			`exec {
 				timeout = "30s"
@@ -1272,6 +1280,18 @@ func TestConfig_Merge(t *testing.T) {
 				Consul: &config.ConsulConfig{
 					Address: config.String("consul-diff"),
 				},
+			},
+		},
+		{
+			"env_prefix",
+			&Config{
+				EnvPrefix: config.String("env_prefix"),
+			},
+			&Config{
+				EnvPrefix: config.String("env_prefix-diff"),
+			},
+			&Config{
+				EnvPrefix: config.String("env_prefix-diff"),
 			},
 		},
 		{

@@ -375,6 +375,11 @@ func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error)
 	}), "pid-file", "")
 
 	flags.Var((funcVar)(func(s string) error {
+		c.EnvPrefix = config.String(s)
+		return nil
+	}), "env-prefix", "")
+
+	flags.Var((funcVar)(func(s string) error {
 		p, err := ParsePrefixConfig(s)
 		if err != nil {
 			return err
@@ -740,6 +745,10 @@ Options:
 
   -consul-transport-tls-handshake-timeout=<duration>
       Sets the handshake timeout
+
+  -env-prefix=<prefix>
+      Sets a prefix to be added to environment variables keys prior to any key
+      modifications by -sanitize and -upcase
 
   -exec=<command>
       Enable exec mode to run as a supervisor-like process - the given command

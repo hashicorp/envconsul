@@ -55,6 +55,9 @@ type Config struct {
 	// this processes PID.
 	PidFile *string `mapstructure:"pid_file"`
 
+	// EnvPrefix is a prefix added to the keys returned from consul
+	EnvPrefix *string `mapstructure:"env_prefix"`
+
 	// Prefixes is the list of all prefix dependencies (consul)
 	// in merge order.
 	Prefixes *PrefixConfigs `mapstructure:"prefix"`
@@ -106,6 +109,8 @@ func (c *Config) Copy() *Config {
 	o.MaxStale = c.MaxStale
 
 	o.PidFile = c.PidFile
+
+	o.EnvPrefix = c.EnvPrefix
 
 	o.ReloadSignal = c.ReloadSignal
 
@@ -174,6 +179,10 @@ func (c *Config) Merge(o *Config) *Config {
 
 	if o.PidFile != nil {
 		r.PidFile = o.PidFile
+	}
+
+	if o.EnvPrefix != nil {
+		r.EnvPrefix = o.EnvPrefix
 	}
 
 	if o.ReloadSignal != nil {
@@ -491,6 +500,7 @@ func (c *Config) GoString() string {
 		"LogLevel:%s, "+
 		"MaxStale:%s, "+
 		"PidFile:%s, "+
+		"EnvPrefix:%s, "+
 		"Prefixes:%s, "+
 		"Pristine:%s, "+
 		"ReloadSignal:%s, "+
@@ -507,6 +517,7 @@ func (c *Config) GoString() string {
 		config.StringGoString(c.LogLevel),
 		config.TimeDurationGoString(c.MaxStale),
 		config.StringGoString(c.PidFile),
+		config.StringGoString(c.EnvPrefix),
 		c.Prefixes.GoString(),
 		config.BoolGoString(c.Pristine),
 		config.SignalGoString(c.ReloadSignal),
@@ -571,6 +582,10 @@ func (c *Config) Finalize() {
 
 	if c.PidFile == nil {
 		c.PidFile = config.String("")
+	}
+
+	if c.EnvPrefix == nil {
+		c.EnvPrefix = config.String("")
 	}
 
 	if c.Pristine == nil {

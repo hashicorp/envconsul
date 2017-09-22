@@ -432,6 +432,14 @@ func TestCLI_ParseFlags(t *testing.T) {
 			false,
 		},
 		{
+			"env-prefix",
+			[]string{"-env-prefix", "testprefix_"},
+			&Config{
+				EnvPrefix: config.String("testprefix_"),
+			},
+			false,
+		},
+		{
 			"exec",
 			[]string{"-exec", "command"},
 			&Config{

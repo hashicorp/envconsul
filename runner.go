@@ -382,6 +382,10 @@ func (r *Runner) appendPrefixes(
 			}
 		}
 
+		if config.StringVal(r.config.EnvPrefix) != "" {
+			key = fmt.Sprint(config.StringVal(r.config.EnvPrefix), key)
+		}
+
 		if config.BoolVal(r.config.Sanitize) {
 			key = InvalidRegexp.ReplaceAllString(key, "_")
 		}
@@ -445,6 +449,10 @@ func (r *Runner) appendSecrets(
 			if err != nil {
 				return err
 			}
+		}
+
+		if config.StringVal(r.config.EnvPrefix) != "" {
+			key = fmt.Sprint(config.StringVal(r.config.EnvPrefix), key)
 		}
 
 		if config.BoolVal(r.config.Sanitize) {
