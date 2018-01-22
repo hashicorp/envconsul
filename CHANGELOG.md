@@ -2,6 +2,12 @@
 
 ## v0.7.3 (UNRELEASED)
 
+SECURITY:
+
+  * Fixed an issue where the parent's environment could get supplied to the child
+    process if `envconsul` is given an empty prefix, even when using `-pristine`
+    [GH-159]
+
 IMPROVEMENTS:
 
   * Compile using Go 1.9.2 [GH-158]
