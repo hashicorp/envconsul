@@ -2,9 +2,13 @@
 
 ## v0.7.3 (UNRELEASED)
 
+IMPROVEMENTS:
+
+  * Compile using Go 1.9.2 [GH-158]
+
 BUG FIXES:
 
-  * Fixed Makefile to use Go version from the environment. [GH-157]
+  * Fixed Makefile to use Go version from the environment [GH-157]
 
 ## v0.7.2 (August 25, 2017)
 
