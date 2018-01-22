@@ -106,7 +106,6 @@ dev:
 	@echo "==> Installing ${NAME} for ${GOOS}/${GOARCH}"
 	@rm -f "${GOPATH}/pkg/${GOOS}_${GOARCH}/${PROJECT}/version.a" # ldflags change and go doesn't detect
 	@env \
-		CGO_ENABLED="0" \
 		go install \
 			-ldflags "${LD_FLAGS}" \
 			-tags "${GOTAGS}"
