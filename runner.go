@@ -293,8 +293,11 @@ func (r *Runner) Run() (<-chan int, error) {
 		newEnv[k] = v
 	}
 
-	// Prepare the final environment
-	var cmdEnv []string
+	// Prepare the final environment. Note that it's CRUCIAL for us to
+	// initialize this slice to an empty one vs. a nil one, since that's
+	// how the child process class decides whether to pull in the parent's
+	// environment or not, and we control that via -pristine.
+	cmdEnv := make([]string, 0)
 	for k, v := range newEnv {
 		cmdEnv = append(cmdEnv, fmt.Sprintf("%s=%s", k, v))
 	}
