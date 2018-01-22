@@ -1,6 +1,6 @@
 ## envconsul CHANGELOG
 
-## v0.7.3 (UNRELEASED)
+## v0.7.3 (January 22, 2018)
 
 SECURITY:
 
