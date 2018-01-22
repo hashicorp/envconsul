@@ -64,7 +64,7 @@ define make-xc-target
 			--dns="8.8.8.8" \
 			--volume="${CURRENT_DIR}:/go/src/${PROJECT}" \
 			--workdir="/go/src/${PROJECT}" \
-			"golang:1.8" \
+			"golang:${GOVERSION}" \
 			env \
 				CGO_ENABLED="0" \
 				GOOS="${1}" \
