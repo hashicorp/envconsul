@@ -22,7 +22,7 @@ portability for applications across systems.
   releases][releases] page. You can download zip or tarball.
 
     ```shell
-    $ curl -so envconsul.tgz https://releases.hashicorp.com/envconsul/0.6.2/envconsul_0.6.2_linux_amd64.tgz
+    $ curl -so envconsul.tgz https://releases.hashicorp.com/envconsul/0.7.3/envconsul_0.7.3_linux_amd64.tgz
     ```
 
 1. Extract the binary using `unzip` or `tar`.
