@@ -774,10 +774,13 @@ Options:
   -pid-file=<path>
       Path on disk to write the PID of the process
 
-  -prefix=<prefix>
+  -prefix=<prefix path>[@<prefix format>]
       A prefix to watch, multiple prefixes are merged from left to right, with
       the right-most result taking precedence, including any values specified
       with -secret
+      Optionally, a prefix format can be passed along with the path. The
+      delimiter in use is "@".  By default, an empty format defaults on "{{ key }}",
+      each prefix can have its own format.
 
   -pristine
       Only use values retrieved from prefixes and secrets, do not inherit the

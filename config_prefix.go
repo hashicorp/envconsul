@@ -16,10 +16,24 @@ type PrefixConfig struct {
 }
 
 func ParsePrefixConfig(s string) (*PrefixConfig, error) {
-	s = strings.TrimPrefix(s, "/")
-	return &PrefixConfig{
-		Path: config.String(s),
-	}, nil
+	switch parts := strings.Split(s, "@"); len(parts) {
+	case 1:
+		path := strings.TrimPrefix(parts[0], "/")
+
+		return &PrefixConfig{
+			Path: config.String(path),
+		}, nil
+	case 2:
+		path := strings.TrimPrefix(parts[0], "/")
+		format := parts[1]
+
+		return &PrefixConfig{
+			Path: config.String(path),
+			Format: config.String(format),
+		}, nil
+	default:
+		return nil, fmt.Errorf("Wrong number of delimiters found when parsing prefix (%d, expected 1 at most)", len(parts))
+	}
 }
 
 func DefaultPrefixConfig() *PrefixConfig {

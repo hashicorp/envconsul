@@ -520,7 +520,7 @@ func TestCLI_ParseFlags(t *testing.T) {
 			"prefix_multi",
 			[]string{
 				"-prefix", "foo/bar",
-				"-prefix", "zip/zap",
+				"-prefix", "zip/zap@zap_{{key}}",
 			},
 			&Config{
 				Prefixes: &PrefixConfigs{
@@ -529,6 +529,7 @@ func TestCLI_ParseFlags(t *testing.T) {
 					},
 					&PrefixConfig{
 						Path: config.String("zip/zap"),
+						Format: config.String("zap_{{key}}"),
 					},
 				},
 			},
