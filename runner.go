@@ -301,14 +301,11 @@ func (r *Runner) Run() (<-chan int, error) {
 	// anyGlobMatch is a helper function which checks if any of the given globs
 	// match the string.
 	anyGlobMatch := func(s string, patterns []string) bool {
-		fmt.Printf("comparing\n %s with %s", s, patterns)
 		for _, pattern := range patterns {
 			if matched, _ := filepath.Match(pattern, s); matched {
-				fmt.Printf("match\n")
 				return true
 			}
 		}
-		fmt.Printf("no match\n")
 		return false
 	}
 
