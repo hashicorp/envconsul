@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"strings"
@@ -281,7 +282,7 @@ func (r *Runner) Run() (<-chan int, error) {
 	newEnv := make(map[string]string)
 
 	// If we are not pristine, copy over all values in the current env.
-	if !config.BoolVal(r.config.Pristine) {
+	if !config.BoolVal(r.config.Pristine) && !config.BoolVal(r.config.Exec.Env.Pristine) {
 		for _, v := range os.Environ() {
 			list := strings.SplitN(v, "=", 2)
 			newEnv[list[0]] = list[1]
@@ -292,6 +293,24 @@ func (r *Runner) Run() (<-chan int, error) {
 	for k, v := range r.env {
 		newEnv[k] = v
 	}
+	for _, v := range r.config.Exec.Env.Env() {
+		list := strings.SplitN(v, "=", 2)
+                newEnv[list[0]] = list[1]
+	}
+
+	// anyGlobMatch is a helper function which checks if any of the given globs
+	// match the string.
+	anyGlobMatch := func(s string, patterns []string) bool {
+		fmt.Printf("comparing\n %s with %s", s, patterns)
+		for _, pattern := range patterns {
+			if matched, _ := filepath.Match(pattern, s); matched {
+				fmt.Printf("match\n")
+				return true
+			}
+		}
+		fmt.Printf("no match\n")
+		return false
+	}
 
 	// Prepare the final environment. Note that it's CRUCIAL for us to
 	// initialize this slice to an empty one vs. a nil one, since that's
@@ -299,6 +318,16 @@ func (r *Runner) Run() (<-chan int, error) {
 	// environment or not, and we control that via -pristine.
 	cmdEnv := make([]string, 0)
 	for k, v := range newEnv {
+		if len(r.config.Exec.Env.Whitelist) > 0 {
+			if !anyGlobMatch(k, r.config.Exec.Env.Whitelist) {
+				continue
+			}
+		}
+		if len(r.config.Exec.Env.Blacklist) > 0 {
+			if anyGlobMatch(k, r.config.Exec.Env.Blacklist) {
+				continue
+			}
+		}
 		cmdEnv = append(cmdEnv, fmt.Sprintf("%s=%s", k, v))
 	}
 
