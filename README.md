@@ -560,9 +560,9 @@ file. It is not possible to specify these values via the command line:
 
 ```hcl
 vault {
-  address = "https://vault.service.consul:8200"
-  token   = "abcd1234" # May also be specified via the envvar VAULT_TOKEN
-  renew   = true
+  address     = "https://vault.service.consul:8200"
+  token       = "abcd1234" # May also be specified via the envvar VAULT_TOKEN
+  renew_token = true
 
   ssl {
     enabled = true
