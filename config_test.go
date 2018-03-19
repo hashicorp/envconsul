@@ -686,6 +686,20 @@ func TestParse(t *testing.T) {
 			false,
 		},
 		{
+			"prefix_path_template",
+			`prefix {
+				path = "foo/{{ env \"BAR\" }}"
+			}`,
+			&Config{
+				Prefixes: &PrefixConfigs{
+					&PrefixConfig{
+						Path: config.String(`foo/{{ env "BAR" }}`),
+					},
+				},
+			},
+			false,
+		},
+		{
 			"pristine",
 			`pristine = true`,
 			&Config{

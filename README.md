@@ -347,6 +347,13 @@ prefix {
   path = "foo/bar"
 }
 
+prefix {
+  # This tells Envconsul to use a custom formatter when building the path for
+  # the key from which to read data, in this case reading an environment
+  # variable and putting it into the path.
+  path = "foo/{{ env \"BAR\" }}"
+}
+
 # This tells Envconsul to not include the parent processes' environment when
 # launching the child process.
 pristine = false

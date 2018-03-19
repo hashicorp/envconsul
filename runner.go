@@ -355,6 +355,30 @@ func applyFormatTemplate(contents, key string) (string, error) {
 	return buf.String(), nil
 }
 
+func applyPathTemplate(contents string) (string, error) {
+	funcs := template.FuncMap{
+		"env": func(key string) (string, error) {
+			envVar, exists := os.LookupEnv(key)
+			if !exists {
+				return "", fmt.Errorf("unable to read environment variable %q in template %q", key, contents)
+			}
+			return envVar, nil
+		},
+	}
+
+	tmpl, err := template.New("path").Funcs(funcs).Parse(contents)
+	if err != nil {
+		return "", nil
+	}
+
+	var buf bytes.Buffer
+	if err = tmpl.Execute(&buf, nil); err != nil {
+		return "", err
+	}
+
+	return buf.String(), nil
+}
+
 func (r *Runner) appendPrefixes(
 	env map[string]string, d *dep.KVListQuery, data interface{}) error {
 	var err error
@@ -474,7 +498,11 @@ func (r *Runner) appendSecrets(
 				return fmt.Errorf("missing dependency %s", d)
 			}
 
-			path := InvalidRegexp.ReplaceAllString(config.StringVal(pc.Path), "_")
+			path, err := applyPathTemplate(config.StringVal(pc.Path))
+			if err != nil {
+				return err
+			}
+			path = InvalidRegexp.ReplaceAllString(path, "_")
 
 			// Prefix the key value with the path value.
 			key = fmt.Sprintf("%s_%s", path, key)
@@ -548,7 +576,11 @@ func (r *Runner) init() error {
 
 	// Parse and add consul dependencies
 	for _, p := range *r.config.Prefixes {
-		d, err := dep.NewKVListQuery(config.StringVal(p.Path))
+		path, err := applyPathTemplate(config.StringVal(p.Path))
+		if err != nil {
+			return err
+		}
+		d, err := dep.NewKVListQuery(path)
 		if err != nil {
 			return err
 		}
@@ -561,7 +593,11 @@ func (r *Runner) init() error {
 	// vault; that would expose a security hole since access to consul is
 	// typically less controlled than access to vault.
 	for _, s := range *r.config.Secrets {
-		path := config.StringVal(s.Path)
+		path, err := applyPathTemplate(config.StringVal(s.Path))
+		if err != nil {
+			return err
+		}
+
 		log.Printf("[INFO] looking at vault %s", path)
 		d, err := dep.NewVaultReadQuery(path)
 		if err != nil {
