@@ -64,6 +64,10 @@ type Config struct {
 	// environment
 	Pristine *bool `mapstructure:"pristine"`
 
+	// PristineExcept adds exceptions for inheriting from existing
+	// environment
+	PristineExcepts *PristineExceptConfigs `mapstructure:"pristine_except"`
+
 	// ReloadSignal is the signal to listen for a reload event.
 	ReloadSignal *os.Signal `mapstructure:"reload_signal"`
 
@@ -114,6 +118,8 @@ func (c *Config) Copy() *Config {
 	}
 
 	o.Pristine = c.Pristine
+
+	o.PristineExcepts = c.PristineExcepts
 
 	o.Sanitize = c.Sanitize
 
@@ -186,6 +192,10 @@ func (c *Config) Merge(o *Config) *Config {
 
 	if o.Pristine != nil {
 		r.Pristine = o.Pristine
+	}
+
+	if o.PristineExcepts != nil {
+		r.PristineExcepts = r.PristineExcepts.Merge(o.PristineExcepts)
 	}
 
 	if o.Sanitize != nil {
@@ -526,6 +536,7 @@ func DefaultConfig() *Config {
 		Consul:   config.DefaultConsulConfig(),
 		Exec:     config.DefaultExecConfig(),
 		Prefixes: DefaultPrefixConfigs(),
+		PristineExcepts: DefaultPristineExceptConfigs(),
 		Secrets:  DefaultPrefixConfigs(),
 		Syslog:   config.DefaultSyslogConfig(),
 		Vault:    config.DefaultVaultConfig(),
@@ -568,6 +579,11 @@ func (c *Config) Finalize() {
 		c.Prefixes = DefaultPrefixConfigs()
 	}
 	c.Prefixes.Finalize()
+
+	if c.PristineExcepts == nil {
+		c.PristineExcepts = DefaultPristineExceptConfigs()
+	}
+	c.PristineExcepts.Finalize()
 
 	if c.PidFile == nil {
 		c.PidFile = config.String("")

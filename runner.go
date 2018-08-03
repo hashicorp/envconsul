@@ -279,12 +279,19 @@ func (r *Runner) Run() (<-chan int, error) {
 
 	// Create a new environment
 	newEnv := make(map[string]string)
-
+	// fmt.Println(r.config.PristineExcepts)
 	// If we are not pristine, copy over all values in the current env.
 	if !config.BoolVal(r.config.Pristine) {
 		for _, v := range os.Environ() {
 			list := strings.SplitN(v, "=", 2)
 			newEnv[list[0]] = list[1]
+		}
+	} else {
+		for _, pe := range *r.config.PristineExcepts {
+			envValue := os.Getenv(*pe.Name)
+			if envValue != "" {
+				newEnv[*pe.Name] = envValue
+			}
 		}
 	}
 
