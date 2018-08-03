@@ -389,6 +389,15 @@ func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error)
 	}), "pristine", "")
 
 	flags.Var((funcVar)(func(s string) error {
+		p, err := ParsePristineExceptConfig(s)
+		if err != nil {
+			return err
+		}
+		*c.PristineExcepts = append(*c.PristineExcepts, p)
+		return nil
+	}), "pristine-except", "")
+
+	flags.Var((funcVar)(func(s string) error {
 		sig, err := signals.Parse(s)
 		if err != nil {
 			return err
@@ -613,6 +622,7 @@ func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error)
 	if err := flags.Parse(args); err != nil {
 		return nil, nil, false, false, err
 	}
+	
 
 	// Convert any arguments given after to the command, but a command specified
 	// via the flag takes precedence.
@@ -623,6 +633,7 @@ func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error)
 		}
 	}
 
+	
 	return c, configPaths, once, isVersion, nil
 }
 
@@ -781,7 +792,10 @@ Options:
 
   -pristine
       Only use values retrieved from prefixes and secrets, do not inherit the
-      existing environment variables
+	  existing environment variables
+
+  -pristine-except
+      Add exceptions to pristine 
 
   -reload-signal=<signal>
       Signal to listen to reload configuration
