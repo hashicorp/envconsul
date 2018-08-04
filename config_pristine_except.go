@@ -7,7 +7,7 @@ import (
 	"github.com/hashicorp/consul-template/config"
 )
 
-// PristineExcept is *TODO*
+// PristineExcept is names of environment variables to exclude from pristine
 type PristineExceptConfig struct {
 	Name *string `mapstructure:"name"`
 }
