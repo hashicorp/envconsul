@@ -685,11 +685,37 @@ func TestParse(t *testing.T) {
 			},
 			false,
 		},
+		
 		{
 			"pristine",
 			`pristine = true`,
 			&Config{
 				Pristine: config.Bool(true),
+			},
+			false,
+		},
+		{
+			"pristine_except",
+			`pristine_except {
+			}`,
+			&Config{
+				PristineExcepts: &PristineExceptConfigs{
+					&PristineExceptConfig{},
+				},
+			},
+			false,
+		},
+		{
+			"pristine_except_name",
+			`pristine_except {
+				name = "hostname"
+			}`,
+			&Config{
+				PristineExcepts: &PristineExceptConfigs{
+					&PristineExceptConfig{
+						Name: config.String("hostname"),
+					},
+				},
 			},
 			false,
 		},
@@ -1377,6 +1403,33 @@ func TestConfig_Merge(t *testing.T) {
 			},
 			&Config{
 				Pristine: config.Bool(false),
+			},
+		},
+		{
+			"pristine-except",
+			&Config{
+				PristineExcepts: &PristineExceptConfigs{
+					&PristineExceptConfig{
+						Name: config.String("hostname"),
+					},
+				},
+			},
+			&Config{
+				PristineExcepts: &PristineExceptConfigs{
+					&PristineExceptConfig{
+						Name: config.String("gopath"),
+					},
+				},
+			},
+			&Config{
+				PristineExcepts: &PristineExceptConfigs{
+					&PristineExceptConfig{
+						Name: config.String("hostname"),
+					},
+					&PristineExceptConfig{
+						Name: config.String("gopath"),
+					},
+				},
 			},
 		},
 		{
