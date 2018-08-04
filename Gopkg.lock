@@ -28,23 +28,8 @@
 [[projects]]
   branch = "master"
   name = "github.com/hashicorp/consul-template"
-  packages = [
-    "child",
-    "config",
-    "dependency",
-    "logging",
-    "manager",
-    "signals",
-    "template",
-    "watch"
-  ]
+  packages = ["child","config","dependency","logging","manager","signals","template","watch"]
   revision = "287cbe7a8473b37079a978ca114da67dcf5c35d7"
-
-[[projects]]
-  name = "github.com/hashicorp/envconsul"
-  packages = ["version"]
-  revision = "52a27abd069134deb4bd752336ff3d57fcd22712"
-  version = "v0.7.3"
 
 [[projects]]
   branch = "master"
@@ -85,17 +70,7 @@
 [[projects]]
   branch = "master"
   name = "github.com/hashicorp/hcl"
-  packages = [
-    ".",
-    "hcl/ast",
-    "hcl/parser",
-    "hcl/scanner",
-    "hcl/strconv",
-    "hcl/token",
-    "json/parser",
-    "json/scanner",
-    "json/token"
-  ]
+  packages = [".","hcl/ast","hcl/parser","hcl/scanner","hcl/strconv","hcl/token","json/parser","json/scanner","json/token"]
   revision = "8f6b1344a92ff8877cf24a5de9177bf7d0a2a187"
 
 [[projects]]
@@ -112,12 +87,7 @@
 
 [[projects]]
   name = "github.com/hashicorp/vault"
-  packages = [
-    "api",
-    "helper/compressutil",
-    "helper/jsonutil",
-    "helper/parseutil"
-  ]
+  packages = ["api","helper/compressutil","helper/jsonutil","helper/parseutil"]
   revision = "8d76a41854608c547a233f2e6292ae5355154695"
   version = "v0.8.1"
 
@@ -154,28 +124,13 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
-  packages = [
-    "http2",
-    "http2/hpack",
-    "idna",
-    "lex/httplex"
-  ]
+  packages = ["http2","http2/hpack","idna","lex/httplex"]
   revision = "57efc9c3d9f91fb3277f8da1cff370539c4d3dc5"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/text"
-  packages = [
-    "internal/gen",
-    "internal/triegen",
-    "internal/ucd",
-    "secure/bidirule",
-    "transform",
-    "unicode/bidi",
-    "unicode/cldr",
-    "unicode/norm",
-    "unicode/rangetable"
-  ]
+  packages = ["internal/gen","internal/triegen","internal/ucd","secure/bidirule","transform","unicode/bidi","unicode/cldr","unicode/norm","unicode/rangetable"]
   revision = "ac87088df8ef557f1e32cd00ed0b6fbc3f7ddafb"
 
 [[projects]]
@@ -187,6 +142,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "9fc65b83b14d88ea18338677566c1530dd1ac3695a3eddd305c43051cf9e5e32"
+  inputs-digest = "48f04c77d755303edfc764c96f37fd410091b7e9c98714272c54f69c33c079f1"
   solver-name = "gps-cdcl"
   solver-version = 1
