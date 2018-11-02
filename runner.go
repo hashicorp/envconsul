@@ -524,7 +524,7 @@ func (r *Runner) init() error {
 	// typically less controlled than access to vault.
 	for _, s := range *r.config.Secrets {
 		path := config.StringVal(s.Path)
-		log.Printf("looking at vault %s", path)
+		log.Printf("[INFO] looking at vault %s", path)
 		d, err := dep.NewVaultReadQuery(path)
 		if err != nil {
 			return err
