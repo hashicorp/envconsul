@@ -44,7 +44,7 @@ func TestRunner_appendSecrets(t *testing.T) {
 			&Config{
 				Secrets: &PrefixConfigs{
 					&PrefixConfig{
-						Path: config.String("Secret/data/foo"),
+						Path: config.String("secret/data/foo"),
 					},
 				},
 			},
