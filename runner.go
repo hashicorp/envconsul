@@ -22,9 +22,10 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Regexp for invalid characters in keys
+// InvalidRegexp is a regexp for invalid characters in keys
 var InvalidRegexp = regexp.MustCompile(`[^a-zA-Z0-9_]`)
 
+// Runner executes a given child process with configuration
 type Runner struct {
 	// ErrCh and DoneCh are channels where errors and finish notifications occur.
 	ErrCh  chan error
@@ -418,6 +419,39 @@ func (r *Runner) appendSecrets(
 	cp := r.configPrefixMap[d.String()]
 
 	for key, value := range typed.Data {
+		// check for presence of "metadata", indicating this value came from Vault
+		// kv version 2, and we should then use the sub map instead
+		if key == "metadata" {
+			continue
+		}
+
+		// Vault Secrets KV1 and KV2 return different formats. Here we check the key
+		// value, and if we've found another key called "data" that is of type
+		// map[string]interface, we assume it's KV2 and use the key/value pair from
+		// it, otherwise we assume it's KV1
+		//
+		// value here in KV1 format is a simple string.
+		// value in KV2 format is a map:
+		// map[string]interface {}{
+		//   "key": "value",
+		// }
+		if key == "data" {
+			switch value.(type) {
+			case map[string]interface{}:
+				log.Printf("[DEBUG] Found KV2 secret")
+				mapV := value.(map[string]interface{})
+
+				// assumes this map is only 1 element long, we change the key and value
+				// to match the sub element
+				for k, v := range mapV {
+					key = k
+					value = v
+				}
+			default:
+				// only handle the sub data map, do nothing otherwise
+			}
+		}
+
 		// Ignore any keys that are empty (not sure if this is even possible in
 		// Vault, but I play defense).
 		if strings.TrimSpace(key) == "" {
