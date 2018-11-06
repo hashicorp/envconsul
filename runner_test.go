@@ -2,63 +2,42 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/consul-template/config"
 	"github.com/hashicorp/consul-template/dependency"
-	"github.com/y0ssar1an/q"
 )
 
 func TestRunner_appendSecrets(t *testing.T) {
 	t.Parallel()
 
-	cases := []struct {
-		name string
-		f    []string
-		e    *Config
+	secretValue := "somevalue"
+
+	cases := map[string]struct {
 		path string
 		data *dependency.Secret
 		err  bool
 	}{
-		{
-			"kv1_secret",
-			[]string{"-secret", "kv/bar"},
-			&Config{
-				Secrets: &PrefixConfigs{
-					&PrefixConfig{
-						Path: config.String("kv/bar"),
-					},
-				},
-			},
+		"kv1_secret": {
 			"kv/bar",
 			&dependency.Secret{
 				Data: map[string]interface{}{
-					"key_field": "some_value",
+					"key_field": secretValue,
 				},
 			},
 			false,
 		},
-		{
-			"kv2_secret",
-			[]string{"-secret", "secret/data/foo"},
-			&Config{
-				Secrets: &PrefixConfigs{
-					&PrefixConfig{
-						Path: config.String("secret/data/foo"),
-					},
-				},
-			},
+		"kv2_secret": {
 			"secret/data/foo",
 			&dependency.Secret{
 				Data: map[string]interface{}{
 					"metadata": map[string]interface{}{
-						"deletion_time": "",
-						"destroyed":     bool(false),
-						"version":       "1",
-						"created_time":  "2018-11-06T16:43:59.705051Z",
+						"destroyed": bool(false),
+						"version":   "1",
 					},
 					"data": map[string]interface{}{
-						"kvVersion": "kv2",
+						"key_field": secretValue,
 					},
 				},
 			},
@@ -66,9 +45,16 @@ func TestRunner_appendSecrets(t *testing.T) {
 		},
 	}
 
-	for i, tc := range cases {
-		t.Run(fmt.Sprintf("%d_%s", i, tc.name), func(t *testing.T) {
-			c := DefaultConfig().Merge(tc.e)
+	for name, tc := range cases {
+		t.Run(fmt.Sprintf("%s", name), func(t *testing.T) {
+			cfg := Config{
+				Secrets: &PrefixConfigs{
+					&PrefixConfig{
+						Path: config.String(tc.path),
+					},
+				},
+			}
+			c := DefaultConfig().Merge(&cfg)
 			r, err := NewRunner(c, true)
 			if err != nil {
 				t.Fatal(err)
@@ -82,7 +68,22 @@ func TestRunner_appendSecrets(t *testing.T) {
 			if appendError != nil {
 				t.Fatalf("got err: %s", appendError)
 			}
-			q.Q("what is end env:", env)
+
+			if len(env) > 1 {
+				t.Fatalf("Expected only 1 value in this test")
+			}
+
+			keyName := tc.path + "_key_field"
+			keyName = strings.Replace(keyName, "/", "_", -1)
+
+			var value string
+			value, ok := env[keyName]
+			if !ok {
+				t.Fatalf("expected (%s) key, but was not found", keyName)
+			}
+			if value != secretValue {
+				t.Fatalf("values didn't match, expected (%s), got (%s)", secretValue, value)
+			}
 		})
 	}
 }
