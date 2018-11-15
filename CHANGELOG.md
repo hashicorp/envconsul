@@ -1,5 +1,11 @@
 ## envconsul CHANGELOG
 
+## v0.7.4 (UNRELEASED)
+
+IMPROVEMENTS:
+
+  * Added support for Vault KV v2 [GH-186]
+
 ## v0.7.3 (January 22, 2018)
 
 SECURITY:
