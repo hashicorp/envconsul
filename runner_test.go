@@ -15,9 +15,9 @@ func TestRunner_appendSecrets(t *testing.T) {
 	secretValue := "somevalue"
 
 	cases := map[string]struct {
-		path string
-		data *dependency.Secret
-		err  bool
+		path     string
+		data     *dependency.Secret
+		notFound bool
 	}{
 		"kv1_secret": {
 			"kv/bar",
@@ -42,6 +42,19 @@ func TestRunner_appendSecrets(t *testing.T) {
 				},
 			},
 			false,
+		},
+		"kv2_secret_destroyed": {
+			"secret/data/foo",
+			&dependency.Secret{
+				Data: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"destroyed": bool(true),
+						"version":   "2",
+					},
+					"data": nil,
+				},
+			},
+			true,
 		},
 	}
 
@@ -78,10 +91,13 @@ func TestRunner_appendSecrets(t *testing.T) {
 
 			var value string
 			value, ok := env[keyName]
-			if !ok {
+			if !ok && !tc.notFound {
 				t.Fatalf("expected (%s) key, but was not found", keyName)
 			}
-			if value != secretValue {
+			if ok && tc.notFound {
+				t.Fatalf("expected to not find key, but (%s) was found", keyName)
+			}
+			if ok && value != secretValue {
 				t.Fatalf("values didn't match, expected (%s), got (%s)", secretValue, value)
 			}
 		})

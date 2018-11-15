@@ -446,9 +446,13 @@ func (r *Runner) appendSecrets(
 				for k, v := range mapV {
 					key = k
 					value = v
+					break
 				}
 			default:
-				// only handle the sub data map, do nothing otherwise
+				// Only handle the sub data map, do nothing otherwise.
+				// If the secret has been deleted but not destroyed, Vault will return a
+				// response with a nil sub data map, and will not be handled by the
+				// above block
 			}
 		}
 
