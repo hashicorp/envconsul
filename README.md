@@ -122,7 +122,7 @@ $ envconsul -h
 
 ### Command Line Interface (CLI)
 
-The Envconsul CLI interface supports all options in the configuration file and
+The Envconsul CLI interface supports most of the options in the configuration file and
 visa-versa. Here are some common examples of CLI usage. For the full list of
 options, please run `envconsul -h`.
 
