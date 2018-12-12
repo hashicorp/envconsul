@@ -12,7 +12,8 @@ import (
 func TestRunner_appendSecrets(t *testing.T) {
 	t.Parallel()
 
-	secretValue := "somevalue"
+	secretValue1 := "somevalue"
+	secretValue2 := "somevalue2"
 
 	cases := map[string]struct {
 		path     string
@@ -23,7 +24,8 @@ func TestRunner_appendSecrets(t *testing.T) {
 			"kv/bar",
 			&dependency.Secret{
 				Data: map[string]interface{}{
-					"key_field": secretValue,
+					"key_field":  secretValue1,
+					"key_field2": secretValue2,
 				},
 			},
 			false,
@@ -37,7 +39,8 @@ func TestRunner_appendSecrets(t *testing.T) {
 						"version":   "1",
 					},
 					"data": map[string]interface{}{
-						"key_field": secretValue,
+						"key_field":  secretValue1,
+						"key_field2": secretValue2,
 					},
 				},
 			},
@@ -82,23 +85,37 @@ func TestRunner_appendSecrets(t *testing.T) {
 				t.Fatalf("got err: %s", appendError)
 			}
 
-			if len(env) > 1 {
-				t.Fatalf("Expected only 1 value in this test")
+			if len(env) > 2 {
+				t.Fatalf("Expected only 2 values in this test")
 			}
 
-			keyName := tc.path + "_key_field"
-			keyName = strings.Replace(keyName, "/", "_", -1)
+			keyName1 := tc.path + "_key_field"
+			keyName1 = strings.Replace(keyName1, "/", "_", -1)
 
 			var value string
-			value, ok := env[keyName]
+			value, ok := env[keyName1]
 			if !ok && !tc.notFound {
-				t.Fatalf("expected (%s) key, but was not found", keyName)
+				t.Fatalf("expected (%s) key, but was not found", keyName1)
 			}
 			if ok && tc.notFound {
-				t.Fatalf("expected to not find key, but (%s) was found", keyName)
+				t.Fatalf("expected to not find key, but (%s) was found", keyName1)
 			}
-			if ok && value != secretValue {
-				t.Fatalf("values didn't match, expected (%s), got (%s)", secretValue, value)
+			if ok && value != secretValue1 {
+				t.Fatalf("values didn't match, expected (%s), got (%s)", secretValue1, value)
+			}
+
+			keyName2 := tc.path + "_key_field2"
+			keyName2 = strings.Replace(keyName2, "/", "_", -1)
+
+			value, ok = env[keyName2]
+			if !ok && !tc.notFound {
+				t.Fatalf("expected (%s) key, but was not found", keyName2)
+			}
+			if ok && tc.notFound {
+				t.Fatalf("expected to not find key, but (%s) was found", keyName2)
+			}
+			if ok && value != secretValue2 {
+				t.Fatalf("values didn't match, expected (%s), got (%s)", secretValue2, value)
 			}
 		})
 	}

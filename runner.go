@@ -406,6 +406,17 @@ func (r *Runner) appendPrefixes(
 	return nil
 }
 
+func isVaultKv2(data map[string]interface{}) bool {
+	// check for presence of "metadata.version", indicating this value came from Vault
+	// kv version 2
+	if data["metadata"] != nil {
+		metadata := data["metadata"].(map[string]interface{})
+		return metadata["version"] != nil
+	}
+
+	return false
+}
+
 func (r *Runner) appendSecrets(
 	env map[string]string, d *dep.VaultReadQuery, data interface{}) error {
 	var err error
@@ -418,44 +429,40 @@ func (r *Runner) appendSecrets(
 	// Get the PrefixConfig so we can get configuration from it.
 	cp := r.configPrefixMap[d.String()]
 
-	for key, value := range typed.Data {
-		// check for presence of "metadata", indicating this value came from Vault
-		// kv version 2, and we should then use the sub map instead
-		if key == "metadata" {
-			continue
-		}
-
+	valueMap := typed.Data
+	if isVaultKv2(valueMap) {
 		// Vault Secrets KV1 and KV2 return different formats. Here we check the key
 		// value, and if we've found another key called "data" that is of type
 		// map[string]interface, we assume it's KV2 and use the key/value pair from
 		// it, otherwise we assume it's KV1
 		//
-		// value here in KV1 format is a simple string.
-		// value in KV2 format is a map:
-		// map[string]interface {}{
-		//   "key": "value",
+		// In KV1, the JSON looks like
+		// {
+		//		"secretKey1": "value1",
+		//		"secretKey2", "value2"
 		// }
-		if key == "data" {
-			switch value.(type) {
-			case map[string]interface{}:
-				log.Printf("[DEBUG] Found KV2 secret")
-				mapV := value.(map[string]interface{})
+		//
+		// In KV2, the JSON looks like
+		// {
+		//		"data": {
+		//			"secretKey1": "value1",
+		//			"secretKey2", "value2"
+		//		},
+		//		"metadata" : {
+		//			...
+		// 		}
+		// }
+		log.Printf("[DEBUG] Found KV2 secret")
 
-				// assumes this map is only 1 element long, we change the key and value
-				// to match the sub element
-				for k, v := range mapV {
-					key = k
-					value = v
-					break
-				}
-			default:
-				// Only handle the sub data map, do nothing otherwise.
-				// If the secret has been deleted but not destroyed, Vault will return a
-				// response with a nil sub data map, and will not be handled by the
-				// above block
-			}
+		if valueMap["data"] == nil {
+			log.Printf("[DEBUG] KV2 secret is nil or was deleted")
+			valueMap = nil
+		} else {
+			valueMap = valueMap["data"].(map[string]interface{})
 		}
+	}
 
+	for key, value := range valueMap {
 		// Ignore any keys that are empty (not sure if this is even possible in
 		// Vault, but I play defense).
 		if strings.TrimSpace(key) == "" {
