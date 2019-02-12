@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -20,7 +21,7 @@ func TestMain(m *testing.M) {
 		c.Stderr = ioutil.Discard
 	})
 	if err != nil {
-		log.Fatal("failed to start consul server")
+		log.Fatal(fmt.Errorf("failed to start consul server: %v", err))
 	}
 	testConsul = consul
 

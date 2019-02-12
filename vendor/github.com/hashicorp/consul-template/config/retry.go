@@ -30,7 +30,7 @@ type RetryConfig struct {
 	Attempts *int
 
 	// Backoff is the base of the exponentialbackoff. This number will be
-	// multipled by the next power of 2 on each iteration.
+	// multiplied by the next power of 2 on each iteration.
 	Backoff *time.Duration
 
 	// MaxBackoff is an upper limit to the sleep time between retries
@@ -114,13 +114,18 @@ func (c *RetryConfig) RetryFunc() RetryFunc {
 			return false, 0
 		}
 
-		base := math.Pow(2, float64(retry))
-		sleep := time.Duration(base) * TimeDurationVal(c.Backoff)
-
+		baseSleep := TimeDurationVal(c.Backoff)
 		maxSleep := TimeDurationVal(c.MaxBackoff)
-		if maxSleep > 0 && maxSleep < sleep {
-			return true, maxSleep
+
+		if maxSleep > 0 {
+			attemptsTillMaxBackoff := int(math.Log2(maxSleep.Seconds() / baseSleep.Seconds()))
+			if retry > attemptsTillMaxBackoff {
+				return true, maxSleep
+			}
 		}
+
+		base := math.Pow(2, float64(retry))
+		sleep := time.Duration(base) * baseSleep
 
 		return true, sleep
 	}

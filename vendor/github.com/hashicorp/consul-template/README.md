@@ -38,33 +38,34 @@ This short example assumes Consul is installed locally.
 
 1. Start a Consul cluster in dev mode:
 
-  ```shell
-  $ consul agent -dev
-  ```
+    ```shell
+    $ consul agent -dev
+    ```
 
 1. Author a template `in.tpl` to query the kv store:
 
-  ```liquid
-  {{ key "foo" }}
-  ```
+    ```liquid
+    {{ key "foo" }}
+    ```
 
 1. Start Consul Template:
 
-  ```shell
-  $ consul-template -template "in.tpl:out.txt" -once
-  ```
+    ```shell
+    $ consul-template -template "in.tpl:out.txt" -once
+    ```
 
 1. Write data to the key in Consul:
 
-  ```shell
-  $ consul kv put foo bar
-  ```
+    ```shell
+    $ consul kv put foo bar
+    ```
 
 1. Observe Consul Template has written the file `out.txt`:
 
-   ```shell
-   $ cat out.txt
-   ```
+    ```shell
+    $ cat out.txt
+    bar
+    ```
 
 For more examples and use cases, please see the [examples folder][examples] in
 this repository.
@@ -79,7 +80,7 @@ $ consul-template -h
 
 ### Command Line Flags
 
-The CLI interface supports all options in the configuration file and visa-versa. Here are a few examples of common integrations on the command line.
+The CLI interface supports all options in the configuration file and vice-versa. Here are a few examples of common integrations on the command line.
 
 Render the template on disk at `/tmp/template.ctmpl` to `/tmp/result`:
 
@@ -257,15 +258,18 @@ vault {
   # of the address is required.
   address = "https://vault.service.consul:8200"
 
-  # This is the grace period between lease renewal and secret re-acquisition.
-  # When renewing a secret, if the remaining lease is less than or equal to the
-  # configured grace, Consul Template will request a new credential. This
-  # prevents Vault from revoking the credential at expiration and Consul
+  # This is the grace period between lease renewal of periodic secrets and secret
+  # re-acquisition. When renewing a secret, if the remaining lease is less than or
+  # equal to the configured grace, Consul Template will request a new credential.
+  # This prevents Vault from revoking the credential at expiration and Consul
   # Template having a stale credential.
   #
   # Note: If you set this to a value that is higher than your default TTL or
   # max TTL, Consul Template will always read a new secret!
-  grace = "15s"
+  #
+  # This should also be less than or around 1/3 of your TTL for a predictable
+  # behaviour. See https://github.com/hashicorp/vault/issues/3414
+  grace = "5m"
 
   # This is the token to use when communicating with the Vault server.
   # Like other tools that integrate with Vault, Consul Template makes the
@@ -415,8 +419,12 @@ template {
 
   # This is the destination path on disk where the source template will render.
   # If the parent directories do not exist, Consul Template will attempt to
-  # create them.
+  # create them, unless create_dest_dirs is false.
   destination = "/path/on/disk/where/template/will/render.txt"
+
+  # This options tells Consul Template to create the parent directories of the
+  # destination path if they do not exist. The default value is true.
+  create_dest_dirs = true
 
   # This option allows embedding the contents of a template in the configuration
   # file rather then supplying the `source` path to the template file. This is
@@ -1250,6 +1258,12 @@ This function can be chained to manipulate the output:
 {{ env "CLUSTER_ID" | toLower }}
 ```
 
+Reads the given environment variable and if it does not exist or is blank use a default value, ex `12345`.
+
+```liquid
+{{ or (env "CLUSTER_ID") "12345" }}
+```
+
 ##### `executeTemplate`
 
 Executes and returns a defined template.
@@ -1289,6 +1303,15 @@ You can also access deeply nested values:
 
 You will need to have a reasonable format about your data in Consul. Please see
 [Go's text/template package][text-template] for more information.
+
+
+##### `indent`
+
+Indents a block of text by prefixing N number of spaces per line.
+
+```liquid
+{{ tree "foo" | explode | toYAML | indent 4 }}
+```
 
 ##### `in`
 
@@ -1907,9 +1930,8 @@ carefully before use:
   customized via the CLI or configuration file.
 
 - Consul Template will forward all signals it receives to the child process
-  **except** its defined `reload_signal`, `dump_signal`, and `kill_signal`. If
-  you disable these signals, Consul Template will forward them to the child
-  process.
+  **except** its defined `reload_signal` and `kill_signal`. If you disable these
+  signals, Consul Template will forward them to the child process.
 
 - It is not possible to have more than one exec command (although each template
   can still have its own reload command).
@@ -2140,7 +2162,7 @@ following to generate all binaries:
 $ make bin
 ```
 
-If you just want to run the tests:
+If you want to run the tests, first [install consul locally](https://www.consul.io/docs/install/index.html), then:
 
 ```shell
 $ make test

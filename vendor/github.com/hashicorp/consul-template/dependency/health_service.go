@@ -29,7 +29,7 @@ var (
 	_ Dependency = (*HealthServiceQuery)(nil)
 
 	// HealthServiceQueryRe is the regular expression to use.
-	HealthServiceQueryRe = regexp.MustCompile(`\A` + tagRe + nameRe + dcRe + nearRe + filterRe + `\z`)
+	HealthServiceQueryRe = regexp.MustCompile(`\A` + tagRe + serviceNameRe + dcRe + nearRe + filterRe + `\z`)
 )
 
 func init() {
@@ -43,6 +43,7 @@ type HealthService struct {
 	NodeAddress         string
 	NodeTaggedAddresses map[string]string
 	NodeMeta            map[string]string
+	ServiceMeta         map[string]string
 	Address             string
 	ID                  string
 	Name                string
@@ -162,6 +163,7 @@ func (d *HealthServiceQuery) Fetch(clients *ClientSet, opts *QueryOptions) (inte
 			NodeAddress:         entry.Node.Address,
 			NodeTaggedAddresses: entry.Node.TaggedAddresses,
 			NodeMeta:            entry.Node.Meta,
+			ServiceMeta:         entry.Service.Meta,
 			Address:             address,
 			ID:                  entry.Service.ID,
 			Name:                entry.Service.Service,
@@ -174,7 +176,10 @@ func (d *HealthServiceQuery) Fetch(clients *ClientSet, opts *QueryOptions) (inte
 
 	log.Printf("[TRACE] %s: returned %d results after filtering", d, len(list))
 
-	sort.Stable(ByNodeThenID(list))
+	// Sort unless the user explicitly asked for nearness
+	if d.near == "" {
+		sort.Stable(ByNodeThenID(list))
+	}
 
 	rm := &ResponseMetadata{
 		LastIndex:   qm.LastIndex,

@@ -655,6 +655,28 @@ func in(l, v interface{}) (bool, error) {
 	return false, nil
 }
 
+// Indent prefixes each line of a string with the specified number of spaces
+func indent(spaces int, s string) (string, error) {
+	if spaces < 0 {
+		return "", fmt.Errorf("indent value must be a positive integer")
+	}
+	var output, prefix []byte
+	var sp bool
+	var size int
+	prefix = []byte(strings.Repeat(" ", spaces))
+	sp = true
+	for _, c := range []byte(s) {
+		if sp && c != '\n' {
+			output = append(output, prefix...)
+			size += spaces
+		}
+		output = append(output, c)
+		sp = c == '\n'
+		size++
+	}
+	return string(output[:size]), nil
+}
+
 // loop accepts varying parameters and differs its behavior. If given one
 // parameter, loop will return a goroutine that begins at 0 and loops until the
 // given int, increasing the index by 1 each iteration. If given two parameters,
@@ -810,7 +832,7 @@ func plugin(name string, args ...string) (string, error) {
 			}
 		}
 		<-done // Allow the goroutine to exit
-		return "", fmt.Errorf("exec %q: did not finishin 30s", name)
+		return "", fmt.Errorf("exec %q: did not finish in 30s", name)
 	case err := <-done:
 		if err != nil {
 			return "", fmt.Errorf("exec %q: %s\n\nstdout:\n\n%s\n\nstderr:\n\n%s",

@@ -25,7 +25,7 @@ func TestAtomicWrite(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if err := AtomicWrite(outFile.Name(), nil, 0644, false); err != nil {
+		if err := AtomicWrite(outFile.Name(), true, nil, 0644, false); err != nil {
 			t.Fatal(err)
 		}
 
@@ -44,9 +44,9 @@ func TestAtomicWrite(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		os.Chmod(outFile.Name(), 0644)
+		os.Chmod(outFile.Name(), 0600)
 
-		if err := AtomicWrite(outFile.Name(), nil, 0644, false); err != nil {
+		if err := AtomicWrite(outFile.Name(), true, nil, 0, false); err != nil {
 			t.Fatal(err)
 		}
 
@@ -55,7 +55,7 @@ func TestAtomicWrite(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		expected := os.FileMode(0644)
+		expected := os.FileMode(0600)
 		if stat.Mode() != expected {
 			t.Errorf("expected %q to be %q", stat.Mode(), expected)
 		}
@@ -66,16 +66,32 @@ func TestAtomicWrite(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		os.RemoveAll(outDir)
 		defer os.RemoveAll(outDir)
 
 		// Try AtomicWrite to a file that doesn't exist yet
-		file := filepath.Join(outDir, "nope")
-		if err := AtomicWrite(file, nil, 0644, false); err != nil {
+		file := filepath.Join(outDir, "nope/not/it/create")
+		if err := AtomicWrite(file, true, nil, 0644, false); err != nil {
 			t.Fatal(err)
 		}
 
 		if _, err := os.Stat(file); err != nil {
 			t.Fatal(err)
+		}
+	})
+
+	t.Run("non_existent_no_create", func(t *testing.T) {
+		outDir, err := ioutil.TempDir("", "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		os.RemoveAll(outDir)
+		defer os.RemoveAll(outDir)
+
+		// Try AtomicWrite to a file that doesn't exist yet
+		file := filepath.Join(outDir, "nope/not/it/nope-no-create")
+		if err := AtomicWrite(file, false, nil, 0644, false); err != ErrNoParentDir {
+			t.Fatalf("expected %q to be %q", err, ErrNoParentDir)
 		}
 	})
 
@@ -96,7 +112,7 @@ func TestAtomicWrite(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if err := AtomicWrite(outFile.Name(), []byte("after"), 0644, true); err != nil {
+		if err := AtomicWrite(outFile.Name(), true, []byte("after"), 0644, true); err != nil {
 			t.Fatal(err)
 		}
 
@@ -131,7 +147,7 @@ func TestAtomicWrite(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if err := AtomicWrite(outFile.Name(), nil, 0644, true); err != nil {
+		if err := AtomicWrite(outFile.Name(), true, nil, 0644, true); err != nil {
 			t.Fatal(err)
 		}
 

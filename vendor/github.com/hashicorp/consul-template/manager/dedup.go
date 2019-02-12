@@ -3,7 +3,6 @@ package manager
 import (
 	"bytes"
 	"compress/lzw"
-	"crypto/md5"
 	"encoding/gob"
 	"fmt"
 	"log"
@@ -11,9 +10,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mitchellh/hashstructure"
+
 	"github.com/hashicorp/consul-template/config"
 	dep "github.com/hashicorp/consul-template/dependency"
 	"github.com/hashicorp/consul-template/template"
+	"github.com/hashicorp/consul-template/version"
 	consulapi "github.com/hashicorp/consul/api"
 )
 
@@ -33,8 +35,14 @@ const (
 	templateDataFlag = 0x22b9a127a2c03520
 )
 
-// templateData is GOB encoded share the depdency values
+// templateData is GOB encoded share the dependency values
 type templateData struct {
+	// Version is the version of Consul Template which created this template data.
+	// This is important because users may be running multiple versions of CT
+	// with the same templates. This provides a nicer upgrade path.
+	Version string
+
+	// Data is the actual template data.
 	Data map[string]interface{}
 }
 
@@ -60,10 +68,10 @@ type DedupManager struct {
 	// config is the deduplicate configuration
 	config *config.DedupConfig
 
-	// clients is used to access the underlying clinets
+	// clients is used to access the underlying clients
 	clients *dep.ClientSet
 
-	// Brain is where we inject udpates
+	// Brain is where we inject updates
 	brain *template.Brain
 
 	// templates is the set of templates we are trying to dedup
@@ -74,7 +82,7 @@ type DedupManager struct {
 	leaderLock sync.RWMutex
 
 	// lastWrite tracks the hash of the data paths
-	lastWrite     map[*template.Template][]byte
+	lastWrite     map[*template.Template]uint64
 	lastWriteLock sync.RWMutex
 
 	// updateCh is used to indicate an update watched data
@@ -96,7 +104,7 @@ func NewDedupManager(config *config.DedupConfig, clients *dep.ClientSet, brain *
 		brain:     brain,
 		templates: templates,
 		leader:    make(map[*template.Template]<-chan struct{}),
-		lastWrite: make(map[*template.Template][]byte),
+		lastWrite: make(map[*template.Template]uint64),
 		updateCh:  make(chan struct{}, 1),
 		stopCh:    make(chan struct{}),
 	}
@@ -197,7 +205,8 @@ func (d *DedupManager) UpdateDeps(t *template.Template, deps []dep.Dependency) e
 
 	// Package up the dependency data
 	td := templateData{
-		Data: make(map[string]interface{}),
+		Version: version.Version,
+		Data:    make(map[string]interface{}),
 	}
 	for _, dp := range deps {
 		// Skip any dependencies that can't be shared
@@ -212,6 +221,23 @@ func (d *DedupManager) UpdateDeps(t *template.Template, deps []dep.Dependency) e
 		}
 	}
 
+	// Compute stable hash of the data. Note we don't compute this over the actual
+	// encoded value since gob encoding does not guarantee stable ordering for
+	// maps so spuriously returns a different hash most times. See
+	// https://github.com/hashicorp/consul-template/issues/1099.
+	hash, err := hashstructure.Hash(td, nil)
+	if err != nil {
+		return fmt.Errorf("calculating hash failed: %v", err)
+	}
+	d.lastWriteLock.RLock()
+	existing, ok := d.lastWrite[t]
+	d.lastWriteLock.RUnlock()
+	if ok && existing == hash {
+		log.Printf("[INFO] (dedup) de-duplicate data '%s' already current",
+			dataPath)
+		return nil
+	}
+
 	// Encode via GOB and LZW compress
 	var buf bytes.Buffer
 	compress := lzw.NewWriter(&buf, lzw.LSB, 8)
@@ -220,17 +246,6 @@ func (d *DedupManager) UpdateDeps(t *template.Template, deps []dep.Dependency) e
 		return fmt.Errorf("encode failed: %v", err)
 	}
 	compress.Close()
-
-	// Compute MD5 of the buffer
-	hash := md5.Sum(buf.Bytes())
-	d.lastWriteLock.RLock()
-	existing, ok := d.lastWrite[t]
-	d.lastWriteLock.RUnlock()
-	if ok && bytes.Equal(existing, hash[:]) {
-		log.Printf("[INFO] (dedup) de-duplicate data '%s' already current",
-			dataPath)
-		return nil
-	}
 
 	// Write the KV update
 	kvPair := consulapi.KVPair{
@@ -244,12 +259,12 @@ func (d *DedupManager) UpdateDeps(t *template.Template, deps []dep.Dependency) e
 	}
 	log.Printf("[INFO] (dedup) updated de-duplicate data '%s'", dataPath)
 	d.lastWriteLock.Lock()
-	d.lastWrite[t] = hash[:]
+	d.lastWrite[t] = hash
 	d.lastWriteLock.Unlock()
 	return nil
 }
 
-// UpdateCh returns a channel to watch for depedency updates
+// UpdateCh returns a channel to watch for dependency updates
 func (d *DedupManager) UpdateCh() <-chan struct{} {
 	return d.updateCh
 }
@@ -407,6 +422,11 @@ func (d *DedupManager) parseData(path string, raw []byte) {
 	if err := dec.Decode(&td); err != nil {
 		log.Printf("[ERR] (dedup) failed to decode '%s': %v",
 			path, err)
+		return
+	}
+	if td.Version != version.Version {
+		log.Printf("[WARN] (dedup) created with different version (%s vs %s)",
+			td.Version, version.Version)
 		return
 	}
 	log.Printf("[INFO] (dedup) loading %d dependencies from '%s'",

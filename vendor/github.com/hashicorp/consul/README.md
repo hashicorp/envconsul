@@ -25,7 +25,16 @@ Consul provides several key features:
 * **Multi-Datacenter** - Consul is built to be datacenter aware, and can
   support any number of regions without complex configuration.
 
-Consul runs on Linux, Mac OS X, FreeBSD, Solaris, and Windows.
+* **Service Segmentation** - Consul Connect enables secure service-to-service 
+communication with automatic TLS encryption and identity-based authorization.
+
+Consul runs on Linux, Mac OS X, FreeBSD, Solaris, and Windows. A commercial
+version called [Consul Enterprise](https://www.hashicorp.com/products/consul)
+is also available.
+
+**Please note**: We take Consul's security and our users' trust very seriously. If you 
+believe you have found a security issue in Consul, please [responsibly disclose](https://www.hashicorp.com/security#vulnerability-reporting) by 
+contacting us at security@hashicorp.com.
 
 ## Quick Start
 
@@ -39,32 +48,6 @@ Full, comprehensive documentation is viewable on the Consul website:
 
 https://www.consul.io/docs
 
-## Developing Consul
+## Contributing
 
-If you wish to work on Consul itself, you'll first need [Go](https://golang.org)
-installed (version 1.8+ is _required_). Make sure you have Go properly installed,
-including setting up your [GOPATH](https://golang.org/doc/code.html#GOPATH).
-
-Next, clone this repository into `$GOPATH/src/github.com/hashicorp/consul` and
-then just type `make`. In a few moments, you'll have a working `consul` executable:
-
-```
-$ make
-...
-$ bin/consul
-...
-```
-
-*Note: `make` will build all os/architecture combinations. Set the environment variable `CONSUL_DEV=1` to build it just for your local machine's os/architecture, or use `make dev`.*
-
-*Note: `make` will also place a copy of the binary in the first part of your `$GOPATH`.*
-
-You can run tests by typing `make test`.
-
-If you make any changes to the code, run `make format` in order to automatically
-format the code according to Go standards.
-
-## Vendoring
-
-Consul currently uses [govendor](https://github.com/kardianos/govendor) for
-vendoring.
+Thank you for your interest in contributing! Please refer to [CONTRIBUTING.md](https://github.com/hashicorp/consul/blob/master/.github/CONTRIBUTING.md) for guidance.

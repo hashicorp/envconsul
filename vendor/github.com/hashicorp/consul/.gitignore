@@ -5,10 +5,12 @@
 *.swp
 *.test
 .DS_Store
+.fseventsd
 .vagrant/
 /pkg
 Thumbs.db
 bin/
+changelog.tmp
 exit-code
 ui/.bundle
 ui/.sass-cache
@@ -20,3 +22,4 @@ website/.bundle
 website/build/
 website/npm-debug.log
 website/vendor
+.netlify

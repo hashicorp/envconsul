@@ -4,6 +4,7 @@ import (
 	crand "crypto/rand"
 	"crypto/tls"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -14,6 +15,8 @@ import (
 	"time"
 
 	"github.com/hashicorp/consul/testutil"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type configCallback func(c *Config)
@@ -22,12 +25,19 @@ func makeClient(t *testing.T) (*Client, *testutil.TestServer) {
 	return makeClientWithConfig(t, nil, nil)
 }
 
+func makeClientWithoutConnect(t *testing.T) (*Client, *testutil.TestServer) {
+	return makeClientWithConfig(t, nil, func(serverConfig *testutil.TestServerConfig) {
+		serverConfig.Connect = nil
+	})
+}
+
 func makeACLClient(t *testing.T) (*Client, *testutil.TestServer) {
 	return makeClientWithConfig(t, func(clientConfig *Config) {
 		clientConfig.Token = "root"
 	}, func(serverConfig *testutil.TestServerConfig) {
+		serverConfig.PrimaryDatacenter = "dc1"
 		serverConfig.ACLMasterToken = "root"
-		serverConfig.ACLDatacenter = "dc1"
+		serverConfig.ACL.Enabled = true
 		serverConfig.ACLDefaultPolicy = "deny"
 	})
 }
@@ -52,6 +62,7 @@ func makeClientWithConfig(
 	// Create client
 	client, err := NewClient(conf)
 	if err != nil {
+		server.Stop()
 		t.Fatalf("err: %v", err)
 	}
 
@@ -73,7 +84,11 @@ func testKey() string {
 }
 
 func TestAPI_DefaultConfig_env(t *testing.T) {
-	t.Parallel()
+	// t.Parallel() // DO NOT ENABLE !!!
+	// do not enable t.Parallel for this test since it modifies global state
+	// (environment) which has non-deterministic effects on the other tests
+	// which derive their default configuration from the environment
+
 	addr := "1.2.3.4:5678"
 	token := "abcd1234"
 	auth := "username:password"
@@ -151,6 +166,7 @@ func TestAPI_DefaultConfig_env(t *testing.T) {
 }
 
 func TestAPI_SetupTLSConfig(t *testing.T) {
+	t.Parallel()
 	// A default config should result in a clean default client config.
 	tlsConfig := &TLSConfig{}
 	cc, err := SetupTLSConfig(tlsConfig)
@@ -367,6 +383,8 @@ func TestAPI_SetQueryOptions(t *testing.T) {
 	c, s := makeClient(t)
 	defer s.Stop()
 
+	assert := assert.New(t)
+
 	r := c.newRequest("GET", "/v1/kv/foo")
 	q := &QueryOptions{
 		Datacenter:        "foo",
@@ -400,6 +418,19 @@ func TestAPI_SetQueryOptions(t *testing.T) {
 	if r.params.Get("near") != "nodex" {
 		t.Fatalf("bad: %v", r.params)
 	}
+	assert.Equal("", r.header.Get("Cache-Control"))
+
+	r = c.newRequest("GET", "/v1/kv/foo")
+	q = &QueryOptions{
+		UseCache:     true,
+		MaxAge:       30 * time.Second,
+		StaleIfError: 345678 * time.Millisecond, // Fractional seconds should be rounded
+	}
+	r.setQueryOptions(q)
+
+	_, ok := r.params["cached"]
+	assert.True(ok)
+	assert.Equal("max-age=30, stale-if-error=346", r.header.Get("Cache-Control"))
 }
 
 func TestAPI_SetWriteOptions(t *testing.T) {
@@ -499,12 +530,13 @@ func TestAPI_UnixSocket(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}
-	if info["Config"]["NodeName"] == "" {
+	if info["Config"]["NodeName"].(string) == "" {
 		t.Fatalf("bad: %v", info)
 	}
 }
 
 func TestAPI_durToMsec(t *testing.T) {
+	t.Parallel()
 	if ms := durToMsec(0); ms != "0ms" {
 		t.Fatalf("bad: %s", ms)
 	}
@@ -522,16 +554,91 @@ func TestAPI_durToMsec(t *testing.T) {
 	}
 }
 
-func TestAPI_IsServerError(t *testing.T) {
-	if IsServerError(nil) {
-		t.Fatalf("should not be a server error")
+func TestAPI_IsRetryableError(t *testing.T) {
+	t.Parallel()
+	if IsRetryableError(nil) {
+		t.Fatal("should not be a retryable error")
 	}
 
-	if IsServerError(fmt.Errorf("not the error you are looking for")) {
-		t.Fatalf("should not be a server error")
+	if IsRetryableError(fmt.Errorf("not the error you are looking for")) {
+		t.Fatal("should not be a retryable error")
 	}
 
-	if !IsServerError(fmt.Errorf(serverError)) {
-		t.Fatalf("should be a server error")
+	if !IsRetryableError(fmt.Errorf(serverError)) {
+		t.Fatal("should be a retryable error")
 	}
+
+	if !IsRetryableError(&net.OpError{Err: fmt.Errorf("network conn error")}) {
+		t.Fatal("should be a retryable error")
+	}
+}
+
+func TestAPI_GenerateEnv(t *testing.T) {
+	t.Parallel()
+
+	c := &Config{
+		Address: "127.0.0.1:8500",
+		Token:   "test",
+		Scheme:  "http",
+		TLSConfig: TLSConfig{
+			CAFile:             "",
+			CAPath:             "",
+			CertFile:           "",
+			KeyFile:            "",
+			Address:            "",
+			InsecureSkipVerify: true,
+		},
+	}
+
+	expected := []string{
+		"CONSUL_HTTP_ADDR=127.0.0.1:8500",
+		"CONSUL_HTTP_TOKEN=test",
+		"CONSUL_HTTP_SSL=false",
+		"CONSUL_CACERT=",
+		"CONSUL_CAPATH=",
+		"CONSUL_CLIENT_CERT=",
+		"CONSUL_CLIENT_KEY=",
+		"CONSUL_TLS_SERVER_NAME=",
+		"CONSUL_HTTP_SSL_VERIFY=false",
+		"CONSUL_HTTP_AUTH=",
+	}
+
+	require.Equal(t, expected, c.GenerateEnv())
+}
+
+func TestAPI_GenerateEnvHTTPS(t *testing.T) {
+	t.Parallel()
+
+	c := &Config{
+		Address: "127.0.0.1:8500",
+		Token:   "test",
+		Scheme:  "https",
+		TLSConfig: TLSConfig{
+			CAFile:             "/var/consul/ca.crt",
+			CAPath:             "/var/consul/ca.dir",
+			CertFile:           "/var/consul/server.crt",
+			KeyFile:            "/var/consul/ssl/server.key",
+			Address:            "127.0.0.1:8500",
+			InsecureSkipVerify: false,
+		},
+		HttpAuth: &HttpBasicAuth{
+			Username: "user",
+			Password: "password",
+		},
+	}
+
+	expected := []string{
+		"CONSUL_HTTP_ADDR=127.0.0.1:8500",
+		"CONSUL_HTTP_TOKEN=test",
+		"CONSUL_HTTP_SSL=true",
+		"CONSUL_CACERT=/var/consul/ca.crt",
+		"CONSUL_CAPATH=/var/consul/ca.dir",
+		"CONSUL_CLIENT_CERT=/var/consul/server.crt",
+		"CONSUL_CLIENT_KEY=/var/consul/ssl/server.key",
+		"CONSUL_TLS_SERVER_NAME=127.0.0.1:8500",
+		"CONSUL_HTTP_SSL_VERIFY=true",
+		"CONSUL_HTTP_AUTH=user:password",
+	}
+
+	require.Equal(t, expected, c.GenerateEnv())
 }

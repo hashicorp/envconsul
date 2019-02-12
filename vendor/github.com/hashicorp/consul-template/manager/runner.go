@@ -42,7 +42,8 @@ type Runner struct {
 	dry, once bool
 
 	// outStream and errStream are the io.Writer streams where the runner will
-	// write information.
+	// write information. These can be modified by calling SetOutStream and
+	// SetErrStream accordingly.
 
 	// inStream is the ioReader where the runner will read information.
 	outStream, errStream io.Writer
@@ -138,7 +139,7 @@ type RenderEvent struct {
 	UpdatedAt time.Time
 
 	// Used is the full list of dependencies seen in the template. Because of
-	// the n-pass evaluation, this number can change over time. The dependecnies
+	// the n-pass evaluation, this number can change over time. The dependencies
 	// in this list may or may not have data. This just contains the list of all
 	// dependencies parsed out of the template with the current data.
 	UsedDeps *dep.Set
@@ -160,6 +161,12 @@ type RenderEvent struct {
 
 	// LastDidRender marks the last time the template was written to disk.
 	LastDidRender time.Time
+
+	// ForQuiescence determines if this event is returned early in the
+	// render loop due to quiescence. When evaluating if all templates have
+	// been rendered we need to know if the event is triggered by quiesence
+	// and if we can skip evaluating it as a render event for those purposes
+	ForQuiescence bool
 }
 
 // NewRunner accepts a slice of TemplateConfigs and returns a pointer to the new
@@ -396,7 +403,7 @@ func (r *Runner) Stop() {
 	r.stopChild()
 
 	if err := r.deletePid(); err != nil {
-		log.Printf("[WARN] (runner) could not remove pid at %q: %s",
+		log.Printf("[WARN] (runner) could not remove pid at %v: %s",
 			r.config.PidFile, err)
 	}
 
@@ -495,12 +502,12 @@ func (r *Runner) Signal(s os.Signal) error {
 // Run iterates over each template in this Runner and conditionally executes
 // the template rendering and command execution.
 //
-// The template is rendered atomicly. If and only if the template render
+// The template is rendered atomically. If and only if the template render
 // completes successfully, the optional commands will be executed, if given.
 // Please note that all templates are rendered **and then** any commands are
 // executed.
 func (r *Runner) Run() error {
-	log.Printf("[INFO] (runner) initiating run")
+	log.Printf("[DEBUG] (runner) initiating run")
 
 	var newRenderEvent, wouldRenderAny, renderedAny bool
 	runCtx := &templateRunCtx{
@@ -718,7 +725,7 @@ func (r *Runner) runTemplate(tmpl *template.Template, runCtx *templateRunCtx) (*
 		return event, nil
 	}
 
-	// Trigger an update of the de-duplicaiton manager
+	// Trigger an update of the de-duplication manager
 	if r.dedup != nil && isLeader {
 		if err := r.dedup.UpdateDeps(tmpl, used.List()); err != nil {
 			log.Printf("[ERR] (runner) failed to update dependency data for de-duplication: %v", err)
@@ -729,6 +736,8 @@ func (r *Runner) runTemplate(tmpl *template.Template, runCtx *templateRunCtx) (*
 	// We do not want to render the templates yet.
 	if q, ok := r.quiescenceMap[tmpl.ID()]; ok {
 		q.tick()
+		// This event is being returned early for quiescence
+		event.ForQuiescence = true
 		return event, nil
 	}
 
@@ -739,12 +748,13 @@ func (r *Runner) runTemplate(tmpl *template.Template, runCtx *templateRunCtx) (*
 
 		// Render the template, taking dry mode into account
 		result, err := Render(&RenderInput{
-			Backup:    config.BoolVal(templateConfig.Backup),
-			Contents:  result.Output,
-			Dry:       r.dry,
-			DryStream: r.outStream,
-			Path:      config.StringVal(templateConfig.Destination),
-			Perms:     config.FileModeVal(templateConfig.Perms),
+			Backup:         config.BoolVal(templateConfig.Backup),
+			Contents:       result.Output,
+			CreateDestDirs: config.BoolVal(templateConfig.CreateDestDirs),
+			Dry:            r.dry,
+			DryStream:      r.outStream,
+			Path:           config.StringVal(templateConfig.Destination),
+			Perms:          config.FileModeVal(templateConfig.Perms),
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "error rendering "+templateConfig.Display())
@@ -951,7 +961,20 @@ func (r *Runner) allTemplatesRendered() bool {
 
 	for _, tmpl := range r.templates {
 		event, rendered := r.renderEvents[tmpl.ID()]
-		if !rendered || !event.DidRender {
+		if !rendered {
+			return false
+		}
+
+		// Skip evaluation of events from quiescence as they will
+		// be default unrendered as we are still waiting for the
+		// specified period
+		if event.ForQuiescence {
+			continue
+		}
+
+		// The template might already exist on disk with the exact contents, but
+		// we still want to count that as "rendered" [GH-1000].
+		if !event.DidRender && !event.WouldRender {
 			return false
 		}
 	}
@@ -1003,7 +1026,7 @@ func (r *Runner) childEnv() []string {
 		m["VAULT_TLS_SERVER_NAME"] = config.StringVal(r.config.Vault.SSL.ServerName)
 	}
 
-	// Append runner-supplied env (this is supplied programatically).
+	// Append runner-supplied env (this is supplied programmatically).
 	for k, v := range r.Env {
 		m[k] = v
 	}
@@ -1060,6 +1083,16 @@ func (r *Runner) deletePid() error {
 		return fmt.Errorf("runner: could not remove pid file: %s", err)
 	}
 	return nil
+}
+
+// SetOutStream modifies runner output stream. Defaults to stdout.
+func (r *Runner) SetOutStream(out io.Writer) {
+	r.outStream = out
+}
+
+// SetErrStream modifies runner error stream. Defaults to stderr.
+func (r *Runner) SetErrStream(err io.Writer) {
+	r.errStream = err
 }
 
 // spawnChildInput is used as input to spawn a child process.
@@ -1235,14 +1268,14 @@ func newWatcher(c *config.Config, clients *dep.ClientSet, once bool) (*watch.Wat
 		Clients:         clients,
 		MaxStale:        config.TimeDurationVal(c.MaxStale),
 		Once:            once,
-		RenewVault:      config.StringPresent(c.Vault.Token) && config.BoolVal(c.Vault.RenewToken),
+		RenewVault:      clients.Vault().Token() != "" && config.BoolVal(c.Vault.RenewToken),
 		RetryFuncConsul: watch.RetryFunc(c.Consul.Retry.RetryFunc()),
 		// TODO: Add a sane default retry - right now this only affects "local"
 		// dependencies like reading a file from disk.
 		RetryFuncDefault: nil,
 		RetryFuncVault:   watch.RetryFunc(c.Vault.Retry.RetryFunc()),
 		VaultGrace:       config.TimeDurationVal(c.Vault.Grace),
-		VaultToken:       config.StringVal(c.Vault.Token),
+		VaultToken:       clients.Vault().Token(),
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "runner")

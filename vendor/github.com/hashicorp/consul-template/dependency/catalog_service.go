@@ -15,7 +15,7 @@ var (
 	_ Dependency = (*CatalogServiceQuery)(nil)
 
 	// CatalogServiceQueryRe is the regular expression to use.
-	CatalogServiceQueryRe = regexp.MustCompile(`\A` + tagRe + nameRe + dcRe + nearRe + `\z`)
+	CatalogServiceQueryRe = regexp.MustCompile(`\A` + tagRe + serviceNameRe + dcRe + nearRe + `\z`)
 )
 
 func init() {
@@ -34,6 +34,7 @@ type CatalogService struct {
 	ServiceName     string
 	ServiceAddress  string
 	ServiceTags     ServiceTags
+	ServiceMeta     map[string]string
 	ServicePort     int
 }
 
@@ -109,6 +110,7 @@ func (d *CatalogServiceQuery) Fetch(clients *ClientSet, opts *QueryOptions) (int
 			ServiceName:     s.ServiceName,
 			ServiceAddress:  s.ServiceAddress,
 			ServiceTags:     ServiceTags(deepCopyAndSortTags(s.ServiceTags)),
+			ServiceMeta:     s.ServiceMeta,
 			ServicePort:     s.ServicePort,
 		})
 	}
