@@ -14,12 +14,14 @@ func TestRunner_appendSecrets(t *testing.T) {
 
 	secretValue := "somevalue"
 
-	cases := map[string]struct {
+	tt := []struct {
+		name     string
 		path     string
 		data     *dependency.Secret
 		notFound bool
 	}{
-		"kv1_secret": {
+		{
+			"kv1_secret",
 			"kv/bar",
 			&dependency.Secret{
 				Data: map[string]interface{}{
@@ -28,7 +30,8 @@ func TestRunner_appendSecrets(t *testing.T) {
 			},
 			false,
 		},
-		"kv2_secret": {
+		{
+			"kv2_secret",
 			"secret/data/foo",
 			&dependency.Secret{
 				Data: map[string]interface{}{
@@ -43,7 +46,8 @@ func TestRunner_appendSecrets(t *testing.T) {
 			},
 			false,
 		},
-		"kv2_secret_destroyed": {
+		{
+			"kv2_secret_destroyed",
 			"secret/data/foo",
 			&dependency.Secret{
 				Data: map[string]interface{}{
@@ -58,8 +62,8 @@ func TestRunner_appendSecrets(t *testing.T) {
 		},
 	}
 
-	for name, tc := range cases {
-		t.Run(fmt.Sprintf("%s", name), func(t *testing.T) {
+	for _, tc := range tt {
+		t.Run(fmt.Sprintf("%s", tc.name), func(t *testing.T) {
 			cfg := Config{
 				Secrets: &PrefixConfigs{
 					&PrefixConfig{
