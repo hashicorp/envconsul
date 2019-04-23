@@ -231,6 +231,12 @@ func (r *Runner) Run() (<-chan int, error) {
 
 	env := make(map[string]string)
 
+	// Store custom env variables from config
+	for _, v := range r.config.Exec.Env.Custom {
+		list := strings.SplitN(v, "=", 2)
+		env[list[0]] = list[1]
+	}
+
 	// Iterate over each dependency and pull out its data. If any dependencies do
 	// not have data yet, this function will immediately return because we cannot
 	// safely continue until all dependencies have received data at least once.
