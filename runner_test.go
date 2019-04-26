@@ -56,6 +56,15 @@ func TestRunner_appendSecrets(t *testing.T) {
 			},
 			true,
 		},
+		"int_secret_skipped": {
+			"kv/foo",
+			&dependency.Secret{
+				Data: map[string]interface{}{
+					"key_field": 1,
+				},
+			},
+			true,
+		},
 	}
 
 	for name, tc := range cases {
