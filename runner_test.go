@@ -103,3 +103,80 @@ func TestRunner_appendSecrets(t *testing.T) {
 		})
 	}
 }
+
+func TestRunner_appendPrefixes(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name     string
+		path     string
+		noPrefix bool
+		data     []*dependency.KeyPair
+		keyName  string
+	}{
+		{
+			name:     "false noprefix appends path",
+			path:     "app/my_service",
+			noPrefix: false,
+			data: []*dependency.KeyPair{
+				&dependency.KeyPair{
+					Key:   "mykey",
+					Value: "myValue",
+				},
+			},
+			keyName: "app_my_service_mykey",
+		},
+		{
+			name:     "true noprefix excludes path",
+			path:     "app/my_service",
+			noPrefix: true,
+			data: []*dependency.KeyPair{
+				&dependency.KeyPair{
+					Key:   "mykey",
+					Value: "myValue",
+				},
+			},
+			keyName: "mykey",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := Config{
+				Prefixes: &PrefixConfigs{
+					&PrefixConfig{
+						Path:     config.String(tc.path),
+						NoPrefix: config.Bool(tc.noPrefix),
+					},
+				},
+			}
+			c := DefaultConfig().Merge(&cfg)
+			r, err := NewRunner(c, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+			kvq, err := dependency.NewKVListQuery(tc.path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			env := make(map[string]string)
+			appendError := r.appendPrefixes(env, kvq, tc.data)
+			if appendError != nil {
+				t.Fatalf("got err: %s", appendError)
+			}
+
+			if len(env) > 1 {
+				t.Fatalf("Expected only 1 value in this test")
+			}
+
+			var value string
+			value, ok := env[tc.keyName]
+			if !ok {
+				t.Fatalf("expected (%s) key, but was not found", tc.keyName)
+			}
+			if ok && value != tc.data[0].Value {
+				t.Fatalf("values didn't match, expected (%s), got (%s)", tc.data[0].Value, value)
+			}
+		})
+	}
+}

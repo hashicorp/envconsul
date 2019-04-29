@@ -378,6 +378,19 @@ func (r *Runner) appendPrefixes(
 			continue
 		}
 
+		if !config.BoolVal(cp.NoPrefix) {
+			pc, ok := r.configPrefixMap[d.String()]
+			if !ok {
+				return fmt.Errorf("missing dependency %s", d)
+			}
+
+			// Replace the invalid path chars such as slashes with underscores
+			path := InvalidRegexp.ReplaceAllString(config.StringVal(pc.Path), "_")
+
+			// Prefix the key value with the path value.
+			key = fmt.Sprintf("%s_%s", path, key)
+		}
+
 		// If the user specified a custom format, apply that here.
 		if config.StringPresent(cp.Format) {
 			key, err = applyTemplate(config.StringVal(cp.Format), key)
