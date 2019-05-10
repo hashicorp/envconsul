@@ -418,7 +418,10 @@ func (r *Runner) appendSecrets(
 	// Get the PrefixConfig so we can get configuration from it.
 	cp := r.configPrefixMap[d.String()]
 
-	for key, value := range typed.Data {
+	// Use a flag here for minimal code impact; can be refactored later
+	dataMap := typed.Data
+	parseLoop:
+	for key, value := range dataMap {
 		// check for presence of "metadata", indicating this value came from Vault
 		// kv version 2, and we should then use the sub map instead
 		if key == "metadata" {
@@ -439,16 +442,10 @@ func (r *Runner) appendSecrets(
 			switch value.(type) {
 			case map[string]interface{}:
 				log.Printf("[DEBUG] Found KV2 secret")
-				mapV := value.(map[string]interface{})
-
-				// assumes this map is only 1 element long, we change the key and value
-				// to match the sub element
-				for k, v := range mapV {
-					key = k
-					value = v
-					break
-				}
+				dataMap = value.(map[string]interface{})
+				goto parseLoop
 			default:
+				log.Printf("[WARN] No data found for KV2 secret")
 				// Only handle the sub data map, do nothing otherwise.
 				// If the secret has been deleted but not destroyed, Vault will return a
 				// response with a nil sub data map, and will not be handled by the
