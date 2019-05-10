@@ -778,6 +778,8 @@ Options:
       A prefix to watch, multiple prefixes are merged from left to right, with
       the right-most result taking precedence, including any values specified
       with -secret
+      A complex flag may be specified with the format:
+	  {"path":"foo/bar", "noPrefix": true, "format": "custom_{{ key }}" }
 
   -pristine
       Only use values retrieved from prefixes and secrets, do not inherit the
@@ -793,6 +795,8 @@ Options:
       A secret path to watch in Vault, multiple prefixes are merged from left
       to right, with the right-most result taking precedence, including any
       values specified with -prefix
+      A complex flag may be specified with the format:
+	  {"path":"foo/bar", "noPrefix": true, "format": "custom_{{ key }}" }
 
   -syslog
       Send the output to syslog instead of standard error and standard out. The
