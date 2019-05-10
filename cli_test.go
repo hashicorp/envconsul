@@ -517,6 +517,21 @@ func TestCLI_ParseFlags(t *testing.T) {
 			false,
 		},
 		{
+			"prefix_complex",
+			[]string{"-prefix", `{"path":"foo/bar", "noPrefix": true, "format": "custom_{{ key }}" }`},
+			&Config{
+				Prefixes: &PrefixConfigs{
+					&PrefixConfig{
+						Path: config.String("foo/bar"),
+						NoPrefix: config.Bool(true),
+						Format: config.String("custom_{{ key }}"),
+
+					},
+				},
+			},
+			false,
+		},
+		{
 			"prefix_multi",
 			[]string{
 				"-prefix", "foo/bar",

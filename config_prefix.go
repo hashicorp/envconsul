@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -16,6 +17,10 @@ type PrefixConfig struct {
 }
 
 func ParsePrefixConfig(s string) (*PrefixConfig, error) {
+	if strings.HasPrefix(s, "{") {
+		var c PrefixConfig
+		return &c, json.Unmarshal([]byte(s), &c)
+	}
 	s = strings.TrimPrefix(s, "/")
 	return &PrefixConfig{
 		Path: config.String(s),
