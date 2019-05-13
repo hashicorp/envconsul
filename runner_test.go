@@ -122,7 +122,7 @@ func TestRunner_configEnv(t *testing.T) {
 		output    map[string]string
 	}{
 		{
-			name:     "pristine env with no custom vars leads to empty env",
+			name:     "pristine env with no custom vars yields empty env",
 			env:      map[string]string{"PATH": "/bin"},
 			pristine: true,
 			output:   map[string]string{},
