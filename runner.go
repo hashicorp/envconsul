@@ -106,6 +106,12 @@ func NewRunner(config *Config, once bool) (*Runner, error) {
 func (r *Runner) Start() {
 	log.Printf("[INFO] (runner) starting")
 
+	// Create the pid before doing anything.
+	if err := r.storePid(); err != nil {
+		r.ErrCh <- err
+		return
+	}
+
 	// Add each dependency to the watcher
 	for _, d := range r.dependencies {
 		r.watcher.Add(d)
