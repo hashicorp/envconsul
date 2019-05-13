@@ -121,46 +121,40 @@ func TestRunner_configEnv(t *testing.T) {
 		blacklist []string
 		output    map[string]string
 	}{
-		// pristine env with no custom vars leads to empty env
 		{
-			name:     "pristine without custom vars",
+			name:     "pristine env with no custom vars leads to empty env",
 			env:      map[string]string{"PATH": "/bin"},
 			pristine: true,
 			output:   map[string]string{},
 		},
-		// pristine env with custom vars only keeps custom vars
 		{
-			name:     "pristine with custom vars",
+			name:     "pristine env with custom vars only keeps custom vars",
 			env:      map[string]string{"PATH": "/bin"},
 			pristine: true,
 			custom:   []string{"GOPATH=/usr/go"},
 			output:   map[string]string{"GOPATH": "/usr/go"},
 		},
-		// custom vars overwrite input vars
 		{
-			name:   "custom and dependency env",
+			name:   "custom vars overwrite input vars",
 			env:    map[string]string{"PATH": "/bin"},
 			custom: []string{"PATH=/usr/bin"},
 			output: map[string]string{"PATH": "/usr/bin"},
 		},
-		// whitelist filters input by key
 		{
-			name:      "whitelist only",
+			name:      "whitelist filters input by key",
 			env:       map[string]string{"GOPATH": "/usr/go", "GO111MODULES": "true", "PATH": "/bin"},
 			whitelist: []string{"GO*"},
 			output:    map[string]string{"GOPATH": "/usr/go", "GO111MODULES": "true"},
 		},
-		// blacklist takes precedence over whitelist
 		{
-			name:      "whitelist and blacklist",
+			name:      "blacklist takes precedence over whitelist",
 			env:       map[string]string{"GOPATH": "/usr/go", "PATH": "/bin", "EDITOR": "vi"},
 			whitelist: []string{"GO*", "EDITOR"},
 			blacklist: []string{"GO*"},
 			output:    map[string]string{"EDITOR": "vi"},
 		},
-		// custom attached after white/black list rules are applied
 		{
-			name:      "blacklist and custom",
+			name:      "custom takes precedence over blacklist",
 			env:       map[string]string{"PATH": "/bin", "EDITOR": "vi"},
 			blacklist: []string{"EDITOR*"},
 			custom:    []string{"EDITOR=nvim"},

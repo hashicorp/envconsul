@@ -754,8 +754,7 @@ func (r *Runner) applyConfigEnv(env map[string]string) map[string]string {
 	}
 
 	// Filter to envvars that match the whitelist
-	n := len(r.config.Exec.Env.Whitelist)
-	if n > 0 {
+	if n := len(r.config.Exec.Env.Whitelist); n > 0 {
 		include := make(map[string]bool, n)
 		for k, _ := range keys {
 			if anyGlobMatch(k, r.config.Exec.Env.Whitelist) {
