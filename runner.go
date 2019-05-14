@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"strings"
@@ -300,12 +301,14 @@ func (r *Runner) Run() (<-chan int, error) {
 		newEnv[k] = v
 	}
 
+	filteredEnv := r.applyConfigEnv(newEnv)
+
 	// Prepare the final environment. Note that it's CRUCIAL for us to
 	// initialize this slice to an empty one vs. a nil one, since that's
 	// how the child process class decides whether to pull in the parent's
 	// environment or not, and we control that via -pristine.
 	cmdEnv := make([]string, 0)
-	for k, v := range newEnv {
+	for k, v := range filteredEnv {
 		cmdEnv = append(cmdEnv, fmt.Sprintf("%s=%s", k, v))
 	}
 
@@ -736,4 +739,77 @@ func newWatcher(c *Config, clients *dep.ClientSet, once bool) (*watch.Watcher, e
 		return nil, errors.Wrap(err, "runner")
 	}
 	return w, nil
+}
+
+// applyConfigEnv applies custom env variables and whitelist/blacklist rules from config
+func (r *Runner) applyConfigEnv(env map[string]string) map[string]string {
+	// Parse custom environment variables
+	custom := make(map[string]string, len(r.config.Exec.Env.Custom))
+	for _, v := range r.config.Exec.Env.Custom {
+		list := strings.SplitN(v, "=", 2)
+		custom[list[0]] = list[1]
+	}
+
+	// In pristine mode, just return the custom environment. If the user did not
+	// specify a custom environment, just return the empty slice to force an
+	// empty environment. We cannot return nil here because the later call to
+	// os/exec will think we want to inherit the parent.
+	if config.BoolVal(r.config.Exec.Env.Pristine) {
+		if len(custom) > 0 {
+			return custom
+		}
+		return make(map[string]string)
+	}
+
+	keys := make(map[string]bool, len(env))
+	for k, _ := range env {
+		keys[k] = true
+	}
+
+	// anyGlobMatch is a helper function which checks if any of the given globs
+	// match the string.
+	anyGlobMatch := func(s string, patterns []string) bool {
+		for _, pattern := range patterns {
+			if matched, _ := filepath.Match(pattern, s); matched {
+				return true
+			}
+		}
+		return false
+	}
+
+	// Filter to envvars that match the whitelist
+	if n := len(r.config.Exec.Env.Whitelist); n > 0 {
+		include := make(map[string]bool, n)
+		for k, _ := range keys {
+			if anyGlobMatch(k, r.config.Exec.Env.Whitelist) {
+				include[k] = true
+			}
+		}
+		keys = include
+	}
+
+	// Remove any env vars that match the blacklist
+	// Blacklist takes precedence over whitelist
+	if len(r.config.Exec.Env.Blacklist) > 0 {
+		for k, _ := range keys {
+			if anyGlobMatch(k, r.config.Exec.Env.Blacklist) {
+				delete(keys, k)
+			}
+		}
+	}
+
+	// Filter env to allowed keys
+	for k, _ := range env {
+		if _, ok := keys[k]; !ok {
+			delete(env, k)
+		}
+	}
+
+	// Add custom env to final map
+	// Custom variables take precedence over whitelist and blacklist
+	for k, v := range custom {
+		env[k] = v
+	}
+
+	return env
 }
