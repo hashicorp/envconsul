@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/hashicorp/consul-template/config"
@@ -18,39 +17,46 @@ func TestRunner_appendSecrets(t *testing.T) {
 	tt := []struct {
 		name     string
 		path     string
+		noPrefix *bool
 		data     *dependency.Secret
+		keyName  string
 		notFound bool
 	}{
 		{
-			"kv1_secret",
-			"kv/bar",
-			&dependency.Secret{
+			name:     "kv1 secret",
+			path:     "kv/bar",
+			noPrefix: config.Bool(false),
+			data: &dependency.Secret{
 				Data: map[string]interface{}{
-					"key_field": secretValue,
+					"bar": secretValue,
 				},
 			},
-			false,
+			keyName:  "kv_bar_bar",
+			notFound: false,
 		},
 		{
-			"kv2_secret",
-			"secret/data/foo",
-			&dependency.Secret{
+			name:     "kv2 secret",
+			path:     "secret/data/foo",
+			noPrefix: config.Bool(false),
+			data: &dependency.Secret{
 				Data: map[string]interface{}{
 					"metadata": map[string]interface{}{
 						"destroyed": bool(false),
 						"version":   "1",
 					},
 					"data": map[string]interface{}{
-						"key_field": secretValue,
+						"bar": secretValue,
 					},
 				},
 			},
-			false,
+			keyName:  "secret_data_foo_bar",
+			notFound: false,
 		},
 		{
-			"kv2_secret_destroyed",
-			"secret/data/foo",
-			&dependency.Secret{
+			name:     "kv2 secret destroyed",
+			path:     "secret/data/foo",
+			noPrefix: config.Bool(false),
+			data: &dependency.Secret{
 				Data: map[string]interface{}{
 					"metadata": map[string]interface{}{
 						"destroyed": bool(true),
@@ -59,17 +65,73 @@ func TestRunner_appendSecrets(t *testing.T) {
 					"data": nil,
 				},
 			},
-			true,
+			keyName:  "",
+			notFound: true,
 		},
 		{
-			"int_secret_skipped",
-			"kv/foo",
-			&dependency.Secret{
+			name:     "kv2 secret noprefix excludes path",
+			path:     "secret/data/foo",
+			noPrefix: config.Bool(true),
+			data: &dependency.Secret{
 				Data: map[string]interface{}{
-					"key_field": 1,
+					"metadata": map[string]interface{}{
+						"destroyed": bool(false),
+						"version":   "1",
+					},
+					"data": map[string]interface{}{
+						"bar": secretValue,
+					},
 				},
 			},
-			true,
+			keyName:  "bar",
+			notFound: false,
+		},
+		{
+			name:     "kv2 secret false noprefix includes path",
+			path:     "secret/data/foo",
+			noPrefix: config.Bool(false),
+			data: &dependency.Secret{
+				Data: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"destroyed": bool(false),
+						"version":   "1",
+					},
+					"data": map[string]interface{}{
+						"bar": secretValue,
+					},
+				},
+			},
+			keyName:  "secret_data_foo_bar",
+			notFound: false,
+		},
+		{
+			name:     "kv2 secret default noprefix includes path",
+			path:     "secret/data/foo",
+			noPrefix: nil,
+			data: &dependency.Secret{
+				Data: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"destroyed": bool(false),
+						"version":   "1",
+					},
+					"data": map[string]interface{}{
+						"bar": secretValue,
+					},
+				},
+			},
+			keyName:  "secret_data_foo_bar",
+			notFound: false,
+		},
+		{
+			name:     "int secret skipped",
+			path:     "kv/foo",
+			noPrefix: config.Bool(false),
+			data: &dependency.Secret{
+				Data: map[string]interface{}{
+					"bar": 1,
+				},
+			},
+			notFound: true,
 		},
 	}
 
@@ -78,7 +140,8 @@ func TestRunner_appendSecrets(t *testing.T) {
 			cfg := Config{
 				Secrets: &PrefixConfigs{
 					&PrefixConfig{
-						Path: config.String(tc.path),
+						Path:     config.String(tc.path),
+						NoPrefix: tc.noPrefix,
 					},
 				},
 			}
@@ -101,19 +164,104 @@ func TestRunner_appendSecrets(t *testing.T) {
 				t.Fatalf("Expected only 1 value in this test")
 			}
 
-			keyName := tc.path + "_key_field"
-			keyName = strings.Replace(keyName, "/", "_", -1)
-
 			var value string
-			value, ok := env[keyName]
+			value, ok := env[tc.keyName]
 			if !ok && !tc.notFound {
-				t.Fatalf("expected (%s) key, but was not found", keyName)
+				t.Fatalf("expected (%s) key, but was not found", tc.keyName)
 			}
 			if ok && tc.notFound {
-				t.Fatalf("expected to not find key, but (%s) was found", keyName)
+				t.Fatalf("expected to not find key, but (%s) was found", tc.keyName)
 			}
 			if ok && value != secretValue {
 				t.Fatalf("values didn't match, expected (%s), got (%s)", secretValue, value)
+			}
+		})
+	}
+}
+func TestRunner_appendPrefixes(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name     string
+		path     string
+		noPrefix *bool
+		data     []*dependency.KeyPair
+		keyName  string
+	}{
+		{
+			name:     "false noprefix appends path",
+			path:     "app/my_service",
+			noPrefix: config.Bool(false),
+			data: []*dependency.KeyPair{
+				&dependency.KeyPair{
+					Key:   "mykey",
+					Value: "myValue",
+				},
+			},
+			keyName: "app_my_service_mykey",
+		},
+		{
+			name:     "true noprefix excludes path",
+			path:     "app/my_service",
+			noPrefix: config.Bool(true),
+			data: []*dependency.KeyPair{
+				&dependency.KeyPair{
+					Key:   "mykey",
+					Value: "myValue",
+				},
+			},
+			keyName: "mykey",
+		},
+		{
+			name:     "null noprefix excludes path",
+			path:     "app/my_service",
+			noPrefix: nil,
+			data: []*dependency.KeyPair{
+				&dependency.KeyPair{
+					Key:   "mykey",
+					Value: "myValue",
+				},
+			},
+			keyName: "mykey",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := Config{
+				Prefixes: &PrefixConfigs{
+					&PrefixConfig{
+						Path:     config.String(tc.path),
+						NoPrefix: tc.noPrefix,
+					},
+				},
+			}
+			c := DefaultConfig().Merge(&cfg)
+			r, err := NewRunner(c, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+			kvq, err := dependency.NewKVListQuery(tc.path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			env := make(map[string]string)
+			appendError := r.appendPrefixes(env, kvq, tc.data)
+			if appendError != nil {
+				t.Fatalf("got err: %s", appendError)
+			}
+
+			if len(env) > 1 {
+				t.Fatalf("Expected only 1 value in this test")
+			}
+
+			var value string
+			value, ok := env[tc.keyName]
+			if !ok {
+				t.Fatalf("expected (%s) key, but was not found", tc.keyName)
+			}
+			if ok && value != tc.data[0].Value {
+				t.Fatalf("values didn't match, expected (%s), got (%s)", tc.data[0].Value, value)
 			}
 		})
 	}
@@ -189,7 +337,6 @@ func TestRunner_configEnv(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-
 			result := r.applyConfigEnv(tc.env)
 
 			if !reflect.DeepEqual(result, tc.output) {
