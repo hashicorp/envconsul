@@ -387,7 +387,8 @@ func (r *Runner) appendPrefixes(
 			continue
 		}
 
-		if !config.BoolVal(cp.NoPrefix) {
+		// NoPrefix is nil when not set in config. Default to excluding prefix for Consul keys.
+		if cp.NoPrefix != nil && !config.BoolVal(cp.NoPrefix) {
 			pc, ok := r.configPrefixMap[d.String()]
 			if !ok {
 				return fmt.Errorf("missing dependency %s", d)
@@ -489,7 +490,8 @@ func (r *Runner) appendSecrets(
 			continue
 		}
 
-		if !config.BoolVal(cp.NoPrefix) {
+		// NoPrefix is nil when not set in config. Default to including prefix for Vault secrets.
+		if cp.NoPrefix == nil || !config.BoolVal(cp.NoPrefix) {
 			// Replace the path slashes with an underscore.
 			pc, ok := r.configPrefixMap[d.String()]
 			if !ok {
