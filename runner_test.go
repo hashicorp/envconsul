@@ -61,7 +61,8 @@ func TestRunner_appendSecrets(t *testing.T) {
 			},
 			true,
 		},
-		"int_secret_skipped": {
+		{
+			"int_secret_skipped",
 			"kv/foo",
 			&dependency.Secret{
 				Data: map[string]interface{}{
