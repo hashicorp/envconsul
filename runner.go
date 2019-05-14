@@ -107,6 +107,12 @@ func NewRunner(config *Config, once bool) (*Runner, error) {
 func (r *Runner) Start() {
 	log.Printf("[INFO] (runner) starting")
 
+	// Create the pid before doing anything.
+	if err := r.storePid(); err != nil {
+		r.ErrCh <- err
+		return
+	}
+
 	// Add each dependency to the watcher
 	for _, d := range r.dependencies {
 		r.watcher.Add(d)
@@ -501,11 +507,16 @@ func (r *Runner) appendSecrets(
 
 		if current, ok := env[key]; ok {
 			log.Printf("[DEBUG] (runner) overwriting %s=%q (was %q) from %s", key, value, current, d)
-			env[key] = value.(string)
 		} else {
 			log.Printf("[DEBUG] (runner) setting %s=%q from %s", key, value, d)
-			env[key] = value.(string)
 		}
+
+		val, ok := value.(string)
+		if !ok {
+			log.Printf("[WARN] (runner) skipping key '%s', invalid type for value. got %v, not string", key, reflect.TypeOf(value))
+			continue
+		}
+		env[key] = val
 	}
 
 	return nil
