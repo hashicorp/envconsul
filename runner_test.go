@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -14,12 +15,14 @@ func TestRunner_appendSecrets(t *testing.T) {
 
 	secretValue := "somevalue"
 
-	cases := map[string]struct {
+	tt := []struct {
+		name     string
 		path     string
 		data     *dependency.Secret
 		notFound bool
 	}{
-		"kv1_secret": {
+		{
+			"kv1_secret",
 			"kv/bar",
 			&dependency.Secret{
 				Data: map[string]interface{}{
@@ -28,7 +31,8 @@ func TestRunner_appendSecrets(t *testing.T) {
 			},
 			false,
 		},
-		"kv2_secret": {
+		{
+			"kv2_secret",
 			"secret/data/foo",
 			&dependency.Secret{
 				Data: map[string]interface{}{
@@ -43,7 +47,8 @@ func TestRunner_appendSecrets(t *testing.T) {
 			},
 			false,
 		},
-		"kv2_secret_destroyed": {
+		{
+			"kv2_secret_destroyed",
 			"secret/data/foo",
 			&dependency.Secret{
 				Data: map[string]interface{}{
@@ -56,7 +61,8 @@ func TestRunner_appendSecrets(t *testing.T) {
 			},
 			true,
 		},
-		"int_secret_skipped": {
+		{
+			"int_secret_skipped",
 			"kv/foo",
 			&dependency.Secret{
 				Data: map[string]interface{}{
@@ -67,8 +73,8 @@ func TestRunner_appendSecrets(t *testing.T) {
 		},
 	}
 
-	for name, tc := range cases {
-		t.Run(fmt.Sprintf("%s", name), func(t *testing.T) {
+	for _, tc := range tt {
+		t.Run(fmt.Sprintf("%s", tc.name), func(t *testing.T) {
 			cfg := Config{
 				Secrets: &PrefixConfigs{
 					&PrefixConfig{
@@ -108,6 +114,86 @@ func TestRunner_appendSecrets(t *testing.T) {
 			}
 			if ok && value != secretValue {
 				t.Fatalf("values didn't match, expected (%s), got (%s)", secretValue, value)
+			}
+		})
+	}
+}
+
+func TestRunner_configEnv(t *testing.T) {
+	t.Parallel()
+
+	tt := []struct {
+		name      string
+		env       map[string]string
+		pristine  bool
+		custom    []string
+		whitelist []string
+		blacklist []string
+		output    map[string]string
+	}{
+		{
+			name:     "pristine env with no custom vars yields empty env",
+			env:      map[string]string{"PATH": "/bin"},
+			pristine: true,
+			output:   map[string]string{},
+		},
+		{
+			name:     "pristine env with custom vars only keeps custom vars",
+			env:      map[string]string{"PATH": "/bin"},
+			pristine: true,
+			custom:   []string{"GOPATH=/usr/go"},
+			output:   map[string]string{"GOPATH": "/usr/go"},
+		},
+		{
+			name:   "custom vars overwrite input vars",
+			env:    map[string]string{"PATH": "/bin"},
+			custom: []string{"PATH=/usr/bin"},
+			output: map[string]string{"PATH": "/usr/bin"},
+		},
+		{
+			name:      "whitelist filters input by key",
+			env:       map[string]string{"GOPATH": "/usr/go", "GO111MODULES": "true", "PATH": "/bin"},
+			whitelist: []string{"GO*"},
+			output:    map[string]string{"GOPATH": "/usr/go", "GO111MODULES": "true"},
+		},
+		{
+			name:      "blacklist takes precedence over whitelist",
+			env:       map[string]string{"GOPATH": "/usr/go", "PATH": "/bin", "EDITOR": "vi"},
+			whitelist: []string{"GO*", "EDITOR"},
+			blacklist: []string{"GO*"},
+			output:    map[string]string{"EDITOR": "vi"},
+		},
+		{
+			name:      "custom takes precedence over blacklist",
+			env:       map[string]string{"PATH": "/bin", "EDITOR": "vi"},
+			blacklist: []string{"EDITOR*"},
+			custom:    []string{"EDITOR=nvim"},
+			output:    map[string]string{"EDITOR": "nvim", "PATH": "/bin"},
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := Config{
+				Exec: &config.ExecConfig{
+					Env: &config.EnvConfig{
+						Pristine:  &tc.pristine,
+						Blacklist: tc.blacklist,
+						Whitelist: tc.whitelist,
+						Custom:    tc.custom,
+					},
+				},
+			}
+			c := DefaultConfig().Merge(&cfg)
+			r, err := NewRunner(c, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			result := r.applyConfigEnv(tc.env)
+
+			if !reflect.DeepEqual(result, tc.output) {
+				t.Fatalf("expected: %v\n got: %v", tc.output, result)
 			}
 		})
 	}
