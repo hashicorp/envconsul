@@ -313,8 +313,6 @@ func (r *Runner) Run() (<-chan int, error) {
 	}
 
 	p := shellwords.NewParser()
-	p.ParseEnv = true
-	p.ParseBacktick = true
 	args, err := p.Parse(config.StringVal(r.config.Exec.Command))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed parsing command")
