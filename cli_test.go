@@ -535,6 +535,58 @@ func TestCLI_ParseFlags(t *testing.T) {
 			false,
 		},
 		{
+			"no-prefix",
+			[]string{"-prefix", "foo/bar", "-no-prefix"},
+			&Config{
+				Prefixes: &PrefixConfigs{
+					&PrefixConfig{
+						Path: config.String("foo/bar"),
+						NoPrefix: config.Bool(true),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"no-prefix",
+			[]string{"-secret", "foo/bar", "-no-prefix"},
+			&Config{
+				Secrets: &PrefixConfigs{
+					&PrefixConfig{
+						Path: config.String("foo/bar"),
+						NoPrefix: config.Bool(true),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"no-prefix-false",
+			[]string{"-prefix", "foo/bar", "-no-prefix=false"},
+			&Config{
+				Prefixes: &PrefixConfigs{
+					&PrefixConfig{
+						Path: config.String("foo/bar"),
+						NoPrefix: config.Bool(false),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"no-prefix-nil-default",
+			[]string{"-prefix", "foo/bar"},
+			&Config{
+				Prefixes: &PrefixConfigs{
+					&PrefixConfig{
+						Path: config.String("foo/bar"),
+						NoPrefix: nil,
+					},
+				},
+			},
+			false,
+		},
+		{
 			"pristine",
 			[]string{"-pristine"},
 			&Config{
