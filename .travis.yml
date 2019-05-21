@@ -4,8 +4,8 @@ sudo: false
 language: go
 
 go:
-  - 1.11
-  - 1.12
+  - 1.12.x
+  - tip
 
 env:
   - GOMAXPROCS=4

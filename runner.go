@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"strings"
@@ -105,6 +106,12 @@ func NewRunner(config *Config, once bool) (*Runner, error) {
 // timers. This is the main event loop and will block until finished.
 func (r *Runner) Start() {
 	log.Printf("[INFO] (runner) starting")
+
+	// Create the pid before doing anything.
+	if err := r.storePid(); err != nil {
+		r.ErrCh <- err
+		return
+	}
 
 	// Add each dependency to the watcher
 	for _, d := range r.dependencies {
@@ -294,18 +301,18 @@ func (r *Runner) Run() (<-chan int, error) {
 		newEnv[k] = v
 	}
 
+	filteredEnv := r.applyConfigEnv(newEnv)
+
 	// Prepare the final environment. Note that it's CRUCIAL for us to
 	// initialize this slice to an empty one vs. a nil one, since that's
 	// how the child process class decides whether to pull in the parent's
 	// environment or not, and we control that via -pristine.
 	cmdEnv := make([]string, 0)
-	for k, v := range newEnv {
+	for k, v := range filteredEnv {
 		cmdEnv = append(cmdEnv, fmt.Sprintf("%s=%s", k, v))
 	}
 
 	p := shellwords.NewParser()
-	p.ParseEnv = true
-	p.ParseBacktick = true
 	args, err := p.Parse(config.StringVal(r.config.Exec.Command))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed parsing command")
@@ -376,6 +383,20 @@ func (r *Runner) appendPrefixes(
 		// it is possible to have an environment variable _value_ that is blank.
 		if strings.TrimSpace(key) == "" {
 			continue
+		}
+
+		// NoPrefix is nil when not set in config. Default to excluding prefix for Consul keys.
+		if cp.NoPrefix != nil && !config.BoolVal(cp.NoPrefix) {
+			pc, ok := r.configPrefixMap[d.String()]
+			if !ok {
+				return fmt.Errorf("missing dependency %s", d)
+			}
+
+			// Replace the invalid path chars such as slashes with underscores
+			path := InvalidRegexp.ReplaceAllString(config.StringVal(pc.Path), "_")
+
+			// Prefix the key value with the path value.
+			key = fmt.Sprintf("%s_%s", path, key)
 		}
 
 		// If the user specified a custom format, apply that here.
@@ -467,7 +488,8 @@ func (r *Runner) appendSecrets(
 			continue
 		}
 
-		if !config.BoolVal(cp.NoPrefix) {
+		// NoPrefix is nil when not set in config. Default to including prefix for Vault secrets.
+		if cp.NoPrefix == nil || !config.BoolVal(cp.NoPrefix) {
 			// Replace the path slashes with an underscore.
 			pc, ok := r.configPrefixMap[d.String()]
 			if !ok {
@@ -498,11 +520,16 @@ func (r *Runner) appendSecrets(
 
 		if current, ok := env[key]; ok {
 			log.Printf("[DEBUG] (runner) overwriting %s=%q (was %q) from %s", key, value, current, d)
-			env[key] = value.(string)
 		} else {
 			log.Printf("[DEBUG] (runner) setting %s=%q from %s", key, value, d)
-			env[key] = value.(string)
 		}
+
+		val, ok := value.(string)
+		if !ok {
+			log.Printf("[WARN] (runner) skipping key '%s', invalid type for value. got %v, not string", key, reflect.TypeOf(value))
+			continue
+		}
+		env[key] = val
 	}
 
 	return nil
@@ -712,4 +739,77 @@ func newWatcher(c *Config, clients *dep.ClientSet, once bool) (*watch.Watcher, e
 		return nil, errors.Wrap(err, "runner")
 	}
 	return w, nil
+}
+
+// applyConfigEnv applies custom env variables and whitelist/blacklist rules from config
+func (r *Runner) applyConfigEnv(env map[string]string) map[string]string {
+	// Parse custom environment variables
+	custom := make(map[string]string, len(r.config.Exec.Env.Custom))
+	for _, v := range r.config.Exec.Env.Custom {
+		list := strings.SplitN(v, "=", 2)
+		custom[list[0]] = list[1]
+	}
+
+	// In pristine mode, just return the custom environment. If the user did not
+	// specify a custom environment, just return the empty slice to force an
+	// empty environment. We cannot return nil here because the later call to
+	// os/exec will think we want to inherit the parent.
+	if config.BoolVal(r.config.Exec.Env.Pristine) {
+		if len(custom) > 0 {
+			return custom
+		}
+		return make(map[string]string)
+	}
+
+	keys := make(map[string]bool, len(env))
+	for k, _ := range env {
+		keys[k] = true
+	}
+
+	// anyGlobMatch is a helper function which checks if any of the given globs
+	// match the string.
+	anyGlobMatch := func(s string, patterns []string) bool {
+		for _, pattern := range patterns {
+			if matched, _ := filepath.Match(pattern, s); matched {
+				return true
+			}
+		}
+		return false
+	}
+
+	// Filter to envvars that match the whitelist
+	if n := len(r.config.Exec.Env.Whitelist); n > 0 {
+		include := make(map[string]bool, n)
+		for k, _ := range keys {
+			if anyGlobMatch(k, r.config.Exec.Env.Whitelist) {
+				include[k] = true
+			}
+		}
+		keys = include
+	}
+
+	// Remove any env vars that match the blacklist
+	// Blacklist takes precedence over whitelist
+	if len(r.config.Exec.Env.Blacklist) > 0 {
+		for k, _ := range keys {
+			if anyGlobMatch(k, r.config.Exec.Env.Blacklist) {
+				delete(keys, k)
+			}
+		}
+	}
+
+	// Filter env to allowed keys
+	for k, _ := range env {
+		if _, ok := keys[k]; !ok {
+			delete(env, k)
+		}
+	}
+
+	// Add custom env to final map
+	// Custom variables take precedence over whitelist and blacklist
+	for k, v := range custom {
+		env[k] = v
+	}
+
+	return env
 }

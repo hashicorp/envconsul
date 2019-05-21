@@ -77,7 +77,8 @@ func (c *PrefixConfig) Finalize() {
 	}
 
 	if c.NoPrefix == nil {
-		c.NoPrefix = config.Bool(false)
+		// Do not set a default value to allow differing defaults for Vault and Consul.
+		// Vault secrets include prefix by default while Consul keys exclude it.
 	}
 
 	if c.Path == nil {
