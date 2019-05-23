@@ -341,6 +341,8 @@ prefix {
   format = "custom_{{ key }}"
 
   # This tells Envconsul to not prefix the keys with their parent "folder".
+  # The default for `prefix` (consul) is true, the default for `secret` (vault)
+  # is false. The differing defaults is to maintain backward compatibility.
   no_prefix = false
 
   # This is the path of the key in Consul or Vault from which to read data.
@@ -483,14 +485,15 @@ note that symbolic links are _not_ followed.
 By default, almost all signals are proxied to the child process, with some
 exceptions. There are multiple configuration options related to signals.
 
-- `kill_signal` - This is the signal that Envconsul should listen to to kill
+- `kill_signal` - This is the signal that Envconsul should listen for to kill
   _itself_. This is useful when you want your application to respond to a
   different signal than the child process.
 
-- `reload_signal` - This is the signal that Envconsul should listen to to reload
-  its own configuration. This is useful when using configuration files. This
-  signal will not be proxied to the child process if configured. By specifying
-  this as the empty string, Envconsul will not listen for reload signals.
+- `reload_signal` - This is the signal that Envconsul should listen for to
+  reload its own configuration. This is useful when using configuration files.
+  This signal will not be proxied to the child process if configured. By
+  specifying this as the empty string, Envconsul will not listen for reload
+  signals.
 
 - `exec.kill_signal` - This is the signal that Envconsul will send to the
   child process to gracefully terminate it. This is the signal that your child
