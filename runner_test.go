@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/consul-template/config"
@@ -12,51 +12,43 @@ import (
 func TestRunner_appendSecrets(t *testing.T) {
 	t.Parallel()
 
-	secretValue := "somevalue"
+	secretValue1 := "somevalue"
+	secretValue2 := "somevalue2"
 
-	tt := []struct {
-		name     string
+	cases := map[string]struct {
 		path     string
-		noPrefix *bool
 		data     *dependency.Secret
-		keyName  string
 		notFound bool
 	}{
-		{
-			name:     "kv1 secret",
-			path:     "kv/bar",
-			noPrefix: config.Bool(false),
-			data: &dependency.Secret{
+		"kv1_secret": {
+			"kv/bar",
+			&dependency.Secret{
 				Data: map[string]interface{}{
-					"bar": secretValue,
+					"key_field":  secretValue1,
+					"key_field2": secretValue2,
 				},
 			},
-			keyName:  "kv_bar_bar",
-			notFound: false,
+			false,
 		},
-		{
-			name:     "kv2 secret",
-			path:     "secret/data/foo",
-			noPrefix: config.Bool(false),
-			data: &dependency.Secret{
+		"kv2_secret": {
+			"secret/data/foo",
+			&dependency.Secret{
 				Data: map[string]interface{}{
 					"metadata": map[string]interface{}{
 						"destroyed": bool(false),
 						"version":   "1",
 					},
 					"data": map[string]interface{}{
-						"bar": secretValue,
+						"key_field":  secretValue1,
+						"key_field2": secretValue2,
 					},
 				},
 			},
-			keyName:  "secret_data_foo_bar",
-			notFound: false,
+			false,
 		},
-		{
-			name:     "kv2 secret destroyed",
-			path:     "secret/data/foo",
-			noPrefix: config.Bool(false),
-			data: &dependency.Secret{
+		"kv2_secret_destroyed": {
+			"secret/data/foo",
+			&dependency.Secret{
 				Data: map[string]interface{}{
 					"metadata": map[string]interface{}{
 						"destroyed": bool(true),
@@ -65,83 +57,16 @@ func TestRunner_appendSecrets(t *testing.T) {
 					"data": nil,
 				},
 			},
-			keyName:  "",
-			notFound: true,
-		},
-		{
-			name:     "kv2 secret noprefix excludes path",
-			path:     "secret/data/foo",
-			noPrefix: config.Bool(true),
-			data: &dependency.Secret{
-				Data: map[string]interface{}{
-					"metadata": map[string]interface{}{
-						"destroyed": bool(false),
-						"version":   "1",
-					},
-					"data": map[string]interface{}{
-						"bar": secretValue,
-					},
-				},
-			},
-			keyName:  "bar",
-			notFound: false,
-		},
-		{
-			name:     "kv2 secret false noprefix includes path",
-			path:     "secret/data/foo",
-			noPrefix: config.Bool(false),
-			data: &dependency.Secret{
-				Data: map[string]interface{}{
-					"metadata": map[string]interface{}{
-						"destroyed": bool(false),
-						"version":   "1",
-					},
-					"data": map[string]interface{}{
-						"bar": secretValue,
-					},
-				},
-			},
-			keyName:  "secret_data_foo_bar",
-			notFound: false,
-		},
-		{
-			name:     "kv2 secret default noprefix includes path",
-			path:     "secret/data/foo",
-			noPrefix: nil,
-			data: &dependency.Secret{
-				Data: map[string]interface{}{
-					"metadata": map[string]interface{}{
-						"destroyed": bool(false),
-						"version":   "1",
-					},
-					"data": map[string]interface{}{
-						"bar": secretValue,
-					},
-				},
-			},
-			keyName:  "secret_data_foo_bar",
-			notFound: false,
-		},
-		{
-			name:     "int secret skipped",
-			path:     "kv/foo",
-			noPrefix: config.Bool(false),
-			data: &dependency.Secret{
-				Data: map[string]interface{}{
-					"bar": 1,
-				},
-			},
-			notFound: true,
+			true,
 		},
 	}
 
-	for _, tc := range tt {
-		t.Run(fmt.Sprintf("%s", tc.name), func(t *testing.T) {
+	for name, tc := range cases {
+		t.Run(fmt.Sprintf("%s", name), func(t *testing.T) {
 			cfg := Config{
 				Secrets: &PrefixConfigs{
 					&PrefixConfig{
-						Path:     config.String(tc.path),
-						NoPrefix: tc.noPrefix,
+						Path: config.String(tc.path),
 					},
 				},
 			}
@@ -160,187 +85,37 @@ func TestRunner_appendSecrets(t *testing.T) {
 				t.Fatalf("got err: %s", appendError)
 			}
 
-			if len(env) > 1 {
-				t.Fatalf("Expected only 1 value in this test")
+			if len(env) > 2 {
+				t.Fatalf("Expected only 2 values in this test")
 			}
 
+			keyName1 := tc.path + "_key_field"
+			keyName1 = strings.Replace(keyName1, "/", "_", -1)
+
 			var value string
-			value, ok := env[tc.keyName]
+			value, ok := env[keyName1]
 			if !ok && !tc.notFound {
-				t.Fatalf("expected (%s) key, but was not found", tc.keyName)
+				t.Fatalf("expected (%s) key, but was not found", keyName1)
 			}
 			if ok && tc.notFound {
-				t.Fatalf("expected to not find key, but (%s) was found", tc.keyName)
+				t.Fatalf("expected to not find key, but (%s) was found", keyName1)
 			}
-			if ok && value != secretValue {
-				t.Fatalf("values didn't match, expected (%s), got (%s)", secretValue, value)
-			}
-		})
-	}
-}
-func TestRunner_appendPrefixes(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		name     string
-		path     string
-		noPrefix *bool
-		data     []*dependency.KeyPair
-		keyName  string
-	}{
-		{
-			name:     "false noprefix appends path",
-			path:     "app/my_service",
-			noPrefix: config.Bool(false),
-			data: []*dependency.KeyPair{
-				&dependency.KeyPair{
-					Key:   "mykey",
-					Value: "myValue",
-				},
-			},
-			keyName: "app_my_service_mykey",
-		},
-		{
-			name:     "true noprefix excludes path",
-			path:     "app/my_service",
-			noPrefix: config.Bool(true),
-			data: []*dependency.KeyPair{
-				&dependency.KeyPair{
-					Key:   "mykey",
-					Value: "myValue",
-				},
-			},
-			keyName: "mykey",
-		},
-		{
-			name:     "null noprefix excludes path",
-			path:     "app/my_service",
-			noPrefix: nil,
-			data: []*dependency.KeyPair{
-				&dependency.KeyPair{
-					Key:   "mykey",
-					Value: "myValue",
-				},
-			},
-			keyName: "mykey",
-		},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			cfg := Config{
-				Prefixes: &PrefixConfigs{
-					&PrefixConfig{
-						Path:     config.String(tc.path),
-						NoPrefix: tc.noPrefix,
-					},
-				},
-			}
-			c := DefaultConfig().Merge(&cfg)
-			r, err := NewRunner(c, true)
-			if err != nil {
-				t.Fatal(err)
-			}
-			kvq, err := dependency.NewKVListQuery(tc.path)
-			if err != nil {
-				t.Fatal(err)
-			}
-			env := make(map[string]string)
-			appendError := r.appendPrefixes(env, kvq, tc.data)
-			if appendError != nil {
-				t.Fatalf("got err: %s", appendError)
+			if ok && value != secretValue1 {
+				t.Fatalf("values didn't match, expected (%s), got (%s)", secretValue1, value)
 			}
 
-			if len(env) > 1 {
-				t.Fatalf("Expected only 1 value in this test")
-			}
+			keyName2 := tc.path + "_key_field2"
+			keyName2 = strings.Replace(keyName2, "/", "_", -1)
 
-			var value string
-			value, ok := env[tc.keyName]
-			if !ok {
-				t.Fatalf("expected (%s) key, but was not found", tc.keyName)
+			value, ok = env[keyName2]
+			if !ok && !tc.notFound {
+				t.Fatalf("expected (%s) key, but was not found", keyName2)
 			}
-			if ok && value != tc.data[0].Value {
-				t.Fatalf("values didn't match, expected (%s), got (%s)", tc.data[0].Value, value)
+			if ok && tc.notFound {
+				t.Fatalf("expected to not find key, but (%s) was found", keyName2)
 			}
-		})
-	}
-}
-
-func TestRunner_configEnv(t *testing.T) {
-	t.Parallel()
-
-	tt := []struct {
-		name      string
-		env       map[string]string
-		pristine  bool
-		custom    []string
-		whitelist []string
-		blacklist []string
-		output    map[string]string
-	}{
-		{
-			name:     "pristine env with no custom vars yields empty env",
-			env:      map[string]string{"PATH": "/bin"},
-			pristine: true,
-			output:   map[string]string{},
-		},
-		{
-			name:     "pristine env with custom vars only keeps custom vars",
-			env:      map[string]string{"PATH": "/bin"},
-			pristine: true,
-			custom:   []string{"GOPATH=/usr/go"},
-			output:   map[string]string{"GOPATH": "/usr/go"},
-		},
-		{
-			name:   "custom vars overwrite input vars",
-			env:    map[string]string{"PATH": "/bin"},
-			custom: []string{"PATH=/usr/bin"},
-			output: map[string]string{"PATH": "/usr/bin"},
-		},
-		{
-			name:      "whitelist filters input by key",
-			env:       map[string]string{"GOPATH": "/usr/go", "GO111MODULES": "true", "PATH": "/bin"},
-			whitelist: []string{"GO*"},
-			output:    map[string]string{"GOPATH": "/usr/go", "GO111MODULES": "true"},
-		},
-		{
-			name:      "blacklist takes precedence over whitelist",
-			env:       map[string]string{"GOPATH": "/usr/go", "PATH": "/bin", "EDITOR": "vi"},
-			whitelist: []string{"GO*", "EDITOR"},
-			blacklist: []string{"GO*"},
-			output:    map[string]string{"EDITOR": "vi"},
-		},
-		{
-			name:      "custom takes precedence over blacklist",
-			env:       map[string]string{"PATH": "/bin", "EDITOR": "vi"},
-			blacklist: []string{"EDITOR*"},
-			custom:    []string{"EDITOR=nvim"},
-			output:    map[string]string{"EDITOR": "nvim", "PATH": "/bin"},
-		},
-	}
-
-	for _, tc := range tt {
-		t.Run(tc.name, func(t *testing.T) {
-			cfg := Config{
-				Exec: &config.ExecConfig{
-					Env: &config.EnvConfig{
-						Pristine:  &tc.pristine,
-						Blacklist: tc.blacklist,
-						Whitelist: tc.whitelist,
-						Custom:    tc.custom,
-					},
-				},
-			}
-			c := DefaultConfig().Merge(&cfg)
-			r, err := NewRunner(c, true)
-			if err != nil {
-				t.Fatal(err)
-			}
-			result := r.applyConfigEnv(tc.env)
-
-			if !reflect.DeepEqual(result, tc.output) {
-				t.Fatalf("expected: %v\n got: %v", tc.output, result)
+			if ok && value != secretValue2 {
+				t.Fatalf("values didn't match, expected (%s), got (%s)", secretValue2, value)
 			}
 		})
 	}
