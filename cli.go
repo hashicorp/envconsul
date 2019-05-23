@@ -209,6 +209,7 @@ func (cli *CLI) stop() {
 // much easier and cleaner.
 func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error) {
 	var once, isVersion bool
+	var no_prefix *bool
 	var c = DefaultConfig()
 
 	// configPaths stores the list of configuration paths on disk
@@ -366,6 +367,13 @@ func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error)
 		c.MaxStale = config.TimeDuration(d)
 		return nil
 	}), "max-stale", "")
+
+	// requires post processing (see below) as it depends on -prefix
+	flags.Var((funcBoolVar)(func(b bool) error {
+		no_prefix = config.Bool(b)
+		return nil
+	}), "no-prefix", "")
+
 
 	flags.BoolVar(&once, "once", false, "")
 
@@ -614,6 +622,16 @@ func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error)
 		return nil, nil, false, false, err
 	}
 
+	// Post-processing of no-prefix option
+	if no_prefix != nil {
+		for _, p := range *c.Prefixes {
+			p.NoPrefix = no_prefix
+		}
+		for _, s := range *c.Secrets {
+			s.NoPrefix = no_prefix
+		}
+	}
+
 	// Convert any arguments given after to the command, but a command specified
 	// via the flag takes precedence.
 	if c.Exec.Command == nil {
@@ -767,6 +785,9 @@ Options:
   -max-stale=<duration>
       Set the maximum staleness and allow stale queries to Consul which will
       distribute work among all servers instead of just the leader
+
+  -no-prefix[=<bool>]
+	  Tells Envconsul to not prefix the keys with their parent "folder".
 
   -once
       Do not run the process as a daemon

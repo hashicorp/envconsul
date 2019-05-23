@@ -341,6 +341,8 @@ prefix {
   format = "custom_{{ key }}"
 
   # This tells Envconsul to not prefix the keys with their parent "folder".
+  # The default for `prefix` (consul) is true, the default for `secret` (vault)
+  # is false. The differing defaults is to maintain backward compatibility.
   no_prefix = false
 
   # This is the path of the key in Consul or Vault from which to read data.
