@@ -3,6 +3,7 @@ jobs:
   build:
     docker:
       - image: circleci/golang:latest
+    working_directory: /go/src/github.com/hashicorp/envconsul
     steps:
       - checkout
       - run: go test -v
