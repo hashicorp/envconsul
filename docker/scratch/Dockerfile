@@ -2,7 +2,7 @@
 # Builder
 #
 FROM golang:1.12 AS builder
-LABEL maintainer "Seth Vargo <seth@sethvargo.com> (@sethvargo)"
+LABEL maintainer "John Eikenberry <jae@zhar.net>"
 
 ARG LD_FLAGS
 ARG GOTAGS
@@ -19,7 +19,7 @@ RUN \
 # Final
 #
 FROM scratch
-LABEL maintainer "Seth Vargo <seth@sethvargo.com> (@sethvargo)"
+LABEL maintainer "John Eikenberry <jae@zhar.net>"
 
 ADD "https://curl.haxx.se/ca/cacert.pem" "/etc/ssl/certs/ca-certificates.crt"
 COPY --from=builder "/envconsul" "/bin/envconsul"
