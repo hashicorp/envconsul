@@ -38,7 +38,7 @@ RUN addgroup envconsul && \
 RUN apk add --no-cache ca-certificates curl gnupg libcap openssl && \
     mkdir -p /etc/ssl/certs/ && \
     update-ca-certificates --fresh && \
-    gpg --keyserver pgp.mit.edu --recv-keys 91A6E7F85D05C65630BEF18951852D87348FFC4C && \
+    gpg --keyserver keys.gnupg.net --recv-keys 91A6E7F85D05C65630BEF18951852D87348FFC4C && \
     mkdir -p /tmp/build && \
     cd /tmp/build && \
     curl -sO ${HASHICORP_RELEASES}/docker-base/${DOCKER_BASE_VERSION}/docker-base_${DOCKER_BASE_VERSION}_linux_amd64.zip && \
