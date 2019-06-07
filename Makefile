@@ -136,7 +136,6 @@ define make-docker-target
 			--rm \
 			--force-rm \
 			--no-cache \
-			--squash \
 			--compress \
 			--file="docker/${1}/Dockerfile" \
 			--build-arg="LD_FLAGS=${LD_FLAGS}" \
