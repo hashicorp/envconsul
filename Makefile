@@ -4,6 +4,8 @@ CURRENT_DIR := $(patsubst %/,%,$(dir $(realpath $(MKFILE_PATH))))
 
 # Ensure GOPATH
 GOPATH ?= $(HOME)/go
+# assume last entry in GOPATH is home to project
+GOPATH := $(lastword $(subst :, ,${GOPATH}))
 
 # List all our actual files, excluding vendor
 GOFILES ?= $(shell go list $(TEST) | grep -v /vendor/)
@@ -58,22 +60,15 @@ define make-xc-target
 		@printf "%s%20s %s\n" "-->" "${1}/${2}:" "${PROJECT} (excluded)"
   else
 		@printf "%s%20s %s\n" "-->" "${1}/${2}:" "${PROJECT}"
-		@docker run \
-			--interactive \
-			--rm \
-			--dns="8.8.8.8" \
-			--volume="${CURRENT_DIR}:/go/src/${PROJECT}" \
-			--workdir="/go/src/${PROJECT}" \
-			"golang:${GOVERSION}" \
-			env \
-				CGO_ENABLED="0" \
-				GOOS="${1}" \
-				GOARCH="${2}" \
-				go build \
-				  -a \
-					-o="pkg/${1}_${2}/${NAME}${3}" \
-					-ldflags "${LD_FLAGS}" \
-					-tags "${GOTAGS}"
+		env \
+			CGO_ENABLED="0" \
+			GOOS="${1}" \
+			GOARCH="${2}" \
+			go build \
+			  -a \
+				-o="pkg/${1}_${2}/${NAME}${3}" \
+				-ldflags "${LD_FLAGS}" \
+				-tags "${GOTAGS}"
   endif
   .PHONY: $1/$2
 
