@@ -15,24 +15,30 @@ func TestRunner_appendSecrets(t *testing.T) {
 	secretValue1 := "somevalue"
 	secretValue2 := "somevalue2"
 
-	cases := map[string]struct {
+	cases := []struct {
+		name     string
 		path     string
+		noPrefix *bool
 		data     *dependency.Secret
 		notFound bool
 	}{
-		"kv1_secret": {
-			"kv/bar",
-			&dependency.Secret{
+		{
+			name:     "kv1_secret",
+			path:     "kv/bar",
+			noPrefix: config.Bool(false),
+			data: &dependency.Secret{
 				Data: map[string]interface{}{
 					"key_field":  secretValue1,
 					"key_field2": secretValue2,
 				},
 			},
-			false,
+			notFound: false,
 		},
-		"kv2_secret": {
-			"secret/data/foo",
-			&dependency.Secret{
+		{
+			name:     "kv2_secret",
+			path:     "secret/data/foo",
+			noPrefix: config.Bool(false),
+			data: &dependency.Secret{
 				Data: map[string]interface{}{
 					"metadata": map[string]interface{}{
 						"destroyed": bool(false),
@@ -44,11 +50,13 @@ func TestRunner_appendSecrets(t *testing.T) {
 					},
 				},
 			},
-			false,
+			notFound: false,
 		},
-		"kv2_secret_destroyed": {
-			"secret/data/foo",
-			&dependency.Secret{
+		{
+			name:     "kv2_secret_destroyed",
+			path:     "secret/data/foo",
+			noPrefix: config.Bool(false),
+			data: &dependency.Secret{
 				Data: map[string]interface{}{
 					"metadata": map[string]interface{}{
 						"destroyed": bool(true),
@@ -57,16 +65,83 @@ func TestRunner_appendSecrets(t *testing.T) {
 					"data": nil,
 				},
 			},
-			true,
+			notFound: true,
+		},
+		{
+			name:     "kv2 secret noprefix excludes path",
+			path:     "secret/data/foo",
+			noPrefix: config.Bool(true),
+			data: &dependency.Secret{
+				Data: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"destroyed": bool(false),
+						"version":   "1",
+					},
+					"data": map[string]interface{}{
+						"key_field":  secretValue1,
+						"key_field2": secretValue2,
+					},
+				},
+			},
+			notFound: false,
+		},
+		{
+			name:     "kv2 secret false noprefix includes path",
+			path:     "secret/data/foo",
+			noPrefix: config.Bool(false),
+			data: &dependency.Secret{
+				Data: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"destroyed": bool(false),
+						"version":   "1",
+					},
+					"data": map[string]interface{}{
+						"key_field":  secretValue1,
+						"key_field2": secretValue2,
+					},
+				},
+			},
+			notFound: false,
+		},
+		{
+			name:     "kv2 secret default noprefix includes path",
+			path:     "secret/data/foo",
+			noPrefix: nil,
+			data: &dependency.Secret{
+				Data: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"destroyed": bool(false),
+						"version":   "1",
+					},
+					"data": map[string]interface{}{
+						"key_field":  secretValue1,
+						"key_field2": secretValue2,
+					},
+				},
+			},
+			notFound: false,
+		},
+		{
+			name:     "int secret skipped",
+			path:     "kv/foo",
+			noPrefix: config.Bool(false),
+			data: &dependency.Secret{
+				Data: map[string]interface{}{
+					"key_field":  1,
+					"key_field2": 1,
+				},
+			},
+			notFound: true,
 		},
 	}
 
-	for name, tc := range cases {
-		t.Run(fmt.Sprintf("%s", name), func(t *testing.T) {
+	for _, tc := range cases {
+		t.Run(fmt.Sprintf("%s", tc.name), func(t *testing.T) {
 			cfg := Config{
 				Secrets: &PrefixConfigs{
 					&PrefixConfig{
-						Path: config.String(tc.path),
+						Path:     config.String(tc.path),
+						NoPrefix: tc.noPrefix,
 					},
 				},
 			}
@@ -89,7 +164,10 @@ func TestRunner_appendSecrets(t *testing.T) {
 				t.Fatalf("Expected only 2 values in this test")
 			}
 
-			keyName1 := tc.path + "_key_field"
+			keyName1 := "key_field"
+			if tc.noPrefix == nil || !*tc.noPrefix {
+				keyName1 = tc.path + "_" + keyName1
+			}
 			keyName1 = strings.Replace(keyName1, "/", "_", -1)
 
 			var value string
@@ -104,7 +182,10 @@ func TestRunner_appendSecrets(t *testing.T) {
 				t.Fatalf("values didn't match, expected (%s), got (%s)", secretValue1, value)
 			}
 
-			keyName2 := tc.path + "_key_field2"
+			keyName2 := "key_field2"
+			if tc.noPrefix == nil || !*tc.noPrefix {
+				keyName2 = tc.path + "_" + keyName2
+			}
 			keyName2 = strings.Replace(keyName2, "/", "_", -1)
 
 			value, ok = env[keyName2]
