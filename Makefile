@@ -3,7 +3,9 @@ MKFILE_PATH := $(lastword $(MAKEFILE_LIST))
 CURRENT_DIR := $(patsubst %/,%,$(dir $(realpath $(MKFILE_PATH))))
 
 # Ensure GOPATH
-GOPATH ?= $(HOME)/go
+GOPATH ?= $(shell go env GOPATH)
+# assume last entry in GOPATH is home to project
+GOPATH := $(lastword $(subst :, ,${GOPATH}))
 
 # List all our actual files, excluding vendor
 GOFILES ?= $(shell go list $(TEST) | grep -v /vendor/)
@@ -15,7 +17,7 @@ GOTAGS ?=
 GOMAXPROCS ?= 4
 
 # Get the project metadata
-GOVERSION := 1.9.2
+GOVERSION := 1.12.5
 PROJECT := $(CURRENT_DIR:$(GOPATH)/src/%=%)
 OWNER := $(notdir $(patsubst %/,%,$(dir $(PROJECT))))
 NAME := $(notdir $(PROJECT))
@@ -58,22 +60,15 @@ define make-xc-target
 		@printf "%s%20s %s\n" "-->" "${1}/${2}:" "${PROJECT} (excluded)"
   else
 		@printf "%s%20s %s\n" "-->" "${1}/${2}:" "${PROJECT}"
-		@docker run \
-			--interactive \
-			--rm \
-			--dns="8.8.8.8" \
-			--volume="${CURRENT_DIR}:/go/src/${PROJECT}" \
-			--workdir="/go/src/${PROJECT}" \
-			"golang:${GOVERSION}" \
-			env \
-				CGO_ENABLED="0" \
-				GOOS="${1}" \
-				GOARCH="${2}" \
-				go build \
-				  -a \
-					-o="pkg/${1}_${2}/${NAME}${3}" \
-					-ldflags "${LD_FLAGS}" \
-					-tags "${GOTAGS}"
+		env \
+			CGO_ENABLED="0" \
+			GOOS="${1}" \
+			GOARCH="${2}" \
+			go build \
+			  -a \
+				-o="pkg/${1}_${2}/${NAME}${3}" \
+				-ldflags "${LD_FLAGS}" \
+				-tags "${GOTAGS}"
   endif
   .PHONY: $1/$2
 
@@ -111,19 +106,23 @@ dev:
 			-tags "${GOTAGS}"
 .PHONY: dev
 
-# dist builds the binaries and then signs and packages them for distribution
+# dist builds the binaries and packages them for distribution
 dist:
+	@$(MAKE) -f "${MKFILE_PATH}" _cleanup
+	@$(MAKE) -f "${MKFILE_PATH}" -j4 build
+	@$(MAKE) -f "${MKFILE_PATH}" _compress _checksum
+.PHONY: dist
+
+# dist + signing the final commits and binaries with the gpg key
+release: dist
 ifndef GPG_KEY
 	@echo "==> ERROR: No GPG key specified! Without a GPG key, this release cannot"
 	@echo "           be signed. Set the environment variable GPG_KEY to the ID of"
 	@echo "           the GPG key to continue."
 	@exit 127
 else
-	@$(MAKE) -f "${MKFILE_PATH}" _cleanup
-	@$(MAKE) -f "${MKFILE_PATH}" -j4 build
-	@$(MAKE) -f "${MKFILE_PATH}" _compress _checksum _sign
+	@$(MAKE) -f "${MKFILE_PATH}" _sign
 endif
-.PHONY: dist
 
 # Create a docker compile and push target for each container. This will create
 # docker-build/scratch, docker-push/scratch, etc. It will also create two meta
@@ -137,7 +136,6 @@ define make-docker-target
 			--rm \
 			--force-rm \
 			--no-cache \
-			--squash \
 			--compress \
 			--file="docker/${1}/Dockerfile" \
 			--build-arg="LD_FLAGS=${LD_FLAGS}" \
@@ -179,6 +177,9 @@ test-race:
 _cleanup:
 	@rm -rf "${CURRENT_DIR}/pkg/"
 	@rm -rf "${CURRENT_DIR}/bin/"
+
+clean: _cleanup
+.PHONY: clean
 
 # _compress compresses all the binaries in pkg/* as tarball and zip.
 _compress:
