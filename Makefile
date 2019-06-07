@@ -106,19 +106,23 @@ dev:
 			-tags "${GOTAGS}"
 .PHONY: dev
 
-# dist builds the binaries and then signs and packages them for distribution
+# dist builds the binaries and packages them for distribution
 dist:
+	@$(MAKE) -f "${MKFILE_PATH}" _cleanup
+	@$(MAKE) -f "${MKFILE_PATH}" -j4 build
+	@$(MAKE) -f "${MKFILE_PATH}" _compress _checksum
+.PHONY: dist
+
+# dist + signing the final commits and binaries with the gpg key
+release: dist
 ifndef GPG_KEY
 	@echo "==> ERROR: No GPG key specified! Without a GPG key, this release cannot"
 	@echo "           be signed. Set the environment variable GPG_KEY to the ID of"
 	@echo "           the GPG key to continue."
 	@exit 127
 else
-	@$(MAKE) -f "${MKFILE_PATH}" _cleanup
-	@$(MAKE) -f "${MKFILE_PATH}" -j4 build
-	@$(MAKE) -f "${MKFILE_PATH}" _compress _checksum _sign
+	@$(MAKE) -f "${MKFILE_PATH}" _sign
 endif
-.PHONY: dist
 
 # Create a docker compile and push target for each container. This will create
 # docker-build/scratch, docker-push/scratch, etc. It will also create two meta
@@ -174,6 +178,9 @@ test-race:
 _cleanup:
 	@rm -rf "${CURRENT_DIR}/pkg/"
 	@rm -rf "${CURRENT_DIR}/bin/"
+
+clean: _cleanup
+.PHONY: clean
 
 # _compress compresses all the binaries in pkg/* as tarball and zip.
 _compress:
