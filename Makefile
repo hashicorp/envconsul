@@ -3,7 +3,7 @@ MKFILE_PATH := $(lastword $(MAKEFILE_LIST))
 CURRENT_DIR := $(patsubst %/,%,$(dir $(realpath $(MKFILE_PATH))))
 
 # Ensure GOPATH
-GOPATH ?= $(HOME)/go
+GOPATH ?= $(shell go env GOPATH)
 # assume last entry in GOPATH is home to project
 GOPATH := $(lastword $(subst :, ,${GOPATH}))
 
