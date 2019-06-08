@@ -12,26 +12,27 @@ import (
 func TestRunner_appendSecrets(t *testing.T) {
 	t.Parallel()
 
-	secretValue := "somevalue"
+	secrets := []string{"somevalue1", "somevalue2"}
 
 	tt := []struct {
 		name     string
 		path     string
 		noPrefix *bool
 		data     *dependency.Secret
-		keyName  string
+		keyNames []string
 		notFound bool
 	}{
 		{
 			name:     "kv1 secret",
-			path:     "kv/bar",
+			path:     "kv/foo",
 			noPrefix: config.Bool(false),
 			data: &dependency.Secret{
 				Data: map[string]interface{}{
-					"bar": secretValue,
+					"bar": secrets[0],
+					"zed": secrets[1],
 				},
 			},
-			keyName:  "kv_bar_bar",
+			keyNames: []string{"kv_foo_bar", "kv_foo_zed"},
 			notFound: false,
 		},
 		{
@@ -45,11 +46,12 @@ func TestRunner_appendSecrets(t *testing.T) {
 						"version":   "1",
 					},
 					"data": map[string]interface{}{
-						"bar": secretValue,
+						"bar": secrets[0],
+						"zed": secrets[1],
 					},
 				},
 			},
-			keyName:  "secret_data_foo_bar",
+			keyNames: []string{"secret_data_foo_bar", "secret_data_foo_zed"},
 			notFound: false,
 		},
 		{
@@ -65,7 +67,7 @@ func TestRunner_appendSecrets(t *testing.T) {
 					"data": nil,
 				},
 			},
-			keyName:  "",
+			keyNames: []string{},
 			notFound: true,
 		},
 		{
@@ -79,11 +81,12 @@ func TestRunner_appendSecrets(t *testing.T) {
 						"version":   "1",
 					},
 					"data": map[string]interface{}{
-						"bar": secretValue,
+						"bar": secrets[0],
+						"zed": secrets[1],
 					},
 				},
 			},
-			keyName:  "bar",
+			keyNames: []string{"bar", "zed"},
 			notFound: false,
 		},
 		{
@@ -97,11 +100,12 @@ func TestRunner_appendSecrets(t *testing.T) {
 						"version":   "1",
 					},
 					"data": map[string]interface{}{
-						"bar": secretValue,
+						"bar": secrets[0],
+						"zed": secrets[1],
 					},
 				},
 			},
-			keyName:  "secret_data_foo_bar",
+			keyNames: []string{"secret_data_foo_bar", "secret_data_foo_zed"},
 			notFound: false,
 		},
 		{
@@ -115,11 +119,12 @@ func TestRunner_appendSecrets(t *testing.T) {
 						"version":   "1",
 					},
 					"data": map[string]interface{}{
-						"bar": secretValue,
+						"bar": secrets[0],
+						"zed": secrets[1],
 					},
 				},
 			},
-			keyName:  "secret_data_foo_bar",
+			keyNames: []string{"secret_data_foo_bar", "secret_data_foo_zed"},
 			notFound: false,
 		},
 		{
@@ -129,6 +134,7 @@ func TestRunner_appendSecrets(t *testing.T) {
 			data: &dependency.Secret{
 				Data: map[string]interface{}{
 					"bar": 1,
+					"zed": 1,
 				},
 			},
 			notFound: true,
@@ -160,24 +166,31 @@ func TestRunner_appendSecrets(t *testing.T) {
 				t.Fatalf("got err: %s", appendError)
 			}
 
-			if len(env) > 1 {
-				t.Fatalf("Expected only 1 value in this test")
+			if len(env) > 2 {
+				t.Fatalf("Expected only 2 values in this test")
 			}
 
-			var value string
-			value, ok := env[tc.keyName]
-			if !ok && !tc.notFound {
-				t.Fatalf("expected (%s) key, but was not found", tc.keyName)
-			}
-			if ok && tc.notFound {
-				t.Fatalf("expected to not find key, but (%s) was found", tc.keyName)
-			}
-			if ok && value != secretValue {
-				t.Fatalf("values didn't match, expected (%s), got (%s)", secretValue, value)
+			for i, keyName := range tc.keyNames {
+				secretValue := secrets[i]
+
+				var value string
+				value, ok := env[keyName]
+				if !ok && !tc.notFound {
+					t.Fatalf("expected (%s) key, but was not found", keyName)
+				}
+				if ok && tc.notFound {
+					t.Fatalf("expected to not find key, but (%s) was found",
+						keyName)
+				}
+				if ok && value != secretValue {
+					t.Fatalf("values didn't match, expected (%s), got (%s)",
+						secretValue, value)
+				}
 			}
 		})
 	}
 }
+
 func TestRunner_appendPrefixes(t *testing.T) {
 	t.Parallel()
 
