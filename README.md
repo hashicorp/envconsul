@@ -1,4 +1,4 @@
-# envconsul [![Build Status](http://img.shields.io/travis/hashicorp/envconsul.svg?style=flat-square)](http://travis-ci.org/hashicorp/envconsul)
+# envconsul [![Build Status](https://circleci.com/gh/hashicorp/envconsul.svg?style=svg)](https://circleci.com/gh/hashicorp/envconsul)
 
 Envconsul provides a convenient way to launch a subprocess with environment
 variables populated from HashiCorp [Consul][consul] and [Vault][vault]. The tool
