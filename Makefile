@@ -184,7 +184,7 @@ clean: _cleanup
 # _compress compresses all the binaries in pkg/* as tarball and zip.
 _compress:
 	@mkdir -p "${CURRENT_DIR}/pkg/dist"
-	@for platform in $$(find ./pkg -mindepth 1 -maxdepth 1 -type d); do \
+	@for platform in $$(find `pwd`/pkg -mindepth 1 -maxdepth 1 -type d); do \
 		osarch=$$(basename "$$platform"); \
 		if [ "$$osarch" = "dist" ]; then \
 			continue; \
