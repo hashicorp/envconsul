@@ -1,6 +1,6 @@
 ## envconsul CHANGELOG
 
-## v0.8.0 (UNRELEASED)
+## v0.8.0 (June 10, 2019)
 
 BREAKING CHANGES:
 
