@@ -1,10 +1,24 @@
 ## envconsul CHANGELOG
 
-## v0.7.4 (UNRELEASED)
+## v0.8.0 (UNRELEASED)
+
+BREAKING CHANGES:
+
+  * When passing unevaluated, 'single quoted text' to -exec or as the command
+    the shell variable interpolation and backtick evaluation will no longer be
+    done. This was an undocumented 'feature' and was responsible for GH-180.
 
 IMPROVEMENTS:
 
-  * Added support for Vault KV v2 [GH-186]
+  * Added support for Vault KV v2 [GH-186 GH-211]
+  * Respect no_prefix for consul keys [GH-190]
+  * Respect exec.env config block [GH-155]
+
+BUG FIXES:
+  * Fix issue with shell interpolation [GH-180]
+  * Fix issue with PID file not being created [GH-194]
+  * Fix issue with Vault renew [GH-196]
+  * Don't panic if secret value isn't a string [GH-166]
 
 ## v0.7.3 (January 22, 2018)
 
