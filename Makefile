@@ -184,7 +184,7 @@ clean: _cleanup
 # _compress compresses all the binaries in pkg/* as tarball and zip.
 _compress:
 	@mkdir -p "${CURRENT_DIR}/pkg/dist"
-	@for platform in $$(find `pwd`/pkg -mindepth 1 -maxdepth 1 -type d); do \
+	@for platform in $$(find ./pkg -mindepth 1 -maxdepth 1 -type d); do \
 		osarch=$$(basename "$$platform"); \
 		if [ "$$osarch" = "dist" ]; then \
 			continue; \
@@ -197,7 +197,7 @@ _compress:
 		cd "$$platform"; \
 		tar -czf "${CURRENT_DIR}/pkg/dist/${NAME}_${VERSION}_$${osarch}.tgz" "${NAME}$${ext}"; \
 		zip -q "${CURRENT_DIR}/pkg/dist/${NAME}_${VERSION}_$${osarch}.zip" "${NAME}$${ext}"; \
-		cd - &>/dev/null; \
+		cd - >/dev/null; \
 	done
 .PHONY: _compress
 
@@ -205,7 +205,7 @@ _compress:
 _checksum:
 	@cd "${CURRENT_DIR}/pkg/dist" && \
 		shasum --algorithm 256 * > ${CURRENT_DIR}/pkg/dist/${NAME}_${VERSION}_SHA256SUMS && \
-		cd - &>/dev/null
+		cd - >/dev/null
 .PHONY: _checksum
 
 # _sign signs the binaries using the given GPG_KEY. This should not be called
