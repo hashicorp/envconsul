@@ -14,6 +14,16 @@ portability for applications across systems.
 
 **The documentation in this README corresponds to the master branch of envconsul. It may contain unreleased features or different APIs than the most recently released version. Please see the Git tag that corresponds to your version of envconsul for the proper documentation.**
 
+## Community Support
+
+If you have questions about how envconsul works, its capabilities or anything
+other than a bug (use github's issue tracker for those), please see our
+community support resources.
+
+Community portal: https://discuss.hashicorp.com/c/consul
+
+Other resources: https://www.consul.io/community.html
+
 ## Installation
 
 ### Pre-Compiled
