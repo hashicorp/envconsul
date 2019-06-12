@@ -55,18 +55,7 @@ portability for applications across systems.
     $ make dev
     ```
 
-### From Source (Docker)
-
-1. Install Docker for your platform.
-
-1. Clone the repository from GitHub.
-
-    ```shell
-    $ git clone https://github.com/hashicorp/envconsul.git
-    $ cd envconsul
-    ```
-
-1. Run the make target for your platform and architecture.
+1. Or run the make target for your platform and architecture.
 
     ```shell
     $ make darwin/amd64 # or linux/amd64 or windows/amd64, etc
