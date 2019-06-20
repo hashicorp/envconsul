@@ -17,6 +17,7 @@ GOTAGS ?=
 GOMAXPROCS ?= 4
 
 # Get the project metadata
+GOVERSION := 1.12.5
 PROJECT := $(CURRENT_DIR:$(GOPATH)/src/%=%)
 OWNER := $(notdir $(patsubst %/,%,$(dir $(PROJECT))))
 NAME := $(notdir $(PROJECT))
@@ -79,6 +80,17 @@ define make-xc-target
 endef
 $(foreach goarch,$(XC_ARCH),$(foreach goos,$(XC_OS),$(eval $(call make-xc-target,$(goos),$(goarch),$(if $(findstring windows,$(goos)),.exe,)))))
 
+# Use docker to create pristine builds for release
+pristine:
+	@docker run \
+		--interactive \
+		--user $$(id -u):$$(id -g) \
+		--rm \
+		--dns="8.8.8.8" \
+		--volume="${CURRENT_DIR}:/go/src/${PROJECT}" \
+		--workdir="/go/src/${PROJECT}" \
+		"golang:${GOVERSION}" env GOCACHE=/tmp make -j4 build
+
 # bootstrap installs the necessary go tools for development or build.
 bootstrap:
 	@echo "==> Bootstrapping ${PROJECT}"
@@ -108,7 +120,7 @@ dev:
 # dist builds the binaries and packages them for distribution
 dist:
 	@$(MAKE) -f "${MKFILE_PATH}" _cleanup
-	@$(MAKE) -f "${MKFILE_PATH}" -j4 build
+	@$(MAKE) -f "${MKFILE_PATH}" pristine
 	@$(MAKE) -f "${MKFILE_PATH}" _compress _checksum
 .PHONY: dist
 
