@@ -1,7 +1,7 @@
+### Builder
 #
-# Builder
-#
-FROM golang:1.12 AS builder
+ARG GOVERSION=latest
+FROM golang:${GOVERSION} AS builder
 LABEL maintainer "John Eikenberry <jae@zhar.net>"
 
 ARG LD_FLAGS
@@ -15,8 +15,7 @@ RUN \
   CGO_ENABLED="0" \
   go build -a -o "/envconsul" -ldflags "${LD_FLAGS}" -tags "${GOTAGS}"
 
-#
-# Final
+### Final
 #
 FROM scratch
 LABEL maintainer "John Eikenberry <jae@zhar.net>"
