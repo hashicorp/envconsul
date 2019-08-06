@@ -1,9 +1,19 @@
 version: 2.1
 jobs:
   build:
+    environment:
+      GO111MODULE: "on"
     docker:
       - image: circleci/golang:latest
     working_directory: /go/src/github.com/hashicorp/envconsul
     steps:
       - checkout
-      - run: go test -v
+      - restore_cache:
+          keys:
+            - ct-modcache-v1-{{ checksum "go.mod" }}
+      - run: |
+          go test -v
+      - save_cache:
+          key: ct-modcache-v1-{{ checksum "go.mod" }}
+          paths:
+            - /go/pkg/mod
