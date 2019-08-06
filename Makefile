@@ -15,8 +15,8 @@ GOMAXPROCS ?= 4
 
 # Get the project metadata
 GO_DOCKER_VERSION ?= 1.12
-PROJECT := $(CURRENT_DIR:$(GOPATH)/src/%=%)
-OWNER := $(notdir $(patsubst %/,%,$(dir $(PROJECT))))
+PROJECT := $(shell go list -m -mod=vendor)
+OWNER := "hashicorp"
 NAME := $(notdir $(PROJECT))
 GIT_COMMIT ?= $(shell git rev-parse --short HEAD)
 VERSION := $(shell awk -F\" '/Version/ { print $$2; exit }' "${CURRENT_DIR}/version/version.go")
@@ -59,7 +59,7 @@ define make-xc-target
 			GOOS="${1}" \
 			GOARCH="${2}" \
 			go build \
-			  -a \
+				-a \
 				-o="pkg/${1}_${2}/${NAME}${3}" \
 				-ldflags "${LD_FLAGS}" \
 				-tags "${GOTAGS}"
@@ -82,7 +82,10 @@ pristine:
 		--rm \
 		--dns="8.8.8.8" \
 		--volume="${CURRENT_DIR}:/go/src/${PROJECT}" \
+		--volume="${GOPATH}/pkg/mod:/go/pkg/mod" \
 		--workdir="/go/src/${PROJECT}" \
+		--env=CGO_ENABLED="0" \
+		--env=GO111MODULE=on \
 		"golang:${GO_DOCKER_VERSION}" env GOCACHE=/tmp make -j4 build
 
 # bootstrap installs the necessary go tools for development or build.
@@ -138,6 +141,7 @@ endif
 define make-docker-target
   docker-build/$1:
 		@echo "==> Building ${1} Docker container for ${PROJECT}"
+		@go mod vendor
 		@docker build \
 			--rm \
 			--force-rm \
@@ -151,6 +155,7 @@ define make-docker-target
 			--tag="${OWNER}/${NAME}:${1}" \
 			--tag="${OWNER}/${NAME}:${VERSION}-${1}" \
 			"${CURRENT_DIR}"
+		@rm -rf "${CURRENT_DIR}/vendor/"
   .PHONY: docker-build/$1
 
   docker-build:: docker-build/$1
