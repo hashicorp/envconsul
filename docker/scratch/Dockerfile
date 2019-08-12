@@ -13,7 +13,11 @@ COPY . .
 
 RUN \
   CGO_ENABLED="0" \
-  go build -a -o "/envconsul" -ldflags "${LD_FLAGS}" -tags "${GOTAGS}"
+  GO111MODULE=on \
+  go build \
+    -mod vendor \
+    -a -o "/envconsul" \
+    -ldflags "${LD_FLAGS}" -tags "${GOTAGS}"
 
 ### Final
 #
