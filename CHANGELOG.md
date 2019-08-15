@@ -1,5 +1,11 @@
 ## envconsul CHANGELOG
 
+## v0.9.0 (Aug 13, 2019)
+
+IMPROVEMENTS:
+
+* Migrated to use Go modules [[GH-216](https://github.com/hashicorp/consul-template/pull/216), [GH-217](https://github.com/hashicorp/consul-template/issues/217)]
+
 ## v0.8.0 (June 10, 2019)
 
 BREAKING CHANGES:
