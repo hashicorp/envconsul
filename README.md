@@ -36,22 +36,12 @@ to any issue or pull request you'd like to see worked on. Thanks.
 1. Download a pre-compiled, released version from the [envconsul
   releases][releases] page. You can download zip or tarball.
 
-    ```shell
-    $ curl -so envconsul.tgz https://releases.hashicorp.com/envconsul/0.8.0/envconsul_0.8.0_linux_amd64.tgz
-    ```
-
 1. Extract the binary using `unzip` or `tar`.
-
-    ```shell
-    $ tar -xvzf envconsul.tgz
-    ```
 
 1. Move the binary into your `$PATH`.
 
-    ```shell
-    $ mv envconsul /usr/local/bin/envconsul
-    $ chmod +x /usr/local/bin/envconsul
-    ```
+To compile from source, please see the instructions in the
+[contributing section](#contributing).
 
 ### From Source (Go)
 
@@ -687,12 +677,7 @@ $ envconsul -log-level debug ...
 
 ## Contributing
 
-To build and install Envconsul locally, you will need to install the Docker
-engine:
-
-- [Docker for Mac](https://docs.docker.com/engine/installation/mac/)
-- [Docker for Windows](https://docs.docker.com/engine/installation/windows/)
-- [Docker for Linux](https://docs.docker.com/engine/installation/linux/ubuntulinux/)
+To build and install Envconsul locally, you will need to [install Go][go].
 
 Clone the repository:
 
