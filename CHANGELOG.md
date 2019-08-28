@@ -4,7 +4,7 @@
 
 IMPROVEMENTS:
 
-* Migrated to use Go modules [[GH-216](https://github.com/hashicorp/consul-template/pull/216), [GH-217](https://github.com/hashicorp/consul-template/issues/217)]
+* Migrated to use Go modules [[GH-216](https://github.com/hashicorp/envconsul/pull/216), [GH-217](https://github.com/hashicorp/envconsul/issues/217)]
 
 ## v0.8.0 (June 10, 2019)
 
