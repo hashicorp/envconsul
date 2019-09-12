@@ -374,7 +374,6 @@ func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error)
 		return nil
 	}), "no-prefix", "")
 
-
 	flags.BoolVar(&once, "once", false, "")
 
 	flags.Var((funcVar)(func(s string) error {
@@ -829,11 +828,6 @@ Options:
 
   -vault-addr=<address>
       Sets the address of the Vault server
-
-  -vault-grace=<duration>
-      Sets the grace period between lease renewal and secret re-acquisition - if
-      the remaning lease duration is less than this value, Consul Template will
-      acquire a new secret from Vault
 
   -vault-renew-token
       Periodically renew the provided Vault API token - this defaults to "true"
