@@ -540,7 +540,7 @@ func TestCLI_ParseFlags(t *testing.T) {
 			&Config{
 				Prefixes: &PrefixConfigs{
 					&PrefixConfig{
-						Path: config.String("foo/bar"),
+						Path:     config.String("foo/bar"),
 						NoPrefix: config.Bool(true),
 					},
 				},
@@ -553,7 +553,7 @@ func TestCLI_ParseFlags(t *testing.T) {
 			&Config{
 				Secrets: &PrefixConfigs{
 					&PrefixConfig{
-						Path: config.String("foo/bar"),
+						Path:     config.String("foo/bar"),
 						NoPrefix: config.Bool(true),
 					},
 				},
@@ -566,7 +566,7 @@ func TestCLI_ParseFlags(t *testing.T) {
 			&Config{
 				Prefixes: &PrefixConfigs{
 					&PrefixConfig{
-						Path: config.String("foo/bar"),
+						Path:     config.String("foo/bar"),
 						NoPrefix: config.Bool(false),
 					},
 				},
@@ -579,7 +579,7 @@ func TestCLI_ParseFlags(t *testing.T) {
 			&Config{
 				Prefixes: &PrefixConfigs{
 					&PrefixConfig{
-						Path: config.String("foo/bar"),
+						Path:     config.String("foo/bar"),
 						NoPrefix: nil,
 					},
 				},
@@ -635,6 +635,104 @@ func TestCLI_ParseFlags(t *testing.T) {
 					},
 					&PrefixConfig{
 						Path: config.String("zip/zap"),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"query",
+			[]string{
+				"-query", "service",
+			},
+			&Config{
+				Services: &ServiceConfigs{
+					&ServiceConfig{
+						Query: config.String("service"),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"query_multi",
+			[]string{
+				"-query", "service",
+				"-query", "tag.service",
+				"-query", "tag.service@datacenter",
+			},
+			&Config{
+				Services: &ServiceConfigs{
+					&ServiceConfig{
+						Query: config.String("service"),
+					},
+					&ServiceConfig{
+						Query: config.String("tag.service"),
+					},
+					&ServiceConfig{
+						Query: config.String("tag.service@datacenter"),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"service_format",
+			[]string{
+				"-query", "service",
+				"-service-format-id", "id",
+				"-service-format-name", "name",
+				"-service-format-address", "host",
+				"-service-format-tag", "tag",
+				"-service-format-port", "port",
+			},
+			&Config{
+				Services: &ServiceConfigs{
+					&ServiceConfig{
+						Query:         config.String("service"),
+						FormatId:      config.String("id"),
+						FormatName:    config.String("name"),
+						FormatAddress: config.String("host"),
+						FormatTag:     config.String("tag"),
+						FormatPort:    config.String("port"),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"service_format_multy",
+			[]string{
+				"-query", "foo",
+				"-service-format-id", "foo/id",
+				"-service-format-name", "foo/name",
+				"-service-format-address", "foo/host",
+				"-service-format-tag", "foo/tag",
+				"-service-format-port", "foo/port",
+				"-query", "bar",
+				"-service-format-id", "bar/id",
+				"-service-format-name", "bar/name",
+				"-service-format-address", "bar/host",
+				"-service-format-tag", "bar/tag",
+				"-service-format-port", "bar/port",
+			},
+			&Config{
+				Services: &ServiceConfigs{
+					&ServiceConfig{
+						Query:         config.String("foo"),
+						FormatId:      config.String("foo/id"),
+						FormatName:    config.String("foo/name"),
+						FormatAddress: config.String("foo/host"),
+						FormatTag:     config.String("foo/tag"),
+						FormatPort:    config.String("foo/port"),
+					},
+					&ServiceConfig{
+						Query:         config.String("bar"),
+						FormatId:      config.String("bar/id"),
+						FormatName:    config.String("bar/name"),
+						FormatAddress: config.String("bar/host"),
+						FormatTag:     config.String("bar/tag"),
+						FormatPort:    config.String("bar/port"),
 					},
 				},
 			},
