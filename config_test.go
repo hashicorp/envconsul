@@ -836,6 +836,56 @@ func TestParse(t *testing.T) {
 			false,
 		},
 		{
+			"service",
+			`service {
+				query = "foo.bar"
+			}`,
+			&Config{
+				Services: &ServiceConfigs{
+					&ServiceConfig{
+						Query: config.String("foo.bar"),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"service_multi",
+			`service {}
+			service{}`,
+			&Config{
+				Services: &ServiceConfigs{
+					&ServiceConfig{},
+					&ServiceConfig{},
+				},
+			},
+			false,
+		},
+		{
+			"service format",
+			`service {
+				query = "foo.bar"
+				format_id = "{{ service }}/{{ key }}"
+				format_name = "{{ service }}/{{ key }}"
+				format_address = "{{ service }}/{{ key }}"
+				format_tag = "{{ service }}/{{ key }}"
+				format_port = "{{ service }}/{{ key }}"
+			}`,
+			&Config{
+				Services: &ServiceConfigs{
+					&ServiceConfig{
+						Query:         config.String("foo.bar"),
+						FormatId:      config.String("{{ service }}/{{ key }}"),
+						FormatName:    config.String("{{ service }}/{{ key }}"),
+						FormatAddress: config.String("{{ service }}/{{ key }}"),
+						FormatTag:     config.String("{{ service }}/{{ key }}"),
+						FormatPort:    config.String("{{ service }}/{{ key }}"),
+					},
+				},
+			},
+			false,
+		},
+		{
 			"syslog",
 			`syslog {}`,
 			&Config{

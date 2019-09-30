@@ -280,6 +280,185 @@ func TestRunner_appendPrefixes(t *testing.T) {
 	}
 }
 
+func TestRunner_appendServices(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name           string
+		query          string
+		config         Config
+		data           []*dependency.CatalogService
+		keyValue       map[string]string
+		serviceID      string
+		serviceName    string
+		serviceAddress string
+		serviceTag     string
+		servicePort    string
+	}{
+		{
+			name:   "service appends data",
+			query:  "service",
+			config: Config{},
+			data: []*dependency.CatalogService{
+				&dependency.CatalogService{
+					ServiceID:      "id",
+					ServiceName:    "foo",
+					ServiceAddress: "address",
+					ServiceTags:    dependency.ServiceTags{"tag1", "tag2"},
+					ServicePort:    8080,
+				},
+			},
+			keyValue: map[string]string{
+				"foo/id":      "id",
+				"foo/name":    "foo",
+				"foo/address": "address",
+				"foo/tag":     "tag1,tag2",
+				"foo/port":    "8080",
+			},
+			serviceID:      "foo/id",
+			serviceName:    "foo/name",
+			serviceAddress: "foo/address",
+			serviceTag:     "foo/tag",
+			servicePort:    "foo/port",
+		},
+		{
+			name:   "service appends data",
+			query:  "service",
+			config: Config{},
+			data: []*dependency.CatalogService{
+				&dependency.CatalogService{
+					ServiceID:      "fail_id",
+					ServiceName:    "foo",
+					ServiceAddress: "fail_address",
+					ServiceTags:    dependency.ServiceTags{"tag1"},
+					ServicePort:    8081,
+				},
+				&dependency.CatalogService{
+					ServiceID:      "id",
+					ServiceName:    "foo",
+					ServiceAddress: "address",
+					ServiceTags:    dependency.ServiceTags{"tag1", "tag2"},
+					ServicePort:    8080,
+				},
+			},
+			keyValue: map[string]string{
+				"foo/id":      "id",
+				"foo/name":    "foo",
+				"foo/address": "address",
+				"foo/tag":     "tag1,tag2",
+				"foo/port":    "8080",
+			},
+			serviceID:      "foo/id",
+			serviceName:    "foo/name",
+			serviceAddress: "foo/address",
+			serviceTag:     "foo/tag",
+			servicePort:    "foo/port",
+		},
+		{
+			name:  "service appends data with a custom format",
+			query: "service",
+			config: Config{
+				Services: &ServiceConfigs{
+					&ServiceConfig{
+						Query:         config.String("service"),
+						FormatId:      config.String("{{key}}/{{service}}/test"),
+						FormatName:    config.String("{{key}}/{{service}}/test"),
+						FormatAddress: config.String("{{key}}/{{service}}/test"),
+						FormatTag:     config.String("{{key}}/{{service}}/test"),
+						FormatPort:    config.String("{{key}}/{{service}}/test"),
+					},
+				},
+			},
+			data: []*dependency.CatalogService{
+				&dependency.CatalogService{
+					ServiceID:      "id",
+					ServiceName:    "foo",
+					ServiceAddress: "address",
+					ServiceTags:    dependency.ServiceTags{"tag1", "tag2"},
+					ServicePort:    8080,
+				},
+			},
+			keyValue: map[string]string{
+				"id/foo/test":      "id",
+				"name/foo/test":    "foo",
+				"address/foo/test": "address",
+				"tag/foo/test":     "tag1,tag2",
+				"port/foo/test":    "8080",
+			},
+			serviceID:      "id/foo/test",
+			serviceName:    "name/foo/test",
+			serviceAddress: "address/foo/test",
+			serviceTag:     "tag/foo/test",
+			servicePort:    "port/foo/test",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := DefaultConfig().Merge(&tc.config)
+			r, err := NewRunner(c, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			csq, err := dependency.NewCatalogServiceQuery(tc.query)
+			if err != nil {
+				t.Fatal(err)
+			}
+			env := make(map[string]string)
+			appendError := r.appendServices(env, csq, tc.data)
+			if appendError != nil {
+				t.Fatalf("got err: %s", appendError)
+			}
+
+			if len(env) != 5 {
+				t.Fatalf("Expected only 1 value in this test")
+			}
+
+			value, ok := env[tc.serviceID]
+			if !ok {
+				t.Fatalf("expected (%s) key, but was not found", tc.serviceID)
+			}
+			if ok && value != tc.keyValue[tc.serviceID] {
+				t.Fatalf("values didn't match, expected (%s), got (%s)", tc.keyValue[tc.serviceID], value)
+			}
+
+			value, ok = env[tc.serviceName]
+			if !ok {
+				t.Fatalf("expected (%s) key, but was not found", tc.serviceName)
+			}
+			if ok && value != tc.keyValue[tc.serviceName] {
+				t.Fatalf("values didn't match, expected (%s), got (%s)", tc.keyValue[tc.serviceName], value)
+			}
+
+			value, ok = env[tc.serviceAddress]
+			if !ok {
+				t.Fatalf("expected (%s) key, but was not found", tc.serviceAddress)
+			}
+			if ok && value != tc.keyValue[tc.serviceAddress] {
+				t.Fatalf("values didn't match, expected (%s), got (%s)", tc.keyValue[tc.serviceAddress], value)
+			}
+
+			value, ok = env[tc.serviceTag]
+			if !ok {
+				t.Fatalf("expected (%s) key, but was not found", tc.serviceTag)
+			}
+			if ok && value != tc.keyValue[tc.serviceTag] {
+				t.Fatalf("values didn't match, expected (%s), got (%s)", tc.keyValue[tc.serviceTag], value)
+			}
+
+			value, ok = env[tc.servicePort]
+			if !ok {
+				t.Fatalf("expected (%s) key, but was not found", tc.servicePort)
+			}
+			if ok && value != tc.keyValue[tc.servicePort] {
+				t.Fatalf("values didn't match, expected (%s), got (%s)", tc.keyValue[tc.servicePort], value)
+			}
+
+		})
+	}
+}
+
 func TestRunner_configEnv(t *testing.T) {
 	t.Parallel()
 
