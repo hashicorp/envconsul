@@ -1,5 +1,11 @@
 ## envconsul CHANGELOG
 
+## v0.9.1 (Nov 08, 2019)
+
+SECURITY:
+
+* curl and musl vulnerabilities in latest alpine docker image [[GH-223](https://github.com/hashicorp/envconsul/issues/223)]
+
 ## v0.9.0 (Aug 13, 2019)
 
 IMPROVEMENTS:
