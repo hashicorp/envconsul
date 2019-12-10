@@ -113,12 +113,27 @@ func (r *Runner) Start() {
 		return
 	}
 
+	var exitCh <-chan int
+
+	// skip the watch phase and spawn child process immediately
+	// if there are no dependencies ie. prefix/secrets found
+	if len(r.dependencies) == 0 {
+		log.Printf("[INFO] (runner) no dependencies to watch")
+		nexitCh, err := r.Run()
+		if err != nil {
+			r.ErrCh <- err
+			return
+		}
+
+		if nexitCh != nil {
+			exitCh = nexitCh
+		}
+	}
+
 	// Add each dependency to the watcher
 	for _, d := range r.dependencies {
 		r.watcher.Add(d)
 	}
-
-	var exitCh <-chan int
 
 	for {
 		select {
