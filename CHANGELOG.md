@@ -1,5 +1,9 @@
 ## envconsul CHANGELOG
 
+SECURITY:
+
+* Don't log secret values pulled from vault.
+
 ## v0.9.1 (Nov 08, 2019)
 
 SECURITY:
