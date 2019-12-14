@@ -525,10 +525,10 @@ func (r *Runner) appendSecrets(
 			key = strings.ToUpper(key)
 		}
 
-		if current, ok := env[key]; ok {
-			log.Printf("[DEBUG] (runner) overwriting %s=%q (was %q) from %s", key, value, current, d)
+		if _, ok := env[key]; ok {
+			log.Printf("[DEBUG] (runner) overwriting %s from %s", key, d)
 		} else {
-			log.Printf("[DEBUG] (runner) setting %s=%q from %s", key, value, d)
+			log.Printf("[DEBUG] (runner) setting %s from %s", key, d)
 		}
 
 		val, ok := value.(string)
