@@ -48,8 +48,8 @@ type Runner struct {
 	config *Config
 
 	// configPrefixMap is a map of a dependency's hashcode back to the config
-	// prefix that created it.
-	configPrefixMap map[string]*PrefixConfig
+	// prefixes that depend on it.
+	configPrefixMap map[string][]*PrefixConfig
 
 	// data is the latest representation of the data from Consul.
 	data map[string]interface{}
@@ -372,55 +372,60 @@ func (r *Runner) appendPrefixes(
 	}
 
 	// Get the PrefixConfig so we can get configuration from it.
-	cp := r.configPrefixMap[d.String()]
+	cps, ok := r.configPrefixMap[d.String()]
+	if !ok {
+		panic("this config prefix should be present")
+	}
 
-	// For each pair, update the environment hash. Subsequent runs could
-	// overwrite an existing key.
-	for _, pair := range typed {
-		key, value := pair.Key, string(pair.Value)
+	for _, cp := range cps {
+		// For each pair, update the environment hash. Subsequent runs could
+		// overwrite an existing key.
+		for _, pair := range typed {
+			key, value := pair.Key, string(pair.Value)
 
-		// It is not possible to have an environment variable that is blank, but
-		// it is possible to have an environment variable _value_ that is blank.
-		if strings.TrimSpace(key) == "" {
-			continue
-		}
-
-		// NoPrefix is nil when not set in config. Default to excluding prefix for Consul keys.
-		if cp.NoPrefix != nil && !config.BoolVal(cp.NoPrefix) {
-			pc, ok := r.configPrefixMap[d.String()]
-			if !ok {
-				return fmt.Errorf("missing dependency %s", d)
+			// It is not possible to have an environment variable that is blank, but
+			// it is possible to have an environment variable _value_ that is blank.
+			if strings.TrimSpace(key) == "" {
+				continue
 			}
 
-			// Replace the invalid path chars such as slashes with underscores
-			path := InvalidRegexp.ReplaceAllString(config.StringVal(pc.Path), "_")
+			// NoPrefix is nil when not set in config. Default to excluding prefix for Consul keys.
+			if cp.NoPrefix != nil && !config.BoolVal(cp.NoPrefix) {
+				// pc, ok := r.configPrefixMap[d.String()]
+				// if !ok {
+				// 	return fmt.Errorf("missing dependency %s", d)
+				// }
 
-			// Prefix the key value with the path value.
-			key = fmt.Sprintf("%s_%s", path, key)
-		}
+				// Replace the invalid path chars such as slashes with underscores
+				path := InvalidRegexp.ReplaceAllString(config.StringVal(cp.Path), "_")
 
-		// If the user specified a custom format, apply that here.
-		if config.StringPresent(cp.Format) {
-			key, err = applyTemplate(config.StringVal(cp.Format), key)
-			if err != nil {
-				return err
+				// Prefix the key value with the path value.
+				key = fmt.Sprintf("%s_%s", path, key)
 			}
-		}
 
-		if config.BoolVal(r.config.Sanitize) {
-			key = InvalidRegexp.ReplaceAllString(key, "_")
-		}
+			// If the user specified a custom format, apply that here.
+			if config.StringPresent(cp.Format) {
+				key, err = applyTemplate(config.StringVal(cp.Format), key)
+				if err != nil {
+					return err
+				}
+			}
 
-		if config.BoolVal(r.config.Upcase) {
-			key = strings.ToUpper(key)
-		}
+			if config.BoolVal(r.config.Sanitize) {
+				key = InvalidRegexp.ReplaceAllString(key, "_")
+			}
 
-		if current, ok := env[key]; ok {
-			log.Printf("[DEBUG] (runner) overwriting %s=%q (was %q) from %s", key, value, current, d)
-			env[key] = value
-		} else {
-			log.Printf("[DEBUG] (runner) setting %s=%q from %s", key, value, d)
-			env[key] = value
+			if config.BoolVal(r.config.Upcase) {
+				key = strings.ToUpper(key)
+			}
+
+			if current, ok := env[key]; ok {
+				log.Printf("[DEBUG] (runner) overwriting %s=%q (was %q) from %s", key, value, current, d)
+				env[key] = value
+			} else {
+				log.Printf("[DEBUG] (runner) setting %s=%q from %s", key, value, d)
+				env[key] = value
+			}
 		}
 	}
 
@@ -448,95 +453,94 @@ func (r *Runner) appendSecrets(
 	}
 
 	// Get the PrefixConfig so we can get configuration from it.
-	cp := r.configPrefixMap[d.String()]
-
-	valueMap := typed.Data
-	if isVaultKv2(valueMap) {
-		// Vault Secrets KV1 and KV2 return different formats. Here we check the key
-		// value, and if we've found another key called "data" that is of type
-		// map[string]interface, we assume it's KV2 and use the key/value pair from
-		// it, otherwise we assume it's KV1
-		//
-		// In KV1, the JSON looks like
-		// {
-		//		"secretKey1": "value1",
-		//		"secretKey2", "value2"
-		// }
-		//
-		// In KV2, the JSON looks like
-		// {
-		//		"data": {
-		//			"secretKey1": "value1",
-		//			"secretKey2", "value2"
-		//		},
-		//		"metadata" : {
-		//			...
-		// 		}
-		// }
-		log.Printf("[DEBUG] Found KV2 secret")
-
-		if valueMap["data"] == nil {
-			log.Printf("[DEBUG] KV2 secret is nil or was deleted")
-			valueMap = nil
-		} else {
-			valueMap = valueMap["data"].(map[string]interface{})
-		}
+	cps, ok := r.configPrefixMap[d.String()]
+	if !ok {
+		panic("this config prefix should be present")
 	}
 
-	for key, value := range valueMap {
-		// Ignore any keys that are empty (not sure if this is even possible in
-		// Vault, but I play defense).
-		if strings.TrimSpace(key) == "" {
-			continue
+	for _, cp := range cps {
+		valueMap := typed.Data
+		if isVaultKv2(valueMap) {
+			// Vault Secrets KV1 and KV2 return different formats. Here we check the key
+			// value, and if we've found another key called "data" that is of type
+			// map[string]interface, we assume it's KV2 and use the key/value pair from
+			// it, otherwise we assume it's KV1
+			//
+			// In KV1, the JSON looks like
+			// {
+			//		"secretKey1": "value1",
+			//		"secretKey2", "value2"
+			// }
+			//
+			// In KV2, the JSON looks like
+			// {
+			//		"data": {
+			//			"secretKey1": "value1",
+			//			"secretKey2", "value2"
+			//		},
+			//		"metadata" : {
+			//			...
+			// 		}
+			// }
+			log.Printf("[DEBUG] Found KV2 secret")
+
+			if valueMap["data"] == nil {
+				log.Printf("[DEBUG] KV2 secret is nil or was deleted")
+				valueMap = nil
+			} else {
+				valueMap = valueMap["data"].(map[string]interface{})
+			}
 		}
 
-		// Ignore any keys in which value is nil
-		if value == nil {
-			continue
-		}
+		for key, value := range valueMap {
+			// Ignore any keys that are empty (not sure if this is even possible in
+			// Vault, but I play defense).
+			if strings.TrimSpace(key) == "" {
+				continue
+			}
 
-		// NoPrefix is nil when not set in config. Default to including prefix for Vault secrets.
-		if cp.NoPrefix == nil || !config.BoolVal(cp.NoPrefix) {
-			// Replace the path slashes with an underscore.
-			pc, ok := r.configPrefixMap[d.String()]
+			// Ignore any keys in which value is nil
+			if value == nil {
+				continue
+			}
+
+			// NoPrefix is nil when not set in config. Default to including prefix for Vault secrets.
+			if cp.NoPrefix == nil || !config.BoolVal(cp.NoPrefix) {
+				path := InvalidRegexp.ReplaceAllString(config.StringVal(cp.Path), "_")
+
+				// Prefix the key value with the path value.
+				key = fmt.Sprintf("%s_%s", path, key)
+			}
+
+			// If the user specified a custom format, apply that here.
+			if config.StringPresent(cp.Format) {
+				key, err = applyTemplate(config.StringVal(cp.Format), key)
+				if err != nil {
+					return err
+				}
+			}
+
+			if config.BoolVal(r.config.Sanitize) {
+				key = InvalidRegexp.ReplaceAllString(key, "_")
+			}
+
+			if config.BoolVal(r.config.Upcase) {
+				key = strings.ToUpper(key)
+			}
+
+			if _, ok := env[key]; ok {
+				log.Printf("[DEBUG] (runner) overwriting %s from %s", key, d)
+			} else {
+				log.Printf("[DEBUG] (runner) setting %s from %s", key, d)
+			}
+
+			val, ok := value.(string)
 			if !ok {
-				return fmt.Errorf("missing dependency %s", d)
+				log.Printf("[WARN] (runner) skipping key '%s', invalid type for value. got %v, not string", key, reflect.TypeOf(value))
+				continue
 			}
-
-			path := InvalidRegexp.ReplaceAllString(config.StringVal(pc.Path), "_")
-
-			// Prefix the key value with the path value.
-			key = fmt.Sprintf("%s_%s", path, key)
+			env[key] = val
 		}
-
-		// If the user specified a custom format, apply that here.
-		if config.StringPresent(cp.Format) {
-			key, err = applyTemplate(config.StringVal(cp.Format), key)
-			if err != nil {
-				return err
-			}
-		}
-
-		if config.BoolVal(r.config.Sanitize) {
-			key = InvalidRegexp.ReplaceAllString(key, "_")
-		}
-
-		if config.BoolVal(r.config.Upcase) {
-			key = strings.ToUpper(key)
-		}
-
-		if _, ok := env[key]; ok {
-			log.Printf("[DEBUG] (runner) overwriting %s from %s", key, d)
-		} else {
-			log.Printf("[DEBUG] (runner) setting %s from %s", key, d)
-		}
-
-		val, ok := value.(string)
-		if !ok {
-			log.Printf("[WARN] (runner) skipping key '%s', invalid type for value. got %v, not string", key, reflect.TypeOf(value))
-			continue
-		}
-		env[key] = val
 	}
 
 	return nil
@@ -570,7 +574,7 @@ func (r *Runner) init() error {
 	r.watcher = watcher
 
 	r.data = make(map[string]interface{})
-	r.configPrefixMap = make(map[string]*PrefixConfig)
+	r.configPrefixMap = make(map[string][]*PrefixConfig)
 
 	r.inStream = os.Stdin
 	r.outStream = os.Stdout
@@ -587,7 +591,13 @@ func (r *Runner) init() error {
 			return err
 		}
 		r.dependencies = append(r.dependencies, d)
-		r.configPrefixMap[d.String()] = p
+
+		cps, ok := r.configPrefixMap[d.String()]
+		if !ok {
+			cps = []*PrefixConfig{}
+		}
+
+		r.configPrefixMap[d.String()] = append(cps, p)
 	}
 
 	// Parse and add vault dependencies - it is important that this come after
@@ -602,7 +612,13 @@ func (r *Runner) init() error {
 			return err
 		}
 		r.dependencies = append(r.dependencies, d)
-		r.configPrefixMap[d.String()] = s
+
+		cps, ok := r.configPrefixMap[d.String()]
+		if !ok {
+			cps = []*PrefixConfig{}
+		}
+
+		r.configPrefixMap[d.String()] = append(cps, s)
 	}
 
 	return nil
