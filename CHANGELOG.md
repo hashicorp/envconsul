@@ -1,8 +1,14 @@
 ## envconsul CHANGELOG
 
+## v0.9.2 (Jan XX, 2020)
+
 SECURITY:
 
-* Don't log secret values pulled from vault.
+* Don't log values/secrets pulled from vault [[GH-226](https://github.com/hashicorp/envconsul/pull/226)]
+
+BUG FIXES:
+
+* Build Arm binaries with CGO enabled [[GH-227](https://github.com/hashicorp/envconsul/issues/227), [GH-228](https://github.com/hashicorp/envconsul/pull/228)]
 
 ## v0.9.1 (Nov 08, 2019)
 
