@@ -27,8 +27,9 @@ GOARCH ?= $(shell go env GOARCH)
 
 # Default os-arch combination to build
 XC_OS ?= darwin freebsd linux netbsd openbsd solaris windows
-XC_ARCH ?= 386 amd64 arm
-XC_EXCLUDE ?= darwin/arm solaris/386 solaris/arm windows/arm
+XC_ARCH ?= 386 amd64 arm arm64
+# XC_EXCLUDE "arm64" entries match/exclude both arm and arm64
+XC_EXCLUDE ?= darwin/arm64 freebsd/arm64 netbsd/arm64 openbsd/arm64 solaris/arm64 windows/arm64 solaris/386
 
 # GPG Signing key (blank by default, means no GPG signing)
 GPG_KEY ?=
@@ -52,8 +53,15 @@ define make-xc-target
 		@printf "%s%20s %s\n" "-->" "${1}/${2}:" "${PROJECT} (excluded)"
   else
 		@printf "%s%20s %s\n" "-->" "${1}/${2}:" "${PROJECT}"
+		case "$2" in \
+			arm) export CGO_ENABLED="1" ; \
+				  export GOARM=6 \
+				  export CC="arm-linux-gnueabihf-gcc" ;; \
+			arm64) export CGO_ENABLED="1" ; \
+				  export CC="aarch64-linux-gnu-gcc" ;; \
+			*) export CGO_ENABLED="0" ;; \
+		esac ; \
 		env \
-			CGO_ENABLED="0" \
 			GOOS="${1}" \
 			GOARCH="${2}" \
 			go build \
@@ -74,6 +82,14 @@ $(foreach goarch,$(XC_ARCH),$(foreach goos,$(XC_OS),$(eval $(call make-xc-target
 
 # Use docker to create pristine builds for release
 pristine:
+	@docker build \
+		--rm \
+		--force-rm \
+		--no-cache \
+		--compress \
+		--file="docker/pristine/Dockerfile" \
+		--build-arg="GOVERSION=${GO_DOCKER_VERSION}" \
+		--tag="pristine-builder" .
 	@docker run \
 		--interactive \
 		--user $$(id -u):$$(id -g) \
@@ -82,9 +98,9 @@ pristine:
 		--volume="${CURRENT_DIR}:/go/src/${PROJECT}" \
 		--volume="${GOPATH}/pkg/mod:/go/pkg/mod" \
 		--workdir="/go/src/${PROJECT}" \
-		--env=CGO_ENABLED="0" \
 		--env=GO111MODULE=on \
-		"golang:${GO_DOCKER_VERSION}" env GOCACHE=/tmp make -j4 build
+		"pristine-builder" \
+		env GOCACHE=/tmp make -j4 build
 
 # dev builds and installs the project locally.
 dev:
