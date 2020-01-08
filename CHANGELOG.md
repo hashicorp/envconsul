@@ -1,6 +1,6 @@
 ## envconsul CHANGELOG
 
-## v0.9.2 (Jan XX, 2020)
+## v0.9.2 (Jan 08, 2020)
 
 SECURITY:
 
