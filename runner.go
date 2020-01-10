@@ -135,6 +135,8 @@ func (r *Runner) Start() {
 		r.watcher.Add(d)
 	}
 
+	timeout := time.After(30 * time.Second)
+
 	for {
 		select {
 		case data := <-r.watcher.DataCh():
@@ -181,6 +183,12 @@ func (r *Runner) Start() {
 			}
 		case code := <-exitCh:
 			r.ExitCh <- code
+		// TODO: this handles the case where Vault is just not responding to our requests, and
+		// the underlying transport has exceeded the maximum retries. Without this, envconsul
+		// hangs with no activity, which is particularly bad for our monitoring purposes.
+		case <-timeout:
+			log.Printf("[ERR] failed to satisfy dependencies within timeout, failing")
+			panic("timed out waiting for dependencies")
 		case <-r.DoneCh:
 			log.Printf("[INFO] (runner) received finish")
 			return
