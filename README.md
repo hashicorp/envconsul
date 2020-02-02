@@ -345,9 +345,7 @@ prefix {
 
   # This is the path of the key in Consul or Vault from which to read data.
   path = "foo/bar"
-}
 
-prefix {
   # This tells Envconsul to use a custom formatter when building the path for
   # the key from which to read data, in this case reading an environment
   # variable and putting it into the path.
