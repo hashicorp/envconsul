@@ -334,13 +334,18 @@ prefix {
   # value between `{{ key }}` will be replaced with the key.
   format = "custom_{{ key }}"
 
+  # This tells Envconsul to use a custom formatter when printing the key. The
+  # value after "replaceKey" in  `{{ key | replaceKey `actualKey` `expectedKey` }}` will be replaced with the next value.
+  # You could replace more then one key.
+  format = "custom_{{ key | replaceKey `actualKey1` `expectedKey1` | replaceKey `actualKey2` `expectedKey2` }}"  
+
   # This tells Envconsul to not prefix the keys with their parent "folder".
   # The default for `prefix` (consul) is true, the default for `secret` (vault)
   # is false. The differing defaults is to maintain backward compatibility.
   no_prefix = false
 
   # This is the path of the key in Consul or Vault from which to read data.
-  path = "foo/bar"
+  path = "foo/bar"  
 }
 
 # This tells Envconsul to not include the parent processes' environment when
