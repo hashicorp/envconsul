@@ -483,10 +483,6 @@ exceptions. There are multiple configuration options related to signals.
   child process to gracefully terminate it. This is the signal that your child
   application listens to for graceful termination.
 
-- `exec.reload_signal` - This signal exists, but it is never used. Configuring
-  it will have no affect, since Envconsul does not send reload signals to  child
-  processes.
-
 ## Examples
 
 ### Redis
