@@ -795,9 +795,10 @@ Options:
       Path on disk to write the PID of the process
 
   -prefix=<prefix>
-      A prefix to watch, multiple prefixes are merged from left to right, with
-      the right-most result taking precedence, including any values specified
-      with -secret
+      Add a prefix to watch (to the right of configured prefixes), multiple
+      prefixes are merged from left to right, with the right-most result taking
+      precedence, including any values specified with -secret (secrets
+      overrides prefixes)
 
   -pristine
       Only use values retrieved from prefixes and secrets, do not inherit the
@@ -810,9 +811,10 @@ Options:
       Replace invalid characters in keys to underscores
 
   -secret=<prefix>
-      A secret path to watch in Vault, multiple prefixes are merged from left
-      to right, with the right-most result taking precedence, including any
-      values specified with -prefix
+      Add a secret path to watch in Vault (to the right of configured secrets),
+      multiple prefixes are merged from left to right, with the right-most
+      result taking precedence, including any values specified with -prefix
+      (secrets overrides prefixes)
 
   -syslog
       Send the output to syslog instead of standard error and standard out. The

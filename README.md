@@ -328,7 +328,9 @@ pid_file = "/path/to/pid"
 
 # This specifies a prefix in Consul to watch. This may be specified multiple
 # times to watch multiple prefixes, and the bottom-most prefix takes
-# precedence, should any values overlap.
+# precedence, should any values overlap. Prefix blocks without the path
+# defined are meaningless and are discarded. If prefix names conflict with
+# secret names, secret names will take precedence.
 prefix {
   # This tells Envconsul to use a custom formatter when printing the key. The
   # value between `{{ key }}` will be replaced with the key.
@@ -340,6 +342,7 @@ prefix {
   no_prefix = false
 
   # This is the path of the key in Consul or Vault from which to read data.
+  # The path field is required or the config block will be ignored.
   path = "foo/bar"
 }
 
@@ -358,7 +361,9 @@ sanitize = false
 
 # This specifies a secret in Vault to watch. This may be specified multiple
 # times to watch multiple secrets, and the bottom-most secret takes
-# precedence, should any values overlap.
+# precedence, should any values overlap. Secret blocks without the path
+# defined are meaningless and are discarded. If secret names conflict with
+# prefix names, secret names will take precedence.
 secret {
   # See `prefix` as they are the same options.
 }

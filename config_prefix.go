@@ -144,8 +144,16 @@ func (c *PrefixConfigs) Finalize() {
 		*c = *DefaultPrefixConfigs()
 	}
 
-	for _, t := range *c {
+	// entries without a path are invalid and ignored
+	confs := *c
+	i := 0
+	for _, t := range confs {
+		if config.StringVal(t.Path) == "" {
+			confs = append(confs[:i], confs[i+1:]...)
+			continue
+		}
 		t.Finalize()
+		i++
 	}
 }
 
