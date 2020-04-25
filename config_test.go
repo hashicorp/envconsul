@@ -1221,6 +1221,10 @@ func TestParse(t *testing.T) {
 			if !reflect.DeepEqual(tc.e, c) {
 				t.Errorf("\nexp: %#v\nact: %#v", tc.e, c)
 			}
+			// should test but at least run to catch big errors
+			if tc.e != nil {
+				c.Finalize()
+			}
 		})
 	}
 }
