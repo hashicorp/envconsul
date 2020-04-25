@@ -769,9 +769,6 @@ Options:
   -exec-kill-timeout=<duration>
       Amount of time to wait before force-killing the child
 
-  -exec-reload-signal=<signal>
-      Signal to send when a reload takes place
-
   -exec-splay=<duration>
       Amount of time to wait before sending signals
 
