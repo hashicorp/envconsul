@@ -1,5 +1,17 @@
 ## envconsul CHANGELOG
 
+## v0.9.3 (Apr 27, 2020)
+
+BUG FIXES:
+
+* Fix renewing wrapped tokens, renew using unwrapped token [[GH-239](https://github.com/hashicorp/envconsul/pull/239), [GH-222](https://github.com/hashicorp/envconsul/issues/222)]
+
+* Fix issue with secret/prefix entries with no path [[GH-240](https://github.com/hashicorp/envconsul/pull/240), [GH-165](https://github.com/hashicorp/envconsul/issues/165)]
+
+DOCUMENTATION:
+
+* Remove unused -exec-reload-signal from docs [[GH-238](https://github.com/hashicorp/envconsul/pull/238), [GH-237](https://github.com/hashicorp/envconsul/issues/237)]
+
 ## v0.9.2 (Jan 08, 2020)
 
 SECURITY:
