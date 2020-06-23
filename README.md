@@ -269,7 +269,7 @@ exec {
     # below to inject into the child's runtime environment. If a custom
     # environment variable shares its name with a system environment variable,
     # the custom environment variable takes precedence. Even if pristine,
-    # whitelist, or blacklist is specified, all values in this option
+    # allowlist, or denylist is specified, all values in this option
     # are given to the child process.
     custom = ["PATH=$PATH:/etc/myapp/bin"]
 
@@ -278,16 +278,16 @@ exec {
     # specified, only those environment variables matching the given patterns
     # are exposed to the child process. These strings are matched using Go's
     # glob function, so wildcards are permitted.
-    whitelist = ["CONSUL_*"]
+    allowlist = ["CONSUL_*"]
 
     # This specifies a list of environment variables to exclusively prohibit in
     # the list of environment variables exposed to the child process. If
     # specified, any environment variables matching the given patterns will not
-    # be exposed to the child process, even if they are whitelisted. The values
-    # in this option take precedence over the values in the whitelist.
+    # be exposed to the child process, even if they are in the allowlist. The
+    # values in this option take precedence over the values in the allowlist.
     # These strings are matched using Go's glob function, so wildcards are
     # permitted.
-    blacklist = ["VAULT_*"]
+    denylist = ["VAULT_*"]
   }
 
   # This defines the signal sent to the child process when Envconsul is

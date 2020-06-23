@@ -466,7 +466,23 @@ func TestParse(t *testing.T) {
 			false,
 		},
 		{
-			"exec_env_blacklist",
+			"exec_env_denylist",
+			`exec {
+				env {
+					denylist = ["a", "b"]
+				}
+			 }`,
+			&Config{
+				Exec: &config.ExecConfig{
+					Env: &config.EnvConfig{
+						Denylist: []string{"a", "b"},
+					},
+				},
+			},
+			false,
+		},
+		{
+			"exec_env_denylist_deprecated",
 			`exec {
 				env {
 					blacklist = ["a", "b"]
@@ -514,7 +530,23 @@ func TestParse(t *testing.T) {
 			false,
 		},
 		{
-			"exec_env_whitelist",
+			"exec_env_allowlist",
+			`exec {
+				env {
+					allowlist = ["a", "b"]
+				}
+			 }`,
+			&Config{
+				Exec: &config.ExecConfig{
+					Env: &config.EnvConfig{
+						Allowlist: []string{"a", "b"},
+					},
+				},
+			},
+			false,
+		},
+		{
+			"exec_env_allowlist_deprecated",
 			`exec {
 				env {
 					whitelist = ["a", "b"]
