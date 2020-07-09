@@ -344,6 +344,11 @@ prefix {
   # This is the path of the key in Consul or Vault from which to read data.
   # The path field is required or the config block will be ignored.
   path = "foo/bar"
+
+  # This tells Envconsul to use a custom formatter when building the path for
+  # the key from which to read data, in this case reading an environment
+  # variable and putting it into the path.
+  path = "foo/{{ env \"BAR\" }}"
 }
 
 # This tells Envconsul to not include the parent processes' environment when
