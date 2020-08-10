@@ -1,5 +1,11 @@
 ## envconsul CHANGELOG
 
+## v0.10.0 (Aug 10, 2020)
+
+IMPROVEMENTS:
+
+* Allow users to use ENV vars in prefix paths using Go templates [GH-167](https://github.com/hashicorp/envconsul/pull/167)
+
 ## v0.9.3 (Apr 27, 2020)
 
 BUG FIXES:
