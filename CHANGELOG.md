@@ -4,7 +4,7 @@
 
 IMPROVEMENTS:
 
-* Allow users to use ENV vars in prefix paths using Go templates [GH-167](https://github.com/hashicorp/envconsul/pull/167)
+* Allow users to use ENV vars in prefix paths using Go templates [[GH-167](https://github.com/hashicorp/envconsul/pull/167)]
 
 ## v0.9.3 (Apr 27, 2020)
 
