@@ -775,7 +775,6 @@ func newWatcher(c *Config, clients *dep.ClientSet, once bool) (*watch.Watcher, e
 		// dependencies like reading a file from disk.
 		RetryFuncDefault: nil,
 		RetryFuncVault:   watch.RetryFunc(c.Vault.Retry.RetryFunc()),
-		VaultGrace:       config.TimeDurationVal(c.Vault.Grace),
 		VaultToken:       clients.Vault().Token(),
 	})
 	if err != nil {
@@ -821,10 +820,10 @@ func (r *Runner) applyConfigEnv(env map[string]string) map[string]string {
 	}
 
 	// Filter to envvars that match the whitelist
-	if n := len(r.config.Exec.Env.Whitelist); n > 0 {
+	if n := len(r.config.Exec.Env.AllowlistDeprecated); n > 0 {
 		include := make(map[string]bool, n)
 		for k, _ := range keys {
-			if anyGlobMatch(k, r.config.Exec.Env.Whitelist) {
+			if anyGlobMatch(k, r.config.Exec.Env.AllowlistDeprecated) {
 				include[k] = true
 			}
 		}
@@ -833,9 +832,9 @@ func (r *Runner) applyConfigEnv(env map[string]string) map[string]string {
 
 	// Remove any env vars that match the blacklist
 	// Blacklist takes precedence over whitelist
-	if len(r.config.Exec.Env.Blacklist) > 0 {
+	if len(r.config.Exec.Env.DenylistDeprecated) > 0 {
 		for k, _ := range keys {
-			if anyGlobMatch(k, r.config.Exec.Env.Blacklist) {
+			if anyGlobMatch(k, r.config.Exec.Env.DenylistDeprecated) {
 				delete(keys, k)
 			}
 		}

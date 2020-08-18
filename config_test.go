@@ -475,7 +475,7 @@ func TestParse(t *testing.T) {
 			&Config{
 				Exec: &config.ExecConfig{
 					Env: &config.EnvConfig{
-						Blacklist: []string{"a", "b"},
+						DenylistDeprecated: []string{"a", "b"},
 					},
 				},
 			},
@@ -523,7 +523,7 @@ func TestParse(t *testing.T) {
 			&Config{
 				Exec: &config.ExecConfig{
 					Env: &config.EnvConfig{
-						Whitelist: []string{"a", "b"},
+						AllowlistDeprecated: []string{"a", "b"},
 					},
 				},
 			},
@@ -855,18 +855,6 @@ func TestParse(t *testing.T) {
 			&Config{
 				Vault: &config.VaultConfig{
 					Address: config.String("address"),
-				},
-			},
-			false,
-		},
-		{
-			"vault_grace",
-			`vault {
-				grace = "5m"
-			}`,
-			&Config{
-				Vault: &config.VaultConfig{
-					Grace: config.TimeDuration(5 * time.Minute),
 				},
 			},
 			false,

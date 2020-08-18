@@ -338,10 +338,10 @@ func TestRunner_configEnv(t *testing.T) {
 			cfg := Config{
 				Exec: &config.ExecConfig{
 					Env: &config.EnvConfig{
-						Pristine:  &tc.pristine,
-						Blacklist: tc.blacklist,
-						Whitelist: tc.whitelist,
-						Custom:    tc.custom,
+						Pristine:            &tc.pristine,
+						DenylistDeprecated:  tc.blacklist,
+						AllowlistDeprecated: tc.whitelist,
+						Custom:              tc.custom,
 					},
 				},
 			}
