@@ -1,5 +1,11 @@
 ## envconsul CHANGELOG
 
+## Upcoming
+
+IMPROVEMENTS:
+
+* Update whitelist/blacklist config options to allowlist/denylist with backward compatibility [[GH-246](https://github.com/hashicorp/envconsul/pull/246)]
+
 ## v0.10.0 (Aug 10, 2020)
 
 IMPROVEMENTS:
