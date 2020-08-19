@@ -783,7 +783,7 @@ func newWatcher(c *Config, clients *dep.ClientSet, once bool) (*watch.Watcher, e
 	return w, nil
 }
 
-// applyConfigEnv applies custom env variables and whitelist/blacklist rules from config
+// applyConfigEnv applies custom env variables and allowlist/denylist rules from config
 func (r *Runner) applyConfigEnv(env map[string]string) map[string]string {
 	// Parse custom environment variables
 	custom := make(map[string]string, len(r.config.Exec.Env.Custom))
@@ -819,22 +819,30 @@ func (r *Runner) applyConfigEnv(env map[string]string) map[string]string {
 		return false
 	}
 
-	// Filter to envvars that match the whitelist
-	if n := len(r.config.Exec.Env.AllowlistDeprecated); n > 0 {
+	// Filter to envvars that match the allowlist
+	// Combining lists on each reference may be slightly inefficient but this
+	// allows for out of order method calls, not requiring the config to be
+	// finalized first.
+	allowlist := combineLists(r.config.Exec.Env.Allowlist, r.config.Exec.Env.AllowlistDeprecated)
+	if n := len(allowlist); n > 0 {
 		include := make(map[string]bool, n)
 		for k, _ := range keys {
-			if anyGlobMatch(k, r.config.Exec.Env.AllowlistDeprecated) {
+			if anyGlobMatch(k, allowlist) {
 				include[k] = true
 			}
 		}
 		keys = include
 	}
 
-	// Remove any env vars that match the blacklist
-	// Blacklist takes precedence over whitelist
-	if len(r.config.Exec.Env.DenylistDeprecated) > 0 {
+	// Remove any env vars that match the denylist
+	// Denylist takes precedence over allowlist
+	// Combining lists on each reference may be slightly inefficient but this
+	// allows for out of order method calls, not requiring the config to be
+	// finalized first.
+	denylist := combineLists(r.config.Exec.Env.Denylist, r.config.Exec.Env.DenylistDeprecated)
+	if len(denylist) > 0 {
 		for k, _ := range keys {
-			if anyGlobMatch(k, r.config.Exec.Env.DenylistDeprecated) {
+			if anyGlobMatch(k, denylist) {
 				delete(keys, k)
 			}
 		}
@@ -848,10 +856,29 @@ func (r *Runner) applyConfigEnv(env map[string]string) map[string]string {
 	}
 
 	// Add custom env to final map
-	// Custom variables take precedence over whitelist and blacklist
+	// Custom variables take precedence over allowlist and denylist
 	for k, v := range custom {
 		env[k] = v
 	}
 
 	return env
+}
+
+// combineLists makes a new list that combines 2 lists by adding values from
+// the second list without removing any duplicates from the first.
+func combineLists(a, b []string) []string {
+	combined := make([]string, len(a), len(a)+len(b))
+	m := make(map[string]bool)
+	for i, v := range a {
+		m[v] = true
+		combined[i] = v
+	}
+
+	for _, v := range b {
+		if !m[v] {
+			combined = append(combined, v)
+		}
+	}
+
+	return combined
 }

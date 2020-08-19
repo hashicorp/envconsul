@@ -288,8 +288,8 @@ func TestRunner_configEnv(t *testing.T) {
 		env       map[string]string
 		pristine  bool
 		custom    []string
-		whitelist []string
-		blacklist []string
+		allowlist []string
+		denylist  []string
 		output    map[string]string
 	}{
 		{
@@ -312,24 +312,84 @@ func TestRunner_configEnv(t *testing.T) {
 			output: map[string]string{"PATH": "/usr/bin"},
 		},
 		{
-			name:      "whitelist filters input by key",
+			name:      "allowlist filters input by key",
 			env:       map[string]string{"GOPATH": "/usr/go", "GO111MODULES": "true", "PATH": "/bin"},
-			whitelist: []string{"GO*"},
+			allowlist: []string{"GO*"},
 			output:    map[string]string{"GOPATH": "/usr/go", "GO111MODULES": "true"},
 		},
 		{
-			name:      "blacklist takes precedence over whitelist",
+			name:      "denylist takes precedence over allowlist",
 			env:       map[string]string{"GOPATH": "/usr/go", "PATH": "/bin", "EDITOR": "vi"},
-			whitelist: []string{"GO*", "EDITOR"},
-			blacklist: []string{"GO*"},
+			allowlist: []string{"GO*", "EDITOR"},
+			denylist:  []string{"GO*"},
 			output:    map[string]string{"EDITOR": "vi"},
 		},
 		{
-			name:      "custom takes precedence over blacklist",
-			env:       map[string]string{"PATH": "/bin", "EDITOR": "vi"},
-			blacklist: []string{"EDITOR*"},
-			custom:    []string{"EDITOR=nvim"},
-			output:    map[string]string{"EDITOR": "nvim", "PATH": "/bin"},
+			name:     "custom takes precedence over denylist",
+			env:      map[string]string{"PATH": "/bin", "EDITOR": "vi"},
+			denylist: []string{"EDITOR*"},
+			custom:   []string{"EDITOR=nvim"},
+			output:   map[string]string{"EDITOR": "nvim", "PATH": "/bin"},
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := Config{
+				Exec: &config.ExecConfig{
+					Env: &config.EnvConfig{
+						Pristine:  &tc.pristine,
+						Denylist:  tc.denylist,
+						Allowlist: tc.allowlist,
+						Custom:    tc.custom,
+					},
+				},
+			}
+			c := DefaultConfig().Merge(&cfg)
+			r, err := NewRunner(c, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+			result := r.applyConfigEnv(tc.env)
+
+			if !reflect.DeepEqual(result, tc.output) {
+				t.Fatalf("expected: %v\n got: %v", tc.output, result)
+			}
+		})
+	}
+}
+
+func TestRunner_configEnvDeprecated(t *testing.T) {
+	t.Parallel()
+
+	tt := []struct {
+		name                string
+		env                 map[string]string
+		pristine            bool
+		custom              []string
+		allowlistDeprecated []string
+		denylistDeprecated  []string
+		output              map[string]string
+	}{
+		{
+			name:                "allowlist deprecated filters input by key",
+			env:                 map[string]string{"GOPATH": "/usr/go", "GO111MODULES": "true", "PATH": "/bin"},
+			allowlistDeprecated: []string{"GO*"},
+			output:              map[string]string{"GOPATH": "/usr/go", "GO111MODULES": "true"},
+		},
+		{
+			name:                "denylist deprecated takes precedence over allowlist",
+			env:                 map[string]string{"GOPATH": "/usr/go", "PATH": "/bin", "EDITOR": "vi"},
+			allowlistDeprecated: []string{"GO*", "EDITOR"},
+			denylistDeprecated:  []string{"GO*"},
+			output:              map[string]string{"EDITOR": "vi"},
+		},
+		{
+			name:               "custom takes precedence over denylist deprecated",
+			env:                map[string]string{"PATH": "/bin", "EDITOR": "vi"},
+			denylistDeprecated: []string{"EDITOR*"},
+			custom:             []string{"EDITOR=nvim"},
+			output:             map[string]string{"EDITOR": "nvim", "PATH": "/bin"},
 		},
 	}
 
@@ -339,8 +399,8 @@ func TestRunner_configEnv(t *testing.T) {
 				Exec: &config.ExecConfig{
 					Env: &config.EnvConfig{
 						Pristine:            &tc.pristine,
-						DenylistDeprecated:  tc.blacklist,
-						AllowlistDeprecated: tc.whitelist,
+						DenylistDeprecated:  tc.denylistDeprecated,
+						AllowlistDeprecated: tc.allowlistDeprecated,
 						Custom:              tc.custom,
 					},
 				},
