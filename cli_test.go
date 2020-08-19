@@ -540,7 +540,7 @@ func TestCLI_ParseFlags(t *testing.T) {
 			&Config{
 				Prefixes: &PrefixConfigs{
 					&PrefixConfig{
-						Path: config.String("foo/bar"),
+						Path:     config.String("foo/bar"),
 						NoPrefix: config.Bool(true),
 					},
 				},
@@ -553,7 +553,7 @@ func TestCLI_ParseFlags(t *testing.T) {
 			&Config{
 				Secrets: &PrefixConfigs{
 					&PrefixConfig{
-						Path: config.String("foo/bar"),
+						Path:     config.String("foo/bar"),
 						NoPrefix: config.Bool(true),
 					},
 				},
@@ -566,7 +566,7 @@ func TestCLI_ParseFlags(t *testing.T) {
 			&Config{
 				Prefixes: &PrefixConfigs{
 					&PrefixConfig{
-						Path: config.String("foo/bar"),
+						Path:     config.String("foo/bar"),
 						NoPrefix: config.Bool(false),
 					},
 				},
@@ -579,7 +579,7 @@ func TestCLI_ParseFlags(t *testing.T) {
 			&Config{
 				Prefixes: &PrefixConfigs{
 					&PrefixConfig{
-						Path: config.String("foo/bar"),
+						Path:     config.String("foo/bar"),
 						NoPrefix: nil,
 					},
 				},
@@ -674,16 +674,6 @@ func TestCLI_ParseFlags(t *testing.T) {
 			&Config{
 				Vault: &config.VaultConfig{
 					Address: config.String("vault_addr"),
-				},
-			},
-			false,
-		},
-		{
-			"vault-grace",
-			[]string{"-vault-grace", "10s"},
-			&Config{
-				Vault: &config.VaultConfig{
-					Grace: config.TimeDuration(10 * time.Second),
 				},
 			},
 			false,

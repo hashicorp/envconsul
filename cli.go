@@ -438,11 +438,6 @@ func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error)
 		return nil
 	}), "vault-addr", "")
 
-	flags.Var((funcDurationVar)(func(t time.Duration) error {
-		c.Vault.Grace = config.TimeDuration(t)
-		return nil
-	}), "vault-grace", "")
-
 	flags.Var((funcBoolVar)(func(b bool) error {
 		c.Vault.RenewToken = config.Bool(b)
 		return nil
@@ -672,7 +667,7 @@ func logError(err error, status int) int {
 
 func (cli *CLI) setup(conf *Config) (*Config, error) {
 	if err := logging.Setup(&logging.Config{
-		Name:           version.Name,
+		SyslogName:     version.Name,
 		Level:          config.StringVal(conf.LogLevel),
 		Syslog:         config.BoolVal(conf.Syslog.Enabled),
 		SyslogFacility: config.StringVal(conf.Syslog.Facility),
