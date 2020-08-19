@@ -5,6 +5,11 @@
 IMPROVEMENTS:
 
 * Update whitelist/blacklist config options to allowlist/denylist with backward compatibility [[GH-246](https://github.com/hashicorp/envconsul/pull/246)]
+* Update Consul Template dependency to v0.25.1 [[GH-245](https://github.com/hashicorp/envconsul/pull/245)]
+
+BUG FIXES:
+
+* Remove code/logic for working with (long deprecated) Vault grace [[GH-245](https://github.com/hashicorp/envconsul/pull/245)]
 
 ## v0.10.0 (Aug 10, 2020)
 
