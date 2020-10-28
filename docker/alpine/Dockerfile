@@ -1,7 +1,7 @@
 ### Builder
 #
 ARG GOVERSION=latest
-FROM golang:${GOVERSION} AS builder
+FROM docker.mirror.hashicorp.services/golang:${GOVERSION} AS builder
 LABEL maintainer "John Eikenberry <jae@zhar.net>"
 
 ARG LD_FLAGS
@@ -21,7 +21,7 @@ RUN \
 
 ### Final
 #
-FROM alpine:latest
+FROM docker.mirror.hashicorp.services/alpine:latest
 LABEL maintainer "John Eikenberry <jae@zhar.net>"
 
 # This is the release of https://github.com/hashicorp/docker-base to pull in
