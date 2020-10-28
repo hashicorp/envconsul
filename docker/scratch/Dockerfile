@@ -1,7 +1,7 @@
 ### Builder
 #
 ARG GOVERSION=latest
-FROM golang:${GOVERSION} AS builder
+FROM docker.mirror.hashicorp.services/golang:${GOVERSION} AS builder
 LABEL maintainer "John Eikenberry <jae@zhar.net>"
 
 ARG LD_FLAGS
