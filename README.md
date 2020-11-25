@@ -403,6 +403,15 @@ vault {
   # This value can also be specified via the environment variable VAULT_TOKEN.
   token = "abcd1234"
 
+  # This tells Envconsul to load the Vault token from the contents of a file.
+  # If this field is specified:
+  # - by default Envconsul will not try to renew the Vault token, if you want it
+  # to renew you will need to specify renew_token = true as below.
+  # - Envconsul will periodically stat the file and update the token if it has
+  # changed.
+  # vault_agent_token_file = "/path/to/vault/agent/token/file"
+
+
   # This tells Envconsul that the provided token is actually a wrapped
   # token that should be unwrapped using Vault's cubbyhole response wrapping
   # before being used. Please see Vault's cubbyhole response wrapping
