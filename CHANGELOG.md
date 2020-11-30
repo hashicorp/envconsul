@@ -1,9 +1,10 @@
 ## envconsul CHANGELOG
 
-## Upcoming
+## v.0.11.0 (Nov 30, 2020)
 
 IMPROVEMENTS:
 
+* Add support for Vault Agent token files [[GH-249](https://github.com/hashicorp/envconsul/pull/249)]
 * Update whitelist/blacklist config options to allowlist/denylist with backward compatibility [[GH-246](https://github.com/hashicorp/envconsul/pull/246)]
 * Update Consul Template dependency to v0.25.1 [[GH-245](https://github.com/hashicorp/envconsul/pull/245)]
 
