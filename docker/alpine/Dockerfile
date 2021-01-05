@@ -31,7 +31,7 @@ ARG DOCKER_BASE_VERSION="0.0.4"
 # This is the location of the releases.
 ARG HASHICORP_RELEASES="https://releases.hashicorp.com"
 
-# UID and GID of consul-template user and group.
+# UID and GID of envconsul user and group.
 # These are the defaults, this makes them explicit and overridable.
 ARG UID=100
 ARG GID=1000
