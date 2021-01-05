@@ -25,25 +25,12 @@ if [ "${1:0:1}" = '-' ]; then
   set -- /bin/envconsul "$@"
 fi
 
-# If we are running Consul, make sure it executes as the proper user.
+# Set the configuration directory
 if [ "$1" = '/bin/envconsul' ]; then
-  # If the data or config dirs are bind mounted then chown them.
-  # Note: This checks for root ownership as that's the most common case.
-  if [ "$(stat -c %u /envconsul/data)" != "$(id -u envconsul)" ]; then
-    chown envconsul:envconsul /envconsul/data
-  fi
-  if [ "$(stat -c %u /envconsul/config)" != "$(id -u envconsul)" ]; then
-    chown envconsul:envconsul /envconsul/config
-  fi
-
-  # Set the configuration directory
   shift
   set -- /bin/envconsul \
     -config="$ENVCONSUL_CONFIG_DIR" \
     "$@"
-
-  # Run under the right user
-  set -- gosu envconsul "$@"
 fi
 
 exec "$@"
