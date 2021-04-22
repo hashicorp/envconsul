@@ -342,7 +342,7 @@ func (r *Runner) Run() (<-chan int, error) {
 	return child.ExitCh(), nil
 }
 
-func applyTemplate(contents, key string) (string, error) {
+func applyFormatTemplate(contents, key string) (string, error) {
 	funcs := template.FuncMap{
 		"key": func() (string, error) {
 			return key, nil
@@ -368,6 +368,30 @@ func replaceKey(args ...interface{}) string {
 		return args[0].(string)
 	}
 	return map[bool]string{true: args[1].(string), false: args[2].(string)}[args[0].(string) == args[2].(string)]
+}
+
+func applyPathTemplate(contents string) (string, error) {
+	funcs := template.FuncMap{
+		"env": func(key string) (string, error) {
+			envVar, exists := os.LookupEnv(key)
+			if !exists {
+				return "", fmt.Errorf("unable to read environment variable %q in template %q", key, contents)
+			}
+			return envVar, nil
+		},
+	}
+
+	tmpl, err := template.New("path").Funcs(funcs).Parse(contents)
+	if err != nil {
+		return "", nil
+	}
+
+	var buf bytes.Buffer
+	if err = tmpl.Execute(&buf, nil); err != nil {
+		return "", err
+	}
+
+	return buf.String(), nil
 }
 
 func (r *Runner) appendPrefixes(
@@ -409,7 +433,7 @@ func (r *Runner) appendPrefixes(
 
 		// If the user specified a custom format, apply that here.
 		if config.StringPresent(cp.Format) {
-			key, err = applyTemplate(config.StringVal(cp.Format), key)
+			key, err = applyFormatTemplate(config.StringVal(cp.Format), key)
 			if err != nil {
 				return err
 			}
@@ -511,7 +535,11 @@ func (r *Runner) appendSecrets(
 				return fmt.Errorf("missing dependency %s", d)
 			}
 
-			path := InvalidRegexp.ReplaceAllString(config.StringVal(pc.Path), "_")
+			path, err := applyPathTemplate(config.StringVal(pc.Path))
+			if err != nil {
+				return err
+			}
+			path = InvalidRegexp.ReplaceAllString(path, "_")
 
 			// Prefix the key value with the path value.
 			key = fmt.Sprintf("%s_%s", path, key)
@@ -519,7 +547,7 @@ func (r *Runner) appendSecrets(
 
 		// If the user specified a custom format, apply that here.
 		if config.StringPresent(cp.Format) {
-			key, err = applyTemplate(config.StringVal(cp.Format), key)
+			key, err = applyFormatTemplate(config.StringVal(cp.Format), key)
 			if err != nil {
 				return err
 			}
@@ -590,7 +618,11 @@ func (r *Runner) init() error {
 
 	// Parse and add consul dependencies
 	for _, p := range *r.config.Prefixes {
-		d, err := dep.NewKVListQuery(config.StringVal(p.Path))
+		path, err := applyPathTemplate(config.StringVal(p.Path))
+		if err != nil {
+			return err
+		}
+		d, err := dep.NewKVListQuery(path)
 		if err != nil {
 			return err
 		}
@@ -603,7 +635,11 @@ func (r *Runner) init() error {
 	// vault; that would expose a security hole since access to consul is
 	// typically less controlled than access to vault.
 	for _, s := range *r.config.Secrets {
-		path := config.StringVal(s.Path)
+		path, err := applyPathTemplate(config.StringVal(s.Path))
+		if err != nil {
+			return err
+		}
+
 		log.Printf("[INFO] looking at vault %s", path)
 		d, err := dep.NewVaultReadQuery(path)
 		if err != nil {
@@ -738,17 +774,17 @@ func newWatcher(c *Config, clients *dep.ClientSet, once bool) (*watch.Watcher, e
 	log.Printf("[INFO] (runner) creating watcher")
 
 	w, err := watch.NewWatcher(&watch.NewWatcherInput{
-		Clients:         clients,
-		MaxStale:        config.TimeDurationVal(c.MaxStale),
-		Once:            once,
-		RenewVault:      config.StringPresent(c.Vault.Token) && config.BoolVal(c.Vault.RenewToken),
-		RetryFuncConsul: watch.RetryFunc(c.Consul.Retry.RetryFunc()),
+		Clients:             clients,
+		MaxStale:            config.TimeDurationVal(c.MaxStale),
+		Once:                once,
+		RenewVault:          config.StringPresent(c.Vault.Token) && config.BoolVal(c.Vault.RenewToken),
+		VaultAgentTokenFile: config.StringVal(c.Vault.VaultAgentTokenFile),
+		RetryFuncConsul:     watch.RetryFunc(c.Consul.Retry.RetryFunc()),
 		// TODO: Add a sane default retry - right now this only affects "local"
 		// dependencies like reading a file from disk.
 		RetryFuncDefault: nil,
 		RetryFuncVault:   watch.RetryFunc(c.Vault.Retry.RetryFunc()),
-		VaultGrace:       config.TimeDurationVal(c.Vault.Grace),
-		VaultToken:       config.StringVal(c.Vault.Token),
+		VaultToken:       clients.Vault().Token(),
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "runner")
@@ -756,7 +792,7 @@ func newWatcher(c *Config, clients *dep.ClientSet, once bool) (*watch.Watcher, e
 	return w, nil
 }
 
-// applyConfigEnv applies custom env variables and whitelist/blacklist rules from config
+// applyConfigEnv applies custom env variables and allowlist/denylist rules from config
 func (r *Runner) applyConfigEnv(env map[string]string) map[string]string {
 	// Parse custom environment variables
 	custom := make(map[string]string, len(r.config.Exec.Env.Custom))
@@ -792,22 +828,30 @@ func (r *Runner) applyConfigEnv(env map[string]string) map[string]string {
 		return false
 	}
 
-	// Filter to envvars that match the whitelist
-	if n := len(r.config.Exec.Env.Whitelist); n > 0 {
+	// Filter to envvars that match the allowlist
+	// Combining lists on each reference may be slightly inefficient but this
+	// allows for out of order method calls, not requiring the config to be
+	// finalized first.
+	allowlist := combineLists(r.config.Exec.Env.Allowlist, r.config.Exec.Env.AllowlistDeprecated)
+	if n := len(allowlist); n > 0 {
 		include := make(map[string]bool, n)
 		for k, _ := range keys {
-			if anyGlobMatch(k, r.config.Exec.Env.Whitelist) {
+			if anyGlobMatch(k, allowlist) {
 				include[k] = true
 			}
 		}
 		keys = include
 	}
 
-	// Remove any env vars that match the blacklist
-	// Blacklist takes precedence over whitelist
-	if len(r.config.Exec.Env.Blacklist) > 0 {
+	// Remove any env vars that match the denylist
+	// Denylist takes precedence over allowlist
+	// Combining lists on each reference may be slightly inefficient but this
+	// allows for out of order method calls, not requiring the config to be
+	// finalized first.
+	denylist := combineLists(r.config.Exec.Env.Denylist, r.config.Exec.Env.DenylistDeprecated)
+	if len(denylist) > 0 {
 		for k, _ := range keys {
-			if anyGlobMatch(k, r.config.Exec.Env.Blacklist) {
+			if anyGlobMatch(k, denylist) {
 				delete(keys, k)
 			}
 		}
@@ -821,10 +865,29 @@ func (r *Runner) applyConfigEnv(env map[string]string) map[string]string {
 	}
 
 	// Add custom env to final map
-	// Custom variables take precedence over whitelist and blacklist
+	// Custom variables take precedence over allowlist and denylist
 	for k, v := range custom {
 		env[k] = v
 	}
 
 	return env
+}
+
+// combineLists makes a new list that combines 2 lists by adding values from
+// the second list without removing any duplicates from the first.
+func combineLists(a, b []string) []string {
+	combined := make([]string, len(a), len(a)+len(b))
+	m := make(map[string]bool)
+	for i, v := range a {
+		m[v] = true
+		combined[i] = v
+	}
+
+	for _, v := range b {
+		if !m[v] {
+			combined = append(combined, v)
+		}
+	}
+
+	return combined
 }

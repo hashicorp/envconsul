@@ -1,7 +1,7 @@
 ### Used for pristine builds
 #
 ARG GOVERSION=latest
-FROM golang:${GOVERSION}
+FROM docker.mirror.hashicorp.services/golang:${GOVERSION}
 LABEL maintainer "John Eikenberry <jae@zhar.net>"
 
 RUN apt-get update && \

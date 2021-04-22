@@ -12,7 +12,23 @@ import (
 	"github.com/hashicorp/consul-template/config"
 )
 
+func testFile(t *testing.T, contents string) (path string, remove func()) {
+	testFile, err := ioutil.TempFile("", "test.")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(contents) > 0 {
+		if _, err := testFile.Write([]byte(contents)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return testFile.Name(), func() { os.Remove(testFile.Name()) }
+}
+
 func TestParse(t *testing.T) {
+	testFilePath, remove := testFile(t, "")
+	defer remove()
+
 	cases := []struct {
 		name string
 		i    string
@@ -466,7 +482,23 @@ func TestParse(t *testing.T) {
 			false,
 		},
 		{
-			"exec_env_blacklist",
+			"exec_env_denylist",
+			`exec {
+				env {
+					denylist = ["a", "b"]
+				}
+			 }`,
+			&Config{
+				Exec: &config.ExecConfig{
+					Env: &config.EnvConfig{
+						Denylist: []string{"a", "b"},
+					},
+				},
+			},
+			false,
+		},
+		{
+			"exec_env_denylist_deprecated",
 			`exec {
 				env {
 					blacklist = ["a", "b"]
@@ -475,7 +507,7 @@ func TestParse(t *testing.T) {
 			&Config{
 				Exec: &config.ExecConfig{
 					Env: &config.EnvConfig{
-						Blacklist: []string{"a", "b"},
+						DenylistDeprecated: []string{"a", "b"},
 					},
 				},
 			},
@@ -514,7 +546,23 @@ func TestParse(t *testing.T) {
 			false,
 		},
 		{
-			"exec_env_whitelist",
+			"exec_env_allowlist",
+			`exec {
+				env {
+					allowlist = ["a", "b"]
+				}
+			 }`,
+			&Config{
+				Exec: &config.ExecConfig{
+					Env: &config.EnvConfig{
+						Allowlist: []string{"a", "b"},
+					},
+				},
+			},
+			false,
+		},
+		{
+			"exec_env_allowlist_deprecated",
 			`exec {
 				env {
 					whitelist = ["a", "b"]
@@ -523,7 +571,7 @@ func TestParse(t *testing.T) {
 			&Config{
 				Exec: &config.ExecConfig{
 					Env: &config.EnvConfig{
-						Whitelist: []string{"a", "b"},
+						AllowlistDeprecated: []string{"a", "b"},
 					},
 				},
 			},
@@ -680,6 +728,20 @@ func TestParse(t *testing.T) {
 				Prefixes: &PrefixConfigs{
 					&PrefixConfig{
 						Path: config.String("foo/bar/baz"),
+					},
+				},
+			},
+			false,
+		},
+		{
+			"prefix_path_template",
+			`prefix {
+				path = "foo/{{ env \"BAR\" }}"
+			}`,
+			&Config{
+				Prefixes: &PrefixConfigs{
+					&PrefixConfig{
+						Path: config.String(`foo/{{ env "BAR" }}`),
 					},
 				},
 			},
@@ -846,18 +908,6 @@ func TestParse(t *testing.T) {
 			false,
 		},
 		{
-			"vault_grace",
-			`vault {
-				grace = "5m"
-			}`,
-			&Config{
-				Vault: &config.VaultConfig{
-					Grace: config.TimeDuration(5 * time.Minute),
-				},
-			},
-			false,
-		},
-		{
 			"vault_token",
 			`vault {
 				token = "token"
@@ -865,6 +915,18 @@ func TestParse(t *testing.T) {
 			&Config{
 				Vault: &config.VaultConfig{
 					Token: config.String("token"),
+				},
+			},
+			false,
+		},
+		{
+			"vault_agent_token_file",
+			`vault {
+				vault_agent_token_file = "` + testFilePath + `"
+			}`,
+			&Config{
+				Vault: &config.VaultConfig{
+					VaultAgentTokenFile: config.String(testFilePath),
 				},
 			},
 			false,
@@ -1220,6 +1282,10 @@ func TestParse(t *testing.T) {
 			}
 			if !reflect.DeepEqual(tc.e, c) {
 				t.Errorf("\nexp: %#v\nact: %#v", tc.e, c)
+			}
+			// should test but at least run to catch big errors
+			if tc.e != nil {
+				c.Finalize()
 			}
 		})
 	}
@@ -1730,6 +1796,85 @@ func TestDefaultConfig(t *testing.T) {
 			c := DefaultConfig()
 			if !reflect.DeepEqual(r, c) {
 				t.Errorf("\nexp: %#v\nact: %#v", r, c)
+			}
+		})
+	}
+}
+
+func TestFinalize(t *testing.T) {
+	testFileContents := "testing123"
+	testFilePath, remove := testFile(t, testFileContents)
+	defer remove()
+
+	// Testing Once disabling Wait
+	cases := []struct {
+		name    string
+		isEqual func(*Config, *Config) (bool, error)
+		test    *Config
+		expt    *Config
+	}{
+		{
+			"null-case",
+			nil,
+			&Config{
+				Wait: &config.WaitConfig{
+					Enabled: config.Bool(true),
+					Min:     config.TimeDuration(10 * time.Second),
+					Max:     config.TimeDuration(20 * time.Second),
+				},
+			},
+			&Config{
+				Wait: &config.WaitConfig{
+					Enabled: config.Bool(true),
+					Min:     config.TimeDuration(10 * time.Second),
+					Max:     config.TimeDuration(20 * time.Second),
+				},
+			},
+		},
+		{
+			"vault_agent_token_file",
+			func(act, exp *Config) (bool, error) {
+				actToken := *act.Vault.Token
+				expToken := *exp.Vault.Token
+				if actToken != expToken {
+					return false, fmt.Errorf("tokens don't match: %v != %v",
+						actToken, expToken)
+				}
+				actTokenFile := *act.Vault.VaultAgentTokenFile
+				expTokenFile := *exp.Vault.VaultAgentTokenFile
+				if actTokenFile != expTokenFile {
+					return false, fmt.Errorf("tokenfiles don't match: %v != %v",
+						actTokenFile, expTokenFile)
+				}
+				return true, nil
+			},
+			&Config{
+				Vault: &config.VaultConfig{
+					VaultAgentTokenFile: config.String(testFilePath),
+				},
+			},
+			&Config{
+				Vault: &config.VaultConfig{
+					Address:             config.String(""),
+					Namespace:           config.String(""),
+					VaultAgentTokenFile: config.String(testFilePath),
+					Token:               config.String(testFileContents),
+				},
+			},
+		},
+	}
+	for i, tc := range cases {
+		t.Run(fmt.Sprintf("%d_%s", i, tc.name), func(t *testing.T) {
+			tc.test.Finalize()
+			switch tc.isEqual {
+			case nil:
+				if !reflect.DeepEqual(tc.expt.Wait, tc.test.Wait) {
+					t.Errorf("\nexp: %#v\nact: %#v", *tc.expt.Wait, *tc.test.Wait)
+				}
+			default:
+				if eq, err := tc.isEqual(tc.test, tc.expt); !eq {
+					t.Errorf(err.Error())
+				}
 			}
 		})
 	}

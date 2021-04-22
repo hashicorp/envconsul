@@ -269,7 +269,7 @@ exec {
     # below to inject into the child's runtime environment. If a custom
     # environment variable shares its name with a system environment variable,
     # the custom environment variable takes precedence. Even if pristine,
-    # whitelist, or blacklist is specified, all values in this option
+    # allowlist, or denylist is specified, all values in this option
     # are given to the child process.
     custom = ["PATH=$PATH:/etc/myapp/bin"]
 
@@ -278,16 +278,16 @@ exec {
     # specified, only those environment variables matching the given patterns
     # are exposed to the child process. These strings are matched using Go's
     # glob function, so wildcards are permitted.
-    whitelist = ["CONSUL_*"]
+    allowlist = ["CONSUL_*"]
 
     # This specifies a list of environment variables to exclusively prohibit in
     # the list of environment variables exposed to the child process. If
     # specified, any environment variables matching the given patterns will not
-    # be exposed to the child process, even if they are whitelisted. The values
-    # in this option take precedence over the values in the whitelist.
+    # be exposed to the child process, even if they are in the allowlist. The
+    # values in this option take precedence over the values in the allowlist.
     # These strings are matched using Go's glob function, so wildcards are
     # permitted.
-    blacklist = ["VAULT_*"]
+    denylist = ["VAULT_*"]
   }
 
   # This defines the signal sent to the child process when Envconsul is
@@ -328,7 +328,9 @@ pid_file = "/path/to/pid"
 
 # This specifies a prefix in Consul to watch. This may be specified multiple
 # times to watch multiple prefixes, and the bottom-most prefix takes
-# precedence, should any values overlap.
+# precedence, should any values overlap. Prefix blocks without the path
+# defined are meaningless and are discarded. If prefix names conflict with
+# secret names, secret names will take precedence.
 prefix {
   # This tells Envconsul to use a custom formatter when printing the key. The
   # value between `{{ key }}` will be replaced with the key.
@@ -345,7 +347,13 @@ prefix {
   no_prefix = false
 
   # This is the path of the key in Consul or Vault from which to read data.
-  path = "foo/bar"  
+  # The path field is required or the config block will be ignored.
+  path = "foo/bar"
+
+  # This tells Envconsul to use a custom formatter when building the path for
+  # the key from which to read data, in this case reading an environment
+  # variable and putting it into the path.
+  path = "foo/{{ env \"BAR\" }}"
 }
 
 # This tells Envconsul to not include the parent processes' environment when
@@ -363,7 +371,9 @@ sanitize = false
 
 # This specifies a secret in Vault to watch. This may be specified multiple
 # times to watch multiple secrets, and the bottom-most secret takes
-# precedence, should any values overlap.
+# precedence, should any values overlap. Secret blocks without the path
+# defined are meaningless and are discarded. If secret names conflict with
+# prefix names, secret names will take precedence.
 secret {
   # See `prefix` as they are the same options.
 }
@@ -397,6 +407,15 @@ vault {
   #
   # This value can also be specified via the environment variable VAULT_TOKEN.
   token = "abcd1234"
+
+  # This tells Envconsul to load the Vault token from the contents of a file.
+  # If this field is specified:
+  # - by default Envconsul will not try to renew the Vault token, if you want it
+  # to renew you will need to specify renew_token = true as below.
+  # - Envconsul will periodically stat the file and update the token if it has
+  # changed.
+  # vault_agent_token_file = "/path/to/vault/agent/token/file"
+
 
   # This tells Envconsul that the provided token is actually a wrapped
   # token that should be unwrapped using Vault's cubbyhole response wrapping
@@ -487,10 +506,6 @@ exceptions. There are multiple configuration options related to signals.
 - `exec.kill_signal` - This is the signal that Envconsul will send to the
   child process to gracefully terminate it. This is the signal that your child
   application listens to for graceful termination.
-
-- `exec.reload_signal` - This signal exists, but it is never used. Configuring
-  it will have no affect, since Envconsul does not send reload signals to  child
-  processes.
 
 ## Examples
 

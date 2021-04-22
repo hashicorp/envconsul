@@ -438,11 +438,6 @@ func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error)
 		return nil
 	}), "vault-addr", "")
 
-	flags.Var((funcDurationVar)(func(t time.Duration) error {
-		c.Vault.Grace = config.TimeDuration(t)
-		return nil
-	}), "vault-grace", "")
-
 	flags.Var((funcBoolVar)(func(b bool) error {
 		c.Vault.RenewToken = config.Bool(b)
 		return nil
@@ -532,6 +527,10 @@ func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error)
 		c.Vault.Token = config.String(s)
 		return nil
 	}), "vault-token", "")
+	flags.Var((funcVar)(func(s string) error {
+		c.Vault.VaultAgentTokenFile = config.String(s)
+		return nil
+	}), "vault-agent-token-file", "")
 
 	flags.Var((funcBoolVar)(func(b bool) error {
 		c.Vault.UnwrapToken = config.Bool(b)
@@ -672,7 +671,7 @@ func logError(err error, status int) int {
 
 func (cli *CLI) setup(conf *Config) (*Config, error) {
 	if err := logging.Setup(&logging.Config{
-		Name:           version.Name,
+		SyslogName:     version.Name,
 		Level:          config.StringVal(conf.LogLevel),
 		Syslog:         config.BoolVal(conf.Syslog.Enabled),
 		SyslogFacility: config.StringVal(conf.Syslog.Facility),
@@ -769,9 +768,6 @@ Options:
   -exec-kill-timeout=<duration>
       Amount of time to wait before force-killing the child
 
-  -exec-reload-signal=<signal>
-      Signal to send when a reload takes place
-
   -exec-splay=<duration>
       Amount of time to wait before sending signals
 
@@ -795,9 +791,10 @@ Options:
       Path on disk to write the PID of the process
 
   -prefix=<prefix>
-      A prefix to watch, multiple prefixes are merged from left to right, with
-      the right-most result taking precedence, including any values specified
-      with -secret
+      Add a prefix to watch (to the right of configured prefixes), multiple
+      prefixes are merged from left to right, with the right-most result taking
+      precedence, including any values specified with -secret (secrets
+      overrides prefixes)
 
   -pristine
       Only use values retrieved from prefixes and secrets, do not inherit the
@@ -810,9 +807,10 @@ Options:
       Replace invalid characters in keys to underscores
 
   -secret=<prefix>
-      A secret path to watch in Vault, multiple prefixes are merged from left
-      to right, with the right-most result taking precedence, including any
-      values specified with -prefix
+      Add a secret path to watch in Vault (to the right of configured secrets),
+      multiple prefixes are merged from left to right, with the right-most
+      result taking precedence, including any values specified with -prefix
+      (secrets overrides prefixes)
 
   -syslog
       Send the output to syslog instead of standard error and standard out. The
@@ -870,6 +868,9 @@ Options:
 
   -vault-token=<token>
       Sets the Vault API token
+
+  -vault-agent-token-file=<token-file>
+      File to read Vault API token from.
 
   -vault-transport-dial-keep-alive=<duration>
       Sets the amount of time to use for keep-alives

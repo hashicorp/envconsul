@@ -1,7 +1,7 @@
 ### Builder
 #
 ARG GOVERSION=latest
-FROM golang:${GOVERSION} AS builder
+FROM docker.mirror.hashicorp.services/golang:${GOVERSION} AS builder
 LABEL maintainer "John Eikenberry <jae@zhar.net>"
 
 ARG LD_FLAGS
@@ -21,21 +21,25 @@ RUN \
 
 ### Final
 #
-FROM alpine:latest
+FROM docker.mirror.hashicorp.services/alpine:latest
 LABEL maintainer "John Eikenberry <jae@zhar.net>"
 
 # This is the release of https://github.com/hashicorp/docker-base to pull in
 # order to provide HashiCorp-built versions of basic utilities like dumb-init
-# and gosu.
 ARG DOCKER_BASE_VERSION="0.0.4"
 
 # This is the location of the releases.
 ARG HASHICORP_RELEASES="https://releases.hashicorp.com"
 
+# UID and GID of envconsul user and group.
+# These are the defaults, this makes them explicit and overridable.
+ARG UID=100
+ARG GID=1000
+
 # Create a envconsul user and group first so the IDs get set the same way, even
 # as the rest of this may change over time.
-RUN addgroup envconsul && \
-    adduser -S -G envconsul envconsul
+RUN addgroup -g ${GID} envconsul && \
+    adduser -u ${UID} -S -G envconsul envconsul
 
 # Set up certificates and base tools.
 RUN apk add --no-cache ca-certificates curl gnupg libcap openssl && \
@@ -50,7 +54,7 @@ RUN apk add --no-cache ca-certificates curl gnupg libcap openssl && \
     gpg --batch --verify docker-base_${DOCKER_BASE_VERSION}_SHA256SUMS.sig docker-base_${DOCKER_BASE_VERSION}_SHA256SUMS && \
     grep ${DOCKER_BASE_VERSION}_linux_amd64.zip docker-base_${DOCKER_BASE_VERSION}_SHA256SUMS | sha256sum -c && \
     unzip docker-base_${DOCKER_BASE_VERSION}_linux_amd64.zip && \
-    cp bin/gosu bin/dumb-init /bin && \
+    cp bin/dumb-init /bin && \
     cd /tmp && \
     rm -rf /tmp/build && \
     apk del gnupg openssl && \
@@ -74,6 +78,7 @@ VOLUME /envconsul/data
 COPY "docker/alpine/docker-entrypoint.sh" "/bin/docker-entrypoint.sh"
 RUN chmod +x "/bin/docker-entrypoint.sh"
 ENTRYPOINT ["/bin/docker-entrypoint.sh"]
+USER envconsul:envconsul
 
 # Run our app by default
 CMD ["/bin/envconsul"]

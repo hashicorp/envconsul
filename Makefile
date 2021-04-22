@@ -168,6 +168,15 @@ define make-docker-target
 
   docker-push:: docker-push/$1
   .PHONY: docker-push
+
+  docker-clean/$1:
+		@echo "==> Removing docker image ${1}"
+		@docker rmi "${OWNER}/${NAME}:${1}" || true
+		@docker rmi "${OWNER}/${NAME}:${VERSION}-${1}" || true
+
+  docker-clean:: docker-clean/$1
+  .PHONY: docker-clean
+
 endef
 $(foreach target,$(DOCKER_TARGETS),$(eval $(call make-docker-target,$(target))))
 
