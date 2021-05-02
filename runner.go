@@ -507,6 +507,18 @@ func (r *Runner) appendSecrets(
 		}
 	}
 
+	var applyPerKeyFormat bool
+	var keyFormats map[string]*KeyFormat
+
+	// pre-populate key formats map here so we don't have a potential O(n^2) complexity in the loop later
+	if cp.Keys != nil && !config.StringPresent(cp.Format) {
+		applyPerKeyFormat = true
+		keyFormats = make(map[string]*KeyFormat)
+		for _, v := range *cp.Keys {
+			keyFormats[*v.Name] = v
+		}
+	}
+
 	for key, value := range valueMap {
 		// Ignore any keys that are empty (not sure if this is even possible in
 		// Vault, but I play defense).
@@ -517,6 +529,22 @@ func (r *Runner) appendSecrets(
 		// Ignore any keys in which value is nil
 		if value == nil {
 			continue
+		}
+
+		// Check for per-key configuration override on a very early stage
+		// before the `key` is updated with prefix or become uppercase
+		if applyPerKeyFormat {
+			keyFormat, ok := keyFormats[key]
+			if !ok {
+				log.Printf("[DEBUG] (runner) skipping key '%s' since it is not listed in configuration", key)
+				continue
+			}
+			if config.StringPresent(keyFormat.Format) {
+				key, err = applyFormatTemplate(*keyFormat.Format, key)
+				if err != nil {
+					return err
+				}
+			}
 		}
 
 		// NoPrefix is nil when not set in config. Default to including prefix for Vault secrets.
@@ -537,7 +565,7 @@ func (r *Runner) appendSecrets(
 			key = fmt.Sprintf("%s_%s", path, key)
 		}
 
-		// If the user specified a custom format, apply that here.
+		// If the user specified a custom format for all keys, apply that here.
 		if config.StringPresent(cp.Format) {
 			key, err = applyFormatTemplate(config.StringVal(cp.Format), key)
 			if err != nil {
