@@ -231,6 +231,287 @@ func TestRunner_appendSecrets(t *testing.T) {
 	}
 }
 
+func TestRunner_perKeyConfigurationOverride(t *testing.T) {
+	cases := []struct {
+		name        string
+		path        string
+		format      string
+		noPrefix    bool
+		upCase      bool
+		data        *dependency.Secret
+		expectedEnv map[string]string
+		keys        *KeyFormats
+	}{
+		{
+			name:     "backward compatability, empty format, no key override",
+			path:     "stage/app-a/db-credentials",
+			format:   "",
+			noPrefix: true,
+			data: &dependency.Secret{
+				Data: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"destroyed": bool(false),
+						"version":   "1",
+					},
+					"data": map[string]interface{}{
+						"user":     "db-app-user",
+						"password": "db-app-password",
+					},
+				},
+			},
+			expectedEnv: map[string]string{
+				"user":     "db-app-user",
+				"password": "db-app-password",
+			},
+		},
+		{
+			name:     "backward compatability, prefix format is set, no key override",
+			path:     "stage/app-a/db-credentials",
+			format:   "DB_CREDENTIALS_{{ key }}",
+			noPrefix: true,
+			upCase:   true,
+			data: &dependency.Secret{
+				Data: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"destroyed": bool(false),
+						"version":   "1",
+					},
+					"data": map[string]interface{}{
+						"user":     "db-app-user",
+						"password": "db-app-password",
+					},
+				},
+			},
+			expectedEnv: map[string]string{
+				"DB_CREDENTIALS_USER":     "db-app-user",
+				"DB_CREDENTIALS_PASSWORD": "db-app-password",
+			},
+		},
+		{
+			name:     "backward compatability, prefix format is set, key override should be skipped",
+			path:     "stage/app-a/db-credentials",
+			format:   "DB_CREDENTIALS_{{ key }}",
+			noPrefix: true,
+			upCase:   true,
+			data: &dependency.Secret{
+				Data: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"destroyed": bool(false),
+						"version":   "1",
+					},
+					"data": map[string]interface{}{
+						"user":     "db-app-user",
+						"password": "db-app-password",
+					},
+				},
+			},
+			keys: &KeyFormats{
+				&KeyFormat{
+					Name:   config.String("user"),
+					Format: config.String("DB_OVERRIDDEN_USER"),
+				},
+			},
+			expectedEnv: map[string]string{
+				"DB_CREDENTIALS_USER":     "db-app-user",
+				"DB_CREDENTIALS_PASSWORD": "db-app-password",
+			},
+		},
+		{
+			name:     "key override should be applied",
+			path:     "stage/app-a/db-credentials",
+			format:   "",
+			noPrefix: true,
+			upCase:   true,
+			data: &dependency.Secret{
+				Data: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"destroyed": bool(false),
+						"version":   "1",
+					},
+					"data": map[string]interface{}{
+						"user":     "db-app-user",
+						"password": "db-app-password",
+					},
+				},
+			},
+			keys: &KeyFormats{
+				&KeyFormat{
+					Name:   config.String("user"),
+					Format: config.String("DB_OVERRIDDEN_USER"),
+				},
+				&KeyFormat{
+					Name:   config.String("password"),
+					Format: config.String("DB_OVERRIDDEN_PASSWORD"),
+				},
+			},
+			expectedEnv: map[string]string{
+				"DB_OVERRIDDEN_USER":     "db-app-user",
+				"DB_OVERRIDDEN_PASSWORD": "db-app-password",
+			},
+		},
+		{
+			name:     "key override should be applied",
+			path:     "stage/app-a/db-credentials",
+			format:   "",
+			noPrefix: false,
+			upCase:   true,
+			data: &dependency.Secret{
+				Data: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"destroyed": bool(false),
+						"version":   "1",
+					},
+					"data": map[string]interface{}{
+						"user":     "db-app-user",
+						"password": "db-app-password",
+					},
+				},
+			},
+			keys: &KeyFormats{
+				&KeyFormat{
+					Name:   config.String("user"),
+					Format: config.String("DB_OVERRIDDEN_USER"),
+				},
+				&KeyFormat{
+					Name:   config.String("password"),
+					Format: config.String("DB_OVERRIDDEN_PASSWORD"),
+				},
+			},
+			expectedEnv: map[string]string{
+				"STAGE_APP_A_DB_CREDENTIALS_DB_OVERRIDDEN_USER":     "db-app-user",
+				"STAGE_APP_A_DB_CREDENTIALS_DB_OVERRIDDEN_PASSWORD": "db-app-password",
+			},
+		},
+		{
+			name:     "fetch only a subset of keys",
+			path:     "stage/app-a/db-credentials",
+			format:   "",
+			noPrefix: true,
+			upCase:   true,
+			data: &dependency.Secret{
+				Data: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"destroyed": bool(false),
+						"version":   "1",
+					},
+					"data": map[string]interface{}{
+						"user":     "db-app-user",
+						"password": "db-app-password",
+					},
+				},
+			},
+			keys: &KeyFormats{
+				&KeyFormat{
+					Name:   config.String("password"),
+					Format: config.String("DB_OVERRIDDEN_PASSWORD"),
+				},
+			},
+			expectedEnv: map[string]string{
+				"DB_OVERRIDDEN_PASSWORD": "db-app-password",
+			},
+		},
+		{
+			name:     "unknown keys from configuration should not affect the flow",
+			path:     "stage/app-a/db-credentials",
+			format:   "",
+			noPrefix: true,
+			upCase:   true,
+			data: &dependency.Secret{
+				Data: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"destroyed": bool(false),
+						"version":   "1",
+					},
+					"data": map[string]interface{}{
+						"user":     "db-app-user",
+						"password": "db-app-password",
+					},
+				},
+			},
+			keys: &KeyFormats{
+				&KeyFormat{
+					Name:   config.String("password"),
+					Format: config.String("DB_OVERRIDDEN_PASSWORD"),
+				},
+				&KeyFormat{
+					Name:   config.String("unknown_key"),
+					Format: config.String("UNKNOWN_KEY_WILL_BE_IGNORED"),
+				},
+			},
+			expectedEnv: map[string]string{
+				"DB_OVERRIDDEN_PASSWORD": "db-app-password",
+			},
+		},
+		{
+			name:     "empty format in `key` block leaves the key as-is",
+			path:     "stage/app-a/db-credentials",
+			format:   "",
+			noPrefix: true,
+			upCase:   true,
+			data: &dependency.Secret{
+				Data: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"destroyed": bool(false),
+						"version":   "1",
+					},
+					"data": map[string]interface{}{
+						"user":     "db-app-user",
+						"password": "db-app-password",
+					},
+				},
+			},
+			keys: &KeyFormats{
+				&KeyFormat{
+					Name:   config.String("password"),
+					Format: nil,
+				},
+				&KeyFormat{
+					Name:   config.String("user"),
+					Format: nil,
+				},
+			},
+			expectedEnv: map[string]string{
+				"PASSWORD": "db-app-password",
+				"USER":     "db-app-user",
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := Config{
+				Secrets: &PrefixConfigs{
+					&PrefixConfig{
+						NoPrefix: config.Bool(tc.noPrefix),
+						Path:     config.String(tc.path),
+						Format:   config.String(tc.format),
+						Keys:     tc.keys,
+					},
+				},
+				Upcase: config.Bool(tc.upCase),
+			}
+
+			c := DefaultConfig().Merge(&cfg)
+			r, err := NewRunner(c, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+			vrq, err := dependency.NewVaultReadQuery(tc.path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			env := make(map[string]string)
+			appendError := r.appendSecrets(env, vrq, tc.data)
+			if appendError != nil {
+				t.Fatal(err)
+			}
+
+			if !reflect.DeepEqual(tc.expectedEnv, env) {
+				t.Fatalf("\nexp: %#v\nact: %#v", tc.expectedEnv, env)
+			}
+		})
+	}
+}
 func TestRunner_appendPrefixes(t *testing.T) {
 	t.Parallel()
 

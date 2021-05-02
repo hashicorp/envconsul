@@ -7,12 +7,50 @@ import (
 	"github.com/hashicorp/consul-template/config"
 )
 
+// KeyFormat wraps configuration for a particular key in secrets set.
+//
+// Name is the name of the key
+// Format is per-key format override, just like PrefixConfig.Format
+type KeyFormat struct {
+	Format *string `mapstructure:"format"`
+	Name   *string `mapstructure:"name"`
+}
+
+func (f *KeyFormat) Copy() *KeyFormat {
+	if f == nil {
+		return nil
+	}
+
+	r := KeyFormat{}
+	r.Name = f.Name
+	r.Format = f.Format
+
+	return &r
+}
+
+// KeyFormats holds a list of per-key override configurations.
+type KeyFormats []*KeyFormat
+
+func (f *KeyFormats) Copy() *KeyFormats {
+	if f == nil {
+		return nil
+	}
+
+	r := KeyFormats{}
+	for _, v := range *f {
+		r = append(r, v.Copy())
+	}
+
+	return &r
+}
+
 // PrefixConfig is a wrapper around some common options for Consul and Vault
 // prefixes.
 type PrefixConfig struct {
-	Format   *string `mapstructure:"format"`
-	NoPrefix *bool   `mapstructure:"no_prefix"`
-	Path     *string `mapstructure:"path"`
+	Format   *string     `mapstructure:"format"`
+	NoPrefix *bool       `mapstructure:"no_prefix"`
+	Path     *string     `mapstructure:"path"`
+	Keys     *KeyFormats `mapstructure:"key"`
 }
 
 func ParsePrefixConfig(s string) (*PrefixConfig, error) {
@@ -38,6 +76,10 @@ func (c *PrefixConfig) Copy() *PrefixConfig {
 	o.NoPrefix = c.NoPrefix
 
 	o.Path = c.Path
+
+	if c.Keys != nil {
+		o.Keys = c.Keys.Copy()
+	}
 
 	return &o
 }
@@ -66,6 +108,10 @@ func (c *PrefixConfig) Merge(o *PrefixConfig) *PrefixConfig {
 
 	if o.Path != nil {
 		r.Path = o.Path
+	}
+
+	if o.Keys != nil {
+		r.Keys = o.Keys.Copy()
 	}
 
 	return r

@@ -666,6 +666,78 @@ The format string is passed to the go formatter and "{{ key }}" dictates where
 the key will go. This will help filter out the environment when execing to a
 child-process, for example.
 
+In case, you need only a subset of keys from a Vault prefix, you can achieve this by applying a per-key configuration:
+
+```hcl
+secret {
+  path   = "secret/passwords"
+  key {
+    name   = "username"
+  }
+}
+```
+
+```shell
+$ envconsul \
+    -config="./config.hcl" \
+    env
+
+secret_passwords_username=foo
+```
+
+It is also possible to apply a per-key formatting that behaves the same as the `secret` level `format` option:
+
+```hcl
+secret {
+  path   = "secret/passwords"
+  key {
+    name   = "username"
+    format = "readonly_user_{{ key }}"
+  }
+  key {
+    name   = "password"
+    format = "custom_prefix_{{ key }}"
+  }
+}
+```
+
+```shell
+$ envconsul \
+    -config="./config.hcl" \
+    env
+
+secret_passwords_readonly_user_username=foo
+secret_passwords_custom_prefix_password=bar
+```
+
+**NOTE**: per-key configuration works **only** in case of absence of `secret`-level `format` configuration option.
+
+Hence, the following set-up skips per-key configuration in favor of `format` from the top level `secret` block:
+
+```hcl
+secret {
+  path   = "secret/passwords"
+  format = "creds_{{ key }}"
+
+  key {
+    name   = "username"
+    format = "readonly_user_{{ key }}"
+  }
+  key {
+    name   = "password"
+    format = "custom_prefix_{{ key }}"
+  }
+}
+```
+
+```shell
+$ envconsul \
+    -config="./config.hcl" \
+    env
+
+secret_passwords_creds_username=foo
+secret_passwords_creds_password=bar
+```
 
 ## Debugging
 
