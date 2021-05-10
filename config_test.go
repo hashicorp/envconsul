@@ -1806,6 +1806,16 @@ func TestFinalize(t *testing.T) {
 	testFilePath, remove := testFile(t, testFileContents)
 	defer remove()
 
+	renewCheck := func(act, exp *Config) (bool, error) {
+		actToken := *act.Vault.RenewToken
+		expToken := *exp.Vault.RenewToken
+		if actToken != expToken {
+			return false, fmt.Errorf("bad renew-token value;"+
+				"wanted: %t, got: %t", expToken, actToken)
+		}
+		return true, nil
+	}
+
 	// Testing Once disabling Wait
 	cases := []struct {
 		name    string
@@ -1859,6 +1869,48 @@ func TestFinalize(t *testing.T) {
 					Namespace:           config.String(""),
 					VaultAgentTokenFile: config.String(testFilePath),
 					Token:               config.String(testFileContents),
+				},
+			},
+		},
+		{ // defaults to false
+			"vault_renew_token_default",
+			renewCheck,
+			&Config{
+				Vault: &config.VaultConfig{},
+			},
+			&Config{
+				Vault: &config.VaultConfig{
+					RenewToken: config.Bool(false),
+				},
+			},
+		},
+		{ // renew should default to true with Token field set
+			"vault_renew_token_default_w_token",
+			renewCheck,
+			&Config{
+				Vault: &config.VaultConfig{
+					Token: config.String("foo"),
+				},
+			},
+			&Config{
+				Vault: &config.VaultConfig{
+					Token:      config.String("foo"),
+					RenewToken: config.Bool(true),
+				},
+			},
+		},
+		{ // renew should default to false w/ VaultAgentTokenFile set
+			"vault_renew_token_default_w_file",
+			renewCheck,
+			&Config{
+				Vault: &config.VaultConfig{
+					VaultAgentTokenFile: config.String(testFilePath),
+				},
+			},
+			&Config{
+				Vault: &config.VaultConfig{
+					VaultAgentTokenFile: config.String(testFilePath),
+					RenewToken:          config.Bool(false),
 				},
 			},
 		},
