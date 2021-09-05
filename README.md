@@ -395,6 +395,11 @@ vault {
   # of the address is required.
   address = "https://vault.service.consul:8200"
 
+  # This is a Vault Enterprise namespace to use for reading/writing secrets.
+  #
+  # This value can also be specified via the environment variable VAULT_NAMESPACE.
+  namespace = "foo"
+
   # This is the token to use when communicating with the Vault server.
   # Like other tools that integrate with Vault, Envconsul makes the
   # assumption that you provide it with a Vault token; it does not have the

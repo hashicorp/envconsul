@@ -908,6 +908,18 @@ func TestParse(t *testing.T) {
 			false,
 		},
 		{
+			"vault_namespace",
+			`vault {
+				namespace = "namespace"
+			}`,
+			&Config{
+				Vault: &config.VaultConfig{
+					Namespace: config.String("namespace"),
+				},
+			},
+			false,
+		},
+		{
 			"vault_token",
 			`vault {
 				token = "token"
@@ -1711,6 +1723,16 @@ func TestDefaultConfig(t *testing.T) {
 			&Config{
 				Vault: &config.VaultConfig{
 					Address: config.String("http://1.2.3.4:8200"),
+				},
+			},
+			false,
+		},
+		{
+			"VAULT_NAMESPACE",
+			"namespace",
+			&Config{
+				Vault: &config.VaultConfig{
+					Namespace: config.String("namespace"),
 				},
 			},
 			false,

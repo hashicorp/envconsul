@@ -438,6 +438,11 @@ func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error)
 		return nil
 	}), "vault-addr", "")
 
+	flags.Var((funcVar)(func(s string) error {
+		c.Vault.Namespace = config.String(s)
+		return nil
+	}), "vault-namespace", "")
+
 	flags.Var((funcBoolVar)(func(b bool) error {
 		c.Vault.RenewToken = config.Bool(b)
 		return nil
@@ -826,6 +831,9 @@ Options:
 
   -vault-addr=<address>
       Sets the address of the Vault server
+
+  -vault-namespace=<namespace>
+      Sets the Vault namespace
 
   -vault-renew-token
       Periodically renew the provided Vault API token - this defaults to "true"
