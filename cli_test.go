@@ -777,6 +777,16 @@ func TestCLI_ParseFlags(t *testing.T) {
 			false,
 		},
 		{
+			"vault-namespace",
+			[]string{"-vault-namespace", "vault_namespace"},
+			&Config{
+				Vault: &config.VaultConfig{
+					Namespace: config.String("vault_namespace"),
+				},
+			},
+			false,
+		},
+		{
 			"vault-retry",
 			[]string{"-vault-retry"},
 			&Config{
