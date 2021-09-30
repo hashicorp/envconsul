@@ -425,7 +425,7 @@ func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error)
 		}
 		*c.Services = append(*c.Services, p)
 		return nil
-	}), "query", "")
+	}), "service-query", "")
 
 	flags.Var((funcVar)(func(s string) error {
 		serviceConfig := c.Services.LastSeviceConfig()
@@ -866,7 +866,7 @@ Options:
       result taking precedence, including any values specified with -prefix
       (secrets overrides prefixes)
 
-  -query=<query>
+  -service-query=<service-name>
       A query to watch in Consul service parameters
 
   -service-format-id=<{{service}}/{{key}}>

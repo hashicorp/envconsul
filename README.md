@@ -142,7 +142,7 @@ $ envconsul -upcase -sanitize -prefix my-app python my-app.my
 
 Read information about service.
 ```shell
-$ envconsul -query redis
+$ envconsul -service-query my-service
 ```
 
 Read secrets from Vault.
@@ -454,7 +454,7 @@ vault {
 # precedence, should any values overlap.
 service {
   # This is the query of the service in Consul from which to read data.
-  query = "postgres"
+  query = "my-service"
 
   # This tells Envconsul to use a custom formatter when printing the key. The
   # value between `{{ key }}` and `{{ service }}` will be replaced with the key

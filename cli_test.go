@@ -641,9 +641,9 @@ func TestCLI_ParseFlags(t *testing.T) {
 			false,
 		},
 		{
-			"query",
+			"service-query",
 			[]string{
-				"-query", "service",
+				"-service-query", "service",
 			},
 			&Config{
 				Services: &ServiceConfigs{
@@ -657,9 +657,9 @@ func TestCLI_ParseFlags(t *testing.T) {
 		{
 			"query_multi",
 			[]string{
-				"-query", "service",
-				"-query", "tag.service",
-				"-query", "tag.service@datacenter",
+				"-service-query", "service",
+				"-service-query", "tag.service",
+				"-service-query", "tag.service@datacenter",
 			},
 			&Config{
 				Services: &ServiceConfigs{
@@ -679,7 +679,7 @@ func TestCLI_ParseFlags(t *testing.T) {
 		{
 			"service_format",
 			[]string{
-				"-query", "service",
+				"-service-query", "service",
 				"-service-format-id", "id",
 				"-service-format-name", "name",
 				"-service-format-address", "host",
@@ -703,13 +703,13 @@ func TestCLI_ParseFlags(t *testing.T) {
 		{
 			"service_format_multy",
 			[]string{
-				"-query", "foo",
+				"-service-query", "foo",
 				"-service-format-id", "foo/id",
 				"-service-format-name", "foo/name",
 				"-service-format-address", "foo/host",
 				"-service-format-tag", "foo/tag",
 				"-service-format-port", "foo/port",
-				"-query", "bar",
+				"-service-query", "bar",
 				"-service-format-id", "bar/id",
 				"-service-format-name", "bar/name",
 				"-service-format-address", "bar/host",
