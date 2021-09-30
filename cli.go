@@ -418,6 +418,60 @@ func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error)
 		return nil
 	}), "secret", "")
 
+	flags.Var((funcVar)(func(s string) error {
+		p, err := ParseServiceConfig(s)
+		if err != nil {
+			return err
+		}
+		*c.Services = append(*c.Services, p)
+		return nil
+	}), "query", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		serviceConfig := c.Services.LastSeviceConfig()
+		if serviceConfig == nil {
+			return fmt.Errorf("format must be specified before query")
+		}
+		serviceConfig.FormatId = config.String(s)
+		return nil
+	}), "service-format-id", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		serviceConfig := c.Services.LastSeviceConfig()
+		if serviceConfig == nil {
+			return fmt.Errorf("format must be specified before query")
+		}
+		serviceConfig.FormatName = config.String(s)
+		return nil
+	}), "service-format-name", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		serviceConfig := c.Services.LastSeviceConfig()
+		if serviceConfig == nil {
+			return fmt.Errorf("format must be specified before query")
+		}
+		serviceConfig.FormatAddress = config.String(s)
+		return nil
+	}), "service-format-address", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		serviceConfig := c.Services.LastSeviceConfig()
+		if serviceConfig == nil {
+			return fmt.Errorf("format must be specified before query")
+		}
+		serviceConfig.FormatTag = config.String(s)
+		return nil
+	}), "service-format-tag", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		serviceConfig := c.Services.LastSeviceConfig()
+		if serviceConfig == nil {
+			return fmt.Errorf("format must be specified before query")
+		}
+		serviceConfig.FormatPort = config.String(s)
+		return nil
+	}), "service-format-port", "")
+
 	flags.Var((funcBoolVar)(func(b bool) error {
 		c.Syslog.Enabled = config.Bool(b)
 		return nil
@@ -811,6 +865,24 @@ Options:
       multiple prefixes are merged from left to right, with the right-most
       result taking precedence, including any values specified with -prefix
       (secrets overrides prefixes)
+
+  -query=<query>
+      A query to watch in Consul service parameters
+
+  -service-format-id=<{{service}}/{{key}}>
+      Format key environment for service id.
+
+  -service-format-name=<{{service}}/{{key}}>
+      Format key environment for service name.
+
+  -service-format-address=<{{service}}/{{key}}>
+      Format key environment for service address.
+
+  -service-format-tag=<{{service}}/{{key}}>
+      Format key environment for service tag.
+
+  -service-format-port=<{{service}}/{{key}}>
+      Format key environment for service port.
 
   -syslog
       Send the output to syslog instead of standard error and standard out. The

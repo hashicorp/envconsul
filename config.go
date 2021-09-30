@@ -73,6 +73,8 @@ type Config struct {
 	// Secrets is the list of all secret dependencies (vault)
 	Secrets *PrefixConfigs `mapstructure:"secret"`
 
+	Services *ServiceConfigs `mapstructure:"service"`
+
 	// Syslog is the configuration for syslog.
 	Syslog *config.SyslogConfig `mapstructure:"syslog"`
 
@@ -112,6 +114,8 @@ func (c *Config) Copy() *Config {
 	if c.Prefixes != nil {
 		o.Prefixes = c.Prefixes.Copy()
 	}
+
+	o.Services = c.Services
 
 	o.Pristine = c.Pristine
 
@@ -182,6 +186,10 @@ func (c *Config) Merge(o *Config) *Config {
 
 	if o.Prefixes != nil {
 		r.Prefixes = r.Prefixes.Merge(o.Prefixes)
+	}
+
+	if o.Services != nil {
+		r.Services = r.Services.Merge(o.Services)
 	}
 
 	if o.Pristine != nil {
@@ -377,9 +385,11 @@ func Parse(s string) (*Config, error) {
 		Result:      &c,
 	})
 	if err != nil {
+		log.Printf("%#v", parsed)
 		return nil, errors.Wrap(err, "mapstructure decoder creation failed")
 	}
 	if err := decoder.Decode(parsed); err != nil {
+		log.Printf("%#v", parsed)
 		return nil, errors.Wrap(err, "mapstructure decode failed")
 	}
 
@@ -496,6 +506,7 @@ func (c *Config) GoString() string {
 		"ReloadSignal:%s, "+
 		"Sanitize:%s, "+
 		"Secrets:%s, "+
+		"Services:%s, "+
 		"Syslog:%s, "+
 		"Upcase:%s, "+
 		"Vault:%s, "+
@@ -512,6 +523,7 @@ func (c *Config) GoString() string {
 		config.SignalGoString(c.ReloadSignal),
 		config.BoolGoString(c.Sanitize),
 		c.Secrets.GoString(),
+		c.Services.GoString(),
 		c.Syslog.GoString(),
 		config.BoolGoString(c.Upcase),
 		c.Vault.GoString(),
@@ -527,6 +539,7 @@ func DefaultConfig() *Config {
 		Exec:     config.DefaultExecConfig(),
 		Prefixes: DefaultPrefixConfigs(),
 		Secrets:  DefaultPrefixConfigs(),
+		Services: DefaultServiceConfigs(),
 		Syslog:   config.DefaultSyslogConfig(),
 		Vault:    config.DefaultVaultConfig(),
 		Wait:     config.DefaultWaitConfig(),
@@ -589,6 +602,11 @@ func (c *Config) Finalize() {
 		c.Secrets = DefaultPrefixConfigs()
 	}
 	c.Secrets.Finalize()
+
+	if c.Services == nil {
+		c.Services = DefaultServiceConfigs()
+	}
+	c.Services.Finalize()
 
 	if c.Syslog == nil {
 		c.Syslog = config.DefaultSyslogConfig()

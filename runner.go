@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -50,6 +51,8 @@ type Runner struct {
 	// configPrefixMap is a map of a dependency's hashcode back to the config
 	// prefix that created it.
 	configPrefixMap map[string]*PrefixConfig
+
+	configServiceMap map[string]*ServiceConfig
 
 	// data is the latest representation of the data from Consul.
 	data map[string]interface{}
@@ -258,6 +261,8 @@ func (r *Runner) Run() (<-chan int, error) {
 			r.appendPrefixes(env, typed, data)
 		case *dep.VaultReadQuery:
 			r.appendSecrets(env, typed, data)
+		case *dep.CatalogServiceQuery:
+			r.appendServices(env, typed, data)
 		default:
 			return nil, fmt.Errorf("unknown dependency type %T", typed)
 		}
@@ -384,6 +389,100 @@ func applyPathTemplate(contents string) (string, error) {
 	}
 
 	return buf.String(), nil
+}
+
+func applyServiceTemplate(contents, service, key string) (string, error) {
+	funcs := template.FuncMap{
+		"service": func() (string, error) {
+			return service, nil
+		},
+		"key": func() (string, error) {
+			return key, nil
+		},
+	}
+
+	tmpl, err := template.New("filter").Funcs(funcs).Parse(contents)
+	if err != nil {
+		return "", nil
+	}
+
+	var buf bytes.Buffer
+	if err = tmpl.Execute(&buf, nil); err != nil {
+		return "", err
+	}
+
+	return buf.String(), nil
+}
+
+func (r *Runner) appendServices(env map[string]string, d *dep.CatalogServiceQuery, data interface{}) (err error) {
+	typed, ok := data.([]*dep.CatalogService)
+	if !ok {
+		return fmt.Errorf("error converting to service %s", d)
+	}
+
+	for _, ser := range typed {
+		serKV := make(map[string]string)
+		cs := r.configServiceMap[d.String()]
+
+		keyFormat := ser.ServiceName + "/id"
+		if cs != nil && config.StringPresent(cs.FormatId) {
+			keyFormat, err = applyServiceTemplate(config.StringVal(cs.FormatId), ser.ServiceName, "id")
+			if err != nil {
+				return err
+			}
+		}
+		serKV[keyFormat] = ser.ServiceID
+
+		keyFormat = ser.ServiceName + "/name"
+		if cs != nil && config.StringPresent(cs.FormatName) {
+			keyFormat, err = applyServiceTemplate(config.StringVal(cs.FormatName), ser.ServiceName, "name")
+			if err != nil {
+				return err
+			}
+		}
+		serKV[keyFormat] = ser.ServiceName
+
+		keyFormat = ser.ServiceName + "/address"
+		if cs != nil && config.StringPresent(cs.FormatAddress) {
+			keyFormat, err = applyServiceTemplate(config.StringVal(cs.FormatAddress), ser.ServiceName, "address")
+			if err != nil {
+				return err
+			}
+		}
+		serKV[keyFormat] = ser.ServiceAddress
+
+		keyFormat = ser.ServiceName + "/tag"
+		if cs != nil && config.StringPresent(cs.FormatTag) {
+			keyFormat, err = applyServiceTemplate(config.StringVal(cs.FormatTag), ser.ServiceName, "tag")
+			if err != nil {
+				return err
+			}
+		}
+		serKV[keyFormat] = strings.Join([]string(ser.ServiceTags), ",")
+
+		keyFormat = ser.ServiceName + "/port"
+		if cs != nil && config.StringPresent(cs.FormatPort) {
+			keyFormat, err = applyServiceTemplate(config.StringVal(cs.FormatPort), ser.ServiceName, "port")
+			if err != nil {
+				return err
+			}
+		}
+		serKV[keyFormat] = strconv.Itoa(ser.ServicePort)
+
+		for key, value := range serKV {
+			if config.BoolVal(r.config.Upcase) {
+				key = strings.ToUpper(key)
+			}
+
+			if config.BoolVal(r.config.Sanitize) {
+				key = InvalidRegexp.ReplaceAllString(key, "_")
+			}
+
+			env[key] = value
+		}
+	}
+
+	return
 }
 
 func (r *Runner) appendPrefixes(
@@ -599,6 +698,7 @@ func (r *Runner) init() error {
 
 	r.data = make(map[string]interface{})
 	r.configPrefixMap = make(map[string]*PrefixConfig)
+	r.configServiceMap = make(map[string]*ServiceConfig)
 
 	r.inStream = os.Stdin
 	r.outStream = os.Stdout
@@ -620,6 +720,17 @@ func (r *Runner) init() error {
 		}
 		r.dependencies = append(r.dependencies, d)
 		r.configPrefixMap[d.String()] = p
+	}
+
+	// Parse and add consul services
+	for _, s := range *r.config.Services {
+		d, err := dep.NewCatalogServiceQuery(config.StringVal(s.Query))
+		if err != nil {
+			return err
+		}
+
+		r.dependencies = append(r.dependencies, d)
+		r.configServiceMap[d.String()] = s
 	}
 
 	// Parse and add vault dependencies - it is important that this come after
