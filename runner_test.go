@@ -24,7 +24,21 @@ func TestRunner_appendSecrets(t *testing.T) {
 		format   string
 	}{
 		{
-			name:     "kv1 secret",
+			name:     "kv1_secret",
+			path:     "kv/foo",
+			noPrefix: config.Bool(false),
+			data: &dependency.Secret{
+				Data: map[string]interface{}{
+					"bar": secrets[0],
+					"zed": secrets[1],
+				},
+			},
+			keyNames: []string{"kv_foo_bar", "kv_foo_zed"},
+			notFound: false,
+			format:   "{{ key }}",
+		},
+		{
+			name:     "kv1_secret_prefix_suffix",
 			path:     "kv/foo",
 			noPrefix: config.Bool(false),
 			data: &dependency.Secret{
@@ -38,7 +52,7 @@ func TestRunner_appendSecrets(t *testing.T) {
 			format:   "prefix_{{ key }}_sufix",
 		},
 		{
-			name:     "kv1 secret",
+			name:     "kv1_secret_replaceKey",
 			path:     "kv/foo",
 			noPrefix: config.Bool(false),
 			data: &dependency.Secret{
