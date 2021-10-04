@@ -21,6 +21,7 @@ func TestRunner_appendSecrets(t *testing.T) {
 		data     *dependency.Secret
 		keyNames []string
 		notFound bool
+		format   string
 	}{
 		{
 			name:     "kv1 secret",
@@ -32,8 +33,23 @@ func TestRunner_appendSecrets(t *testing.T) {
 					"zed": secrets[1],
 				},
 			},
-			keyNames: []string{"kv_foo_bar", "kv_foo_zed"},
+			keyNames: []string{"prefix_kv_foo_bar_sufix", "prefix_kv_foo_zed_sufix"},
 			notFound: false,
+			format:   "prefix_{{ key }}_sufix",
+		},
+		{
+			name:     "kv1 secret",
+			path:     "kv/foo",
+			noPrefix: config.Bool(false),
+			data: &dependency.Secret{
+				Data: map[string]interface{}{
+					"bar": secrets[0],
+					"zed": secrets[1],
+				},
+			},
+			keyNames: []string{"prefix_bar_sufix", "prefix_zed_sufix"},
+			notFound: false,
+			format:   "prefix_{{ key | replaceKey `kv_foo_bar` `bar` | replaceKey `kv_foo_zed` `zed` }}_sufix",
 		},
 		{
 			name:     "kv2 secret",
@@ -53,6 +69,7 @@ func TestRunner_appendSecrets(t *testing.T) {
 			},
 			keyNames: []string{"secret_data_foo_bar", "secret_data_foo_zed"},
 			notFound: false,
+			format:   "{{ key }}",
 		},
 		{
 			name:     "kv2 secret destroyed",
@@ -143,14 +160,23 @@ func TestRunner_appendSecrets(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(fmt.Sprintf("%s", tc.name), func(t *testing.T) {
-			cfg := Config{
+			cfg := map[bool]Config{true: Config{
+				Secrets: &PrefixConfigs{
+					&PrefixConfig{
+						Path:     config.String(tc.path),
+						NoPrefix: tc.noPrefix,
+						Format:   &tc.format,
+					},
+				},
+			}, false: Config{
 				Secrets: &PrefixConfigs{
 					&PrefixConfig{
 						Path:     config.String(tc.path),
 						NoPrefix: tc.noPrefix,
 					},
 				},
-			}
+			}}[tc.format != ""]
+
 			c := DefaultConfig().Merge(&cfg)
 			r, err := NewRunner(c, true)
 			if err != nil {

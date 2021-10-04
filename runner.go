@@ -352,6 +352,7 @@ func applyFormatTemplate(contents, key string) (string, error) {
 		"key": func() (string, error) {
 			return key, nil
 		},
+		"replaceKey": replaceKey,
 	}
 
 	tmpl, err := template.New("filter").Funcs(funcs).Parse(contents)
@@ -365,6 +366,13 @@ func applyFormatTemplate(contents, key string) (string, error) {
 	}
 
 	return buf.String(), nil
+}
+
+func replaceKey(args ...interface{}) string {
+	if len(args) != 3 {
+		return args[0].(string)
+	}
+	return map[bool]string{true: args[1].(string), false: args[2].(string)}[args[0].(string) == args[2].(string)]
 }
 
 func applyPathTemplate(contents string) (string, error) {
