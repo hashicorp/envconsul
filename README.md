@@ -437,8 +437,12 @@ vault {
   # If you are unfamiliar with Vault's architecture, Vault requires tokens be
   # renewed at some regular interval or they will be revoked. Envconsul will
   # automatically renew the token at half the lease duration of the token. The
-  # default value is true, but this option can be disabled if you want to renew
-  # the Vault token using an out-of-band process.
+  # default value is true (exception below), but this option can be disabled if
+  # you want to renew the Vault token using an out-of-band process.
+  # 
+  # There is an exception to the default such that if vault_agent_token_file is
+  # set, either from the command line or the above option, renew_token defaults
+  # to false to avoid renewal conflicts between envconsul and vault-agent.
   #
   # Note that secrets specified as a prefix are always renewed, even if this
   # option is set to false. This option only applies to the top-level Vault

@@ -908,8 +908,10 @@ Options:
       Sets the Vault namespace
 
   -vault-renew-token
-      Periodically renew the provided Vault API token - this defaults to "true"
-      and will renew the token at half of the lease duration
+	  Periodically renew the provided Vault API token - this defaults to "true"
+	  and will renew the token at half of the lease duration (unless
+	  vault-agent-token-file is set, then it defaults to false as it is
+	  presumed the vault-agent will take care of renewing)
 
   -vault-retry
       Use retry logic when communication with Vault fails
