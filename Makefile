@@ -254,3 +254,8 @@ _sign:
 	@echo ""
 	@echo "And then upload the binaries in dist/!"
 .PHONY: _sign
+
+# noop command to get build pipeline working
+dev-tree:
+	@true
+.PHONY: dev-tree
