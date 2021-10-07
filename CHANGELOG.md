@@ -1,6 +1,15 @@
 ## envconsul CHANGELOG
 
-## v.0.11.0 (Nov 30, 2020)
+## v0.12.0 (Oct 07, 2021)
+
+IMPROVEMENTS:
+* New docker image [[GH-265](https://github.com/hashicorp/envconsul/pull/265), [GH-258](https://github.com/hashicorp/envconsul/issues/258), [GH-229](https://github.com/hashicorp/envconsul/issues/229)]
+* Add support for Vault Namespaces [[GH-262](https://github.com/hashicorp/envconsul/pull/262), [GH-184](https://github.com/hashicorp/envconsul/issues/184)]
+* New feature to allow only fetching a subset of keys from Vault Secret [[GH-259](https://github.com/hashicorp/envconsul/pull/259), [GH-235](https://github.com/hashicorp/envconsul/issues/235)]
+* Ability to customize environment variable names [[GH-236](https://github.com/hashicorp/envconsul/pull/236), [GH-234](https://github.com/hashicorp/envconsul/issues/234)]
+* Supports fetching service information [[GH-220](https://github.com/hashicorp/envconsul/pull/220)]
+
+## v0.11.0 (Nov 30, 2020)
 
 IMPROVEMENTS:
 
