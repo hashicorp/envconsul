@@ -593,7 +593,7 @@ envconsul will return an error if you try to read from a value that returns a
 map, for example.
 
 First, you must add the vault address and token information to the configuration
-file. It is not possible to specify these values via the command line:
+file. The configuration can also be set via command-line flags to `envconsul`:
 
 ```hcl
 vault {
