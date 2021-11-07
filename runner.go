@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	config2 "github.com/hashicorp/envconsul/config"
 	"html/template"
 	"io"
 	"log"
@@ -46,13 +47,13 @@ type Runner struct {
 
 	// config is the Config that created this Runner. It is used internally to
 	// construct other objects and pass data.
-	config *Config
+	config *config2.Config
 
 	// configPrefixMap is a map of a dependency's hashcode back to the config
 	// prefix that created it.
-	configPrefixMap map[string]*PrefixConfig
+	configPrefixMap map[string]*config2.PrefixConfig
 
-	configServiceMap map[string]*ServiceConfig
+	configServiceMap map[string]*config2.ServiceConfig
 
 	// data is the latest representation of the data from Consul.
 	data map[string]interface{}
@@ -90,7 +91,7 @@ type Runner struct {
 }
 
 // NewRunner accepts a config, command, and boolean value for once mode.
-func NewRunner(config *Config, once bool) (*Runner, error) {
+func NewRunner(config *config2.Config, once bool) (*Runner, error) {
 	log.Printf("[INFO] (runner) creating new runner (once: %v)", once)
 
 	runner := &Runner{
@@ -618,12 +619,12 @@ func (r *Runner) appendSecrets(
 	}
 
 	var applyPerKeyFormat bool
-	var keyFormats map[string]*KeyFormat
+	var keyFormats map[string]*config2.KeyFormat
 
 	// pre-populate key formats map here so we don't have a potential O(n^2) complexity in the loop later
 	if cp.Keys != nil && !config.StringPresent(cp.Format) {
 		applyPerKeyFormat = true
-		keyFormats = make(map[string]*KeyFormat)
+		keyFormats = make(map[string]*config2.KeyFormat)
 		for _, v := range *cp.Keys {
 			keyFormats[*v.Name] = v
 		}
@@ -712,7 +713,7 @@ func (r *Runner) appendSecrets(
 // any problems occur.
 func (r *Runner) init() error {
 	// Ensure default configuration values
-	r.config = DefaultConfig().Merge(r.config)
+	r.config = config2.DefaultConfig().Merge(r.config)
 	r.config.Finalize()
 
 	// Print the final config for debugging
@@ -736,8 +737,8 @@ func (r *Runner) init() error {
 	r.watcher = watcher
 
 	r.data = make(map[string]interface{})
-	r.configPrefixMap = make(map[string]*PrefixConfig)
-	r.configServiceMap = make(map[string]*ServiceConfig)
+	r.configPrefixMap = make(map[string]*config2.PrefixConfig)
+	r.configServiceMap = make(map[string]*config2.ServiceConfig)
 
 	r.inStream = os.Stdin
 	r.outStream = os.Stdout
@@ -859,7 +860,7 @@ func (r *Runner) deletePid() error {
 }
 
 // newClientSet creates a new client set from the given config.
-func newClientSet(c *Config) (*dep.ClientSet, error) {
+func newClientSet(c *config2.Config) (*dep.ClientSet, error) {
 	clients := dep.NewClientSet()
 
 	if err := clients.CreateConsulClient(&dep.CreateConsulClientInput{
@@ -913,7 +914,7 @@ func newClientSet(c *Config) (*dep.ClientSet, error) {
 }
 
 // newWatcher creates a new watcher.
-func newWatcher(c *Config, clients *dep.ClientSet, once bool) (*watch.Watcher, error) {
+func newWatcher(c *config2.Config, clients *dep.ClientSet, once bool) (*watch.Watcher, error) {
 	log.Printf("[INFO] (runner) creating watcher")
 
 	w, err := watch.NewWatcher(&watch.NewWatcherInput{

@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	cfg "github.com/hashicorp/envconsul/config"
 	"io"
 	"io/ioutil"
 	"log"
@@ -207,10 +208,10 @@ func (cli *CLI) stop() {
 // Flag library. This is extracted into a helper to keep the main function
 // small, but it also makes writing tests for parsing command line arguments
 // much easier and cleaner.
-func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error) {
+func (cli *CLI) ParseFlags(args []string) (*cfg.Config, []string, bool, bool, error) {
 	var once, isVersion bool
 	var no_prefix *bool
-	var c = DefaultConfig()
+	var c = cfg.DefaultConfig()
 
 	// configPaths stores the list of configuration paths on disk
 	configPaths := make([]string, 0, 6)
@@ -382,7 +383,7 @@ func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error)
 	}), "pid-file", "")
 
 	flags.Var((funcVar)(func(s string) error {
-		p, err := ParsePrefixConfig(s)
+		p, err := cfg.ParsePrefixConfig(s)
 		if err != nil {
 			return err
 		}
@@ -410,7 +411,7 @@ func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error)
 	}), "sanitize", "")
 
 	flags.Var((funcVar)(func(s string) error {
-		p, err := ParsePrefixConfig(s)
+		p, err := cfg.ParsePrefixConfig(s)
 		if err != nil {
 			return err
 		}
@@ -419,7 +420,7 @@ func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error)
 	}), "secret", "")
 
 	flags.Var((funcVar)(func(s string) error {
-		p, err := ParseServiceConfig(s)
+		p, err := cfg.ParseServiceConfig(s)
 		if err != nil {
 			return err
 		}
@@ -705,11 +706,11 @@ func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error)
 // configuration is the list of overrides to apply at the very end, taking
 // precendence over any configurations that were loaded from the paths. If any
 // errors occur when reading or parsing those sub-configs, it is returned.
-func loadConfigs(paths []string, o *Config) (*Config, error) {
-	finalC := DefaultConfig()
+func loadConfigs(paths []string, o *cfg.Config) (*cfg.Config, error) {
+	finalC := cfg.DefaultConfig()
 
 	for _, path := range paths {
-		c, err := FromPath(path)
+		c, err := cfg.FromPath(path)
 		if err != nil {
 			return nil, err
 		}
@@ -728,7 +729,7 @@ func logError(err error, status int) int {
 	return status
 }
 
-func (cli *CLI) setup(conf *Config) (*Config, error) {
+func (cli *CLI) setup(conf *cfg.Config) (*cfg.Config, error) {
 	if err := logging.Setup(&logging.Config{
 		SyslogName:     version.Name,
 		Level:          config.StringVal(conf.LogLevel),
