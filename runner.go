@@ -728,6 +728,10 @@ func (r *Runner) init() error {
 		return fmt.Errorf("runner: %s", err)
 	}
 
+	// Set's consul-template's default vault lease duration
+	// this will go away with hashicat as it eliminates this setting
+	dep.SetVaultDefaultLeaseDuration(config.TimeDurationVal(r.config.Vault.DefaultLeaseDuration))
+
 	// Create the watcher
 	watcher, err := newWatcher(r.config, clients, r.once)
 	if err != nil {
