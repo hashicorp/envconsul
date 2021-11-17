@@ -1,5 +1,11 @@
 ## envconsul CHANGELOG
 
+## v0.12.1 (Nov 17, 2021)
+
+BUG FIXES:
+
+* Fix Vault lease duration default value [[GH-273](https://github.com/hashicorp/envconsul/pull/273), [GH-272](https://github.com/hashicorp/envconsul/issues/272)].
+
 ## v0.12.0 (Oct 07, 2021)
 
 IMPROVEMENTS:
