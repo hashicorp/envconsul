@@ -10,7 +10,9 @@ PROJECT := $(shell go list -m)
 OWNER := "hashicorp"
 NAME := $(notdir $(PROJECT))
 GIT_COMMIT ?= $(shell git rev-parse --short HEAD)
-VERSION := $(shell awk -F\" '/Version/ { print $$2; exit }' "${CURRENT_DIR}/version/version.go")
+VERSION := $(shell awk -F\" '/^[ \t]+Version/ { print $$2; exit }' "${CURRENT_DIR}/version/version.go")
+PRERELEASE := $(shell awk -F\" '/^[ \t]+VersionPrerelease/ { print $$2; exit }' "${CURRENT_DIR}/version/version.go")
+
 
 # Current system information
 GOOS ?= $(shell go env GOOS)
@@ -18,10 +20,14 @@ GOARCH ?= $(shell go env GOARCH)
 
 # List of ldflags
 LD_FLAGS ?= \
-	-s \
-	-w \
+	-s -w \
 	-X ${PROJECT}/version.Name=${NAME} \
 	-X ${PROJECT}/version.GitCommit=${GIT_COMMIT}
+
+# for CRT build process
+version:
+	@echo ${VERSION}${PRERELEASE}
+.PHONY: version
 
 # dev builds and installs the project locally.
 dev:
