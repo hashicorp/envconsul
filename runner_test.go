@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	config2 "github.com/hashicorp/envconsul/config"
 	"reflect"
 	"testing"
 
@@ -174,24 +175,24 @@ func TestRunner_appendSecrets(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(fmt.Sprintf("%s", tc.name), func(t *testing.T) {
-			cfg := map[bool]Config{true: Config{
-				Secrets: &PrefixConfigs{
-					&PrefixConfig{
+			cfg := map[bool]config2.Config{true: config2.Config{
+				Secrets: &config2.PrefixConfigs{
+					&config2.PrefixConfig{
 						Path:     config.String(tc.path),
 						NoPrefix: tc.noPrefix,
 						Format:   &tc.format,
 					},
 				},
-			}, false: Config{
-				Secrets: &PrefixConfigs{
-					&PrefixConfig{
+			}, false: config2.Config{
+				Secrets: &config2.PrefixConfigs{
+					&config2.PrefixConfig{
 						Path:     config.String(tc.path),
 						NoPrefix: tc.noPrefix,
 					},
 				},
 			}}[tc.format != ""]
 
-			c := DefaultConfig().Merge(&cfg)
+			c := config2.DefaultConfig().Merge(&cfg)
 			r, err := NewRunner(c, true)
 			if err != nil {
 				t.Fatal(err)
@@ -240,7 +241,7 @@ func TestRunner_perKeyConfigurationOverride(t *testing.T) {
 		upCase      bool
 		data        *dependency.Secret
 		expectedEnv map[string]string
-		keys        *KeyFormats
+		keys        *config2.KeyFormats
 	}{
 		{
 			name:     "backward compatability, empty format, no key override",
@@ -305,8 +306,8 @@ func TestRunner_perKeyConfigurationOverride(t *testing.T) {
 					},
 				},
 			},
-			keys: &KeyFormats{
-				&KeyFormat{
+			keys: &config2.KeyFormats{
+				&config2.KeyFormat{
 					Name:   config.String("user"),
 					Format: config.String("DB_OVERRIDDEN_USER"),
 				},
@@ -334,12 +335,12 @@ func TestRunner_perKeyConfigurationOverride(t *testing.T) {
 					},
 				},
 			},
-			keys: &KeyFormats{
-				&KeyFormat{
+			keys: &config2.KeyFormats{
+				&config2.KeyFormat{
 					Name:   config.String("user"),
 					Format: config.String("DB_OVERRIDDEN_USER"),
 				},
-				&KeyFormat{
+				&config2.KeyFormat{
 					Name:   config.String("password"),
 					Format: config.String("DB_OVERRIDDEN_PASSWORD"),
 				},
@@ -367,12 +368,12 @@ func TestRunner_perKeyConfigurationOverride(t *testing.T) {
 					},
 				},
 			},
-			keys: &KeyFormats{
-				&KeyFormat{
+			keys: &config2.KeyFormats{
+				&config2.KeyFormat{
 					Name:   config.String("user"),
 					Format: config.String("DB_OVERRIDDEN_USER"),
 				},
-				&KeyFormat{
+				&config2.KeyFormat{
 					Name:   config.String("password"),
 					Format: config.String("DB_OVERRIDDEN_PASSWORD"),
 				},
@@ -400,8 +401,8 @@ func TestRunner_perKeyConfigurationOverride(t *testing.T) {
 					},
 				},
 			},
-			keys: &KeyFormats{
-				&KeyFormat{
+			keys: &config2.KeyFormats{
+				&config2.KeyFormat{
 					Name:   config.String("password"),
 					Format: config.String("DB_OVERRIDDEN_PASSWORD"),
 				},
@@ -428,12 +429,12 @@ func TestRunner_perKeyConfigurationOverride(t *testing.T) {
 					},
 				},
 			},
-			keys: &KeyFormats{
-				&KeyFormat{
+			keys: &config2.KeyFormats{
+				&config2.KeyFormat{
 					Name:   config.String("password"),
 					Format: config.String("DB_OVERRIDDEN_PASSWORD"),
 				},
-				&KeyFormat{
+				&config2.KeyFormat{
 					Name:   config.String("unknown_key"),
 					Format: config.String("UNKNOWN_KEY_WILL_BE_IGNORED"),
 				},
@@ -460,12 +461,12 @@ func TestRunner_perKeyConfigurationOverride(t *testing.T) {
 					},
 				},
 			},
-			keys: &KeyFormats{
-				&KeyFormat{
+			keys: &config2.KeyFormats{
+				&config2.KeyFormat{
 					Name:   config.String("password"),
 					Format: nil,
 				},
-				&KeyFormat{
+				&config2.KeyFormat{
 					Name:   config.String("user"),
 					Format: nil,
 				},
@@ -479,9 +480,9 @@ func TestRunner_perKeyConfigurationOverride(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			cfg := Config{
-				Secrets: &PrefixConfigs{
-					&PrefixConfig{
+			cfg := config2.Config{
+				Secrets: &config2.PrefixConfigs{
+					&config2.PrefixConfig{
 						NoPrefix: config.Bool(tc.noPrefix),
 						Path:     config.String(tc.path),
 						Format:   config.String(tc.format),
@@ -491,7 +492,7 @@ func TestRunner_perKeyConfigurationOverride(t *testing.T) {
 				Upcase: config.Bool(tc.upCase),
 			}
 
-			c := DefaultConfig().Merge(&cfg)
+			c := config2.DefaultConfig().Merge(&cfg)
 			r, err := NewRunner(c, true)
 			if err != nil {
 				t.Fatal(err)
@@ -562,15 +563,15 @@ func TestRunner_appendPrefixes(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			cfg := Config{
-				Prefixes: &PrefixConfigs{
-					&PrefixConfig{
+			cfg := config2.Config{
+				Prefixes: &config2.PrefixConfigs{
+					&config2.PrefixConfig{
 						Path:     config.String(tc.path),
 						NoPrefix: tc.noPrefix,
 					},
 				},
 			}
-			c := DefaultConfig().Merge(&cfg)
+			c := config2.DefaultConfig().Merge(&cfg)
 			r, err := NewRunner(c, true)
 			if err != nil {
 				t.Fatal(err)
@@ -607,7 +608,7 @@ func TestRunner_appendServices(t *testing.T) {
 	cases := []struct {
 		name           string
 		query          string
-		config         Config
+		config         config2.Config
 		data           []*dependency.CatalogService
 		keyValue       map[string]string
 		serviceID      string
@@ -619,7 +620,7 @@ func TestRunner_appendServices(t *testing.T) {
 		{
 			name:   "service appends data",
 			query:  "service",
-			config: Config{},
+			config: config2.Config{},
 			data: []*dependency.CatalogService{
 				&dependency.CatalogService{
 					ServiceID:      "id",
@@ -645,7 +646,7 @@ func TestRunner_appendServices(t *testing.T) {
 		{
 			name:   "service appends data",
 			query:  "service",
-			config: Config{},
+			config: config2.Config{},
 			data: []*dependency.CatalogService{
 				&dependency.CatalogService{
 					ServiceID:      "fail_id",
@@ -678,9 +679,9 @@ func TestRunner_appendServices(t *testing.T) {
 		{
 			name:  "service appends data with a custom format",
 			query: "service",
-			config: Config{
-				Services: &ServiceConfigs{
-					&ServiceConfig{
+			config: config2.Config{
+				Services: &config2.ServiceConfigs{
+					&config2.ServiceConfig{
 						Query:         config.String("service"),
 						FormatId:      config.String("{{key}}/{{service}}/test"),
 						FormatName:    config.String("{{key}}/{{service}}/test"),
@@ -716,7 +717,7 @@ func TestRunner_appendServices(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			c := DefaultConfig().Merge(&tc.config)
+			c := config2.DefaultConfig().Merge(&tc.config)
 			r, err := NewRunner(c, true)
 			if err != nil {
 				t.Fatal(err)
@@ -835,7 +836,7 @@ func TestRunner_configEnv(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			cfg := Config{
+			cfg := config2.Config{
 				Exec: &config.ExecConfig{
 					Env: &config.EnvConfig{
 						Pristine:  &tc.pristine,
@@ -845,7 +846,7 @@ func TestRunner_configEnv(t *testing.T) {
 					},
 				},
 			}
-			c := DefaultConfig().Merge(&cfg)
+			c := config2.DefaultConfig().Merge(&cfg)
 			r, err := NewRunner(c, true)
 			if err != nil {
 				t.Fatal(err)
@@ -895,7 +896,7 @@ func TestRunner_configEnvDeprecated(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			cfg := Config{
+			cfg := config2.Config{
 				Exec: &config.ExecConfig{
 					Env: &config.EnvConfig{
 						Pristine:            &tc.pristine,
@@ -905,7 +906,7 @@ func TestRunner_configEnvDeprecated(t *testing.T) {
 					},
 				},
 			}
-			c := DefaultConfig().Merge(&cfg)
+			c := config2.DefaultConfig().Merge(&cfg)
 			r, err := NewRunner(c, true)
 			if err != nil {
 				t.Fatal(err)
