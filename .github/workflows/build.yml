@@ -235,7 +235,7 @@ jobs:
           smoke_test: |
             TEST_VERSION="$(docker run "${IMAGE_NAME}" -v 2>&1 | awk '{print $2}')"
             if [ "${TEST_VERSION}" != "v${version}" ]; then
-              echo "Test FAILED"
+              echo "Test FAILED (${TEST_VERSION} != v${version}"
               exit 1
             fi
             echo "Test PASSED"
