@@ -9,7 +9,7 @@ project "envconsul" {
   github {
     organization = "hashicorp"
     repository = "envconsul"
-    release_branches = ["master"]
+    release_branches = ["main"]
   }
 }
 
