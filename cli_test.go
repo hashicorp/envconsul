@@ -437,7 +437,7 @@ func TestCLI_ParseFlags(t *testing.T) {
 			&Config{
 				Exec: &config.ExecConfig{
 					Enabled: config.Bool(true),
-					Command: config.String("command"),
+					Command: []string{"command"},
 				},
 			},
 			false,
@@ -1030,6 +1030,46 @@ func TestCLI_ParseFlags(t *testing.T) {
 			},
 			false,
 		},
+		{
+			"vault-k8s-auth-role-name",
+			[]string{"-vault-k8s-auth-role-name", "default"},
+			&Config{
+				Vault: &config.VaultConfig{
+					K8SAuthRoleName: config.String("default"),
+				},
+			},
+			false,
+		},
+		{
+			"vault-k8s-service-account-token",
+			[]string{"-vault-k8s-service-account-token", "service-token"},
+			&Config{
+				Vault: &config.VaultConfig{
+					K8SServiceAccountToken: config.String("service-token"),
+				},
+			},
+			false,
+		},
+		{
+			"vault-k8s-service-account-token-path",
+			[]string{"-vault-k8s-service-account-token-path", "/path/to/token"},
+			&Config{
+				Vault: &config.VaultConfig{
+					K8SServiceAccountTokenPath: config.String("/path/to/token"),
+				},
+			},
+			false,
+		},
+		{
+			"vault-k8s-service-mount-path",
+			[]string{"-vault-k8s-service-mount-path", "kubernetes"},
+			&Config{
+				Vault: &config.VaultConfig{
+					K8SServiceMountPath: config.String("kubernetes"),
+				},
+			},
+			false,
+		},
 
 		// Edge cases
 		{
@@ -1038,7 +1078,7 @@ func TestCLI_ParseFlags(t *testing.T) {
 			&Config{
 				Exec: &config.ExecConfig{
 					Enabled: config.Bool(true),
-					Command: config.String("my command to run"),
+					Command: []string{"my command to run"},
 				},
 			},
 			false,
@@ -1052,7 +1092,7 @@ func TestCLI_ParseFlags(t *testing.T) {
 			&Config{
 				Exec: &config.ExecConfig{
 					Enabled: config.Bool(true),
-					Command: config.String("command 1"),
+					Command: []string{"command 1"},
 				},
 			},
 			false,

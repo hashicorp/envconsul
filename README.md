@@ -449,6 +449,28 @@ vault {
   # token itself.
   renew_token = true
 
+  # This is a role name for k8s auth method. It will be ignored if "token" set.
+	# This option enables the kubernetes auth method that provies a way
+  # to authenticate Vault using a Kubernetes Service Account Token.
+  # This method of authentication makes it easy to introduce a Vault
+  # token into a Kubernetes Pod.
+  # The default value is "".
+	k8s_auth_role_name = ""
+
+	# This is the path of file that contains service token for k8s auth method.
+	# It will be ignored if "k8s_service_account_token" set.
+  # The default value is "/var/run/secrets/kubernetes.io/serviceaccount/token".
+	k8s_service_account_token_path = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+
+	# Value of an account token for k8s auth method. If set, then it will be used
+  # instead of "k8s_service_account_token_path".
+  # The default value is "".
+	k8s_service_account_token = "some_token"
+
+	# This is a part of k8s login path, by default the value is "kubernetes",
+  # which means to use login path as "auth/kubernetes/login".
+	k8s_service_mount_path = "kubernetes"
+
   # This section details the retry options for connecting to Vault. Please see
   # the retry options in the Consul section for more information (they are the
   # same).

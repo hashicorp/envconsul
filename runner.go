@@ -318,7 +318,7 @@ func (r *Runner) Run() (<-chan int, error) {
 	}
 
 	p := shellwords.NewParser()
-	args, err := p.Parse(config.StringVal(r.config.Exec.Command))
+	args, err := p.Parse(r.config.Exec.Command[0])
 	if err != nil {
 		return nil, errors.Wrap(err, "failed parsing command")
 	}
@@ -909,6 +909,10 @@ func newClientSet(c *Config) (*dep.ClientSet, error) {
 		TransportMaxIdleConns:        config.IntVal(c.Vault.Transport.MaxIdleConns),
 		TransportMaxIdleConnsPerHost: config.IntVal(c.Vault.Transport.MaxIdleConnsPerHost),
 		TransportTLSHandshakeTimeout: config.TimeDurationVal(c.Vault.Transport.TLSHandshakeTimeout),
+		K8SAuthRoleName:              config.StringVal(c.Vault.K8SAuthRoleName),
+		K8SServiceAccountTokenPath:   config.StringVal(c.Vault.K8SServiceAccountTokenPath),
+		K8SServiceAccountToken:       config.StringVal(c.Vault.K8SServiceAccountToken),
+		K8SServiceMountPath:          config.StringVal(c.Vault.K8SServiceMountPath),
 	}); err != nil {
 		return nil, fmt.Errorf("runner: %s", err)
 	}

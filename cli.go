@@ -107,7 +107,7 @@ func (cli *CLI) Run(args []string) int {
 	}
 
 	// Return an error if no command was given
-	if !config.StringPresent(cfg.Exec.Command) {
+	if len(cfg.Exec.Command) == 0 || !config.StringPresent(&cfg.Exec.Command[0]) {
 		return logError(ErrMissingCommand, ExitCodeConfigError)
 	}
 
@@ -328,7 +328,7 @@ func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error)
 
 	flags.Var((funcVar)(func(s string) error {
 		c.Exec.Enabled = config.Bool(true)
-		c.Exec.Command = config.String(s)
+		c.Exec.Command = []string{s}
 		return nil
 	}), "exec", "")
 
@@ -599,6 +599,26 @@ func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error)
 	}), "vault-unwrap-token", "")
 
 	flags.Var((funcVar)(func(s string) error {
+		c.Vault.K8SAuthRoleName = config.String(s)
+		return nil
+	}), "vault-k8s-auth-role-name", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		c.Vault.K8SServiceAccountToken = config.String(s)
+		return nil
+	}), "vault-k8s-service-account-token", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		c.Vault.K8SServiceAccountTokenPath = config.String(s)
+		return nil
+	}), "vault-k8s-service-account-token-path", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		c.Vault.K8SServiceMountPath = config.String(s)
+		return nil
+	}), "vault-k8s-service-mount-path", "")
+
+	flags.Var((funcVar)(func(s string) error {
 		w, err := config.ParseWaitConfig(s)
 		if err != nil {
 			return err
@@ -696,7 +716,7 @@ func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error)
 	if c.Exec.Command == nil {
 		if command := strings.Join(flags.Args(), " "); command != "" {
 			c.Exec.Enabled = config.Bool(true)
-			c.Exec.Command = config.String(command)
+			c.Exec.Command = []string{command}
 		}
 	}
 
@@ -974,6 +994,18 @@ Options:
   -vault-unwrap-token
       Unwrap the provided Vault API token (see Vault documentation for more
       information on this feature)
+
+  -vault-k8s-auth-role-name
+      Enable k8s auth method and use this role name
+
+  -vault-k8s-service-account-token
+      Use this service token for the k8s auth method
+
+  -vault-k8s-service-account-token-path
+      Use the service token from the file for the k8s auth method
+
+  -vault-k8s-service-mount-path
+      Use this login mount path for the k8s auth method
 
   -wait=<duration>
       Sets the 'min(:max)' amount of time to wait before writing a template (and

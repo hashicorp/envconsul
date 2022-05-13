@@ -452,7 +452,7 @@ func TestParse(t *testing.T) {
 			}`,
 			&Config{
 				Exec: &config.ExecConfig{
-					Command: config.String("command"),
+					Command: []string{"command"},
 				},
 			},
 			false,
@@ -1406,17 +1406,17 @@ func TestConfig_Merge(t *testing.T) {
 			"exec",
 			&Config{
 				Exec: &config.ExecConfig{
-					Command: config.String("command"),
+					Command: []string{"command"},
 				},
 			},
 			&Config{
 				Exec: &config.ExecConfig{
-					Command: config.String("command-diff"),
+					Command: []string{"command-diff"},
 				},
 			},
 			&Config{
 				Exec: &config.ExecConfig{
-					Command: config.String("command-diff"),
+					Command: []string{"command-diff"},
 				},
 			},
 		},
