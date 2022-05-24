@@ -459,8 +459,8 @@ vault {
 
   # This is the path of file that contains service token for k8s auth method.
   # It will be ignored if "k8s_service_account_token" set.
-  # The default value is "/var/run/secrets/kubernetes.io/serviceaccount/token".
-  k8s_service_account_token_path = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+  # The default value is "/run/secrets/kubernetes.io/serviceaccount/token".
+  k8s_service_account_token_path = "/run/secrets/kubernetes.io/serviceaccount/token"
 
   # Value of an account token for k8s auth method. If set, then it will be used
   # instead of "k8s_service_account_token_path".
