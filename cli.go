@@ -142,7 +142,11 @@ func (cli *CLI) Run(args []string) int {
 				return logError(err, code)
 			}
 		case s := <-cli.signalCh:
-			log.Printf("[DEBUG] (cli) receiving signal %q", s)
+			switch s {
+			case RuntimeSig:
+			default: // filter out RuntimeSig, as it is used by the scheduler and noisy
+				log.Printf("[DEBUG] (cli) receiving signal %q", s)
+			}
 
 			switch s {
 			case *cfg.ReloadSignal:
