@@ -32,10 +32,8 @@ const (
 	ExitCodeConfigError
 )
 
-var (
-	// ErrMissingCommand is returned when no command is specified.
-	ErrMissingCommand = fmt.Errorf("No command given")
-)
+// ErrMissingCommand is returned when no command is specified.
+var ErrMissingCommand = fmt.Errorf("No command given")
 
 // CLI is the main entry point for envconsul.
 type CLI struct {
@@ -212,7 +210,7 @@ func (cli *CLI) stop() {
 func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error) {
 	var once, isVersion bool
 	var no_prefix *bool
-	var c = DefaultConfig()
+	c := DefaultConfig()
 
 	// configPaths stores the list of configuration paths on disk
 	configPaths := make([]string, 0, 6)

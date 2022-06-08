@@ -960,7 +960,7 @@ func (r *Runner) applyConfigEnv(env map[string]string) map[string]string {
 	}
 
 	keys := make(map[string]bool, len(env))
-	for k, _ := range env {
+	for k := range env {
 		keys[k] = true
 	}
 
@@ -982,7 +982,7 @@ func (r *Runner) applyConfigEnv(env map[string]string) map[string]string {
 	allowlist := combineLists(r.config.Exec.Env.Allowlist, r.config.Exec.Env.AllowlistDeprecated)
 	if n := len(allowlist); n > 0 {
 		include := make(map[string]bool, n)
-		for k, _ := range keys {
+		for k := range keys {
 			if anyGlobMatch(k, allowlist) {
 				include[k] = true
 			}
@@ -997,7 +997,7 @@ func (r *Runner) applyConfigEnv(env map[string]string) map[string]string {
 	// finalized first.
 	denylist := combineLists(r.config.Exec.Env.Denylist, r.config.Exec.Env.DenylistDeprecated)
 	if len(denylist) > 0 {
-		for k, _ := range keys {
+		for k := range keys {
 			if anyGlobMatch(k, denylist) {
 				delete(keys, k)
 			}
@@ -1005,7 +1005,7 @@ func (r *Runner) applyConfigEnv(env map[string]string) map[string]string {
 	}
 
 	// Filter env to allowed keys
-	for k, _ := range env {
+	for k := range env {
 		if _, ok := keys[k]; !ok {
 			delete(env, k)
 		}

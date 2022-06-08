@@ -174,7 +174,7 @@ func TestRunner_appendSecrets(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(fmt.Sprintf("%s", tc.name), func(t *testing.T) {
-			cfg := map[bool]Config{true: Config{
+			cfg := map[bool]Config{true: {
 				Secrets: &PrefixConfigs{
 					&PrefixConfig{
 						Path:     config.String(tc.path),
@@ -182,7 +182,7 @@ func TestRunner_appendSecrets(t *testing.T) {
 						Format:   &tc.format,
 					},
 				},
-			}, false: Config{
+			}, false: {
 				Secrets: &PrefixConfigs{
 					&PrefixConfig{
 						Path:     config.String(tc.path),
@@ -512,6 +512,7 @@ func TestRunner_perKeyConfigurationOverride(t *testing.T) {
 		})
 	}
 }
+
 func TestRunner_appendPrefixes(t *testing.T) {
 	t.Parallel()
 
@@ -527,7 +528,7 @@ func TestRunner_appendPrefixes(t *testing.T) {
 			path:     "app/my_service",
 			noPrefix: config.Bool(false),
 			data: []*dependency.KeyPair{
-				&dependency.KeyPair{
+				{
 					Key:   "mykey",
 					Value: "myValue",
 				},
@@ -539,7 +540,7 @@ func TestRunner_appendPrefixes(t *testing.T) {
 			path:     "app/my_service",
 			noPrefix: config.Bool(true),
 			data: []*dependency.KeyPair{
-				&dependency.KeyPair{
+				{
 					Key:   "mykey",
 					Value: "myValue",
 				},
@@ -551,7 +552,7 @@ func TestRunner_appendPrefixes(t *testing.T) {
 			path:     "app/my_service",
 			noPrefix: nil,
 			data: []*dependency.KeyPair{
-				&dependency.KeyPair{
+				{
 					Key:   "mykey",
 					Value: "myValue",
 				},
@@ -621,7 +622,7 @@ func TestRunner_appendServices(t *testing.T) {
 			query:  "service",
 			config: Config{},
 			data: []*dependency.CatalogService{
-				&dependency.CatalogService{
+				{
 					ServiceID:      "id",
 					ServiceName:    "foo",
 					ServiceAddress: "address",
@@ -647,14 +648,14 @@ func TestRunner_appendServices(t *testing.T) {
 			query:  "service",
 			config: Config{},
 			data: []*dependency.CatalogService{
-				&dependency.CatalogService{
+				{
 					ServiceID:      "fail_id",
 					ServiceName:    "foo",
 					ServiceAddress: "fail_address",
 					ServiceTags:    dependency.ServiceTags{"tag1"},
 					ServicePort:    8081,
 				},
-				&dependency.CatalogService{
+				{
 					ServiceID:      "id",
 					ServiceName:    "foo",
 					ServiceAddress: "address",
@@ -691,7 +692,7 @@ func TestRunner_appendServices(t *testing.T) {
 				},
 			},
 			data: []*dependency.CatalogService{
-				&dependency.CatalogService{
+				{
 					ServiceID:      "id",
 					ServiceName:    "foo",
 					ServiceAddress: "address",
@@ -775,7 +776,6 @@ func TestRunner_appendServices(t *testing.T) {
 			if ok && value != tc.keyValue[tc.servicePort] {
 				t.Fatalf("values didn't match, expected (%s), got (%s)", tc.keyValue[tc.servicePort], value)
 			}
-
 		})
 	}
 }
