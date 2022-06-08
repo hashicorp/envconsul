@@ -2,10 +2,8 @@ module github.com/hashicorp/envconsul
 
 go 1.17
 
-replace github.com/hashicorp/consul-template => github.com/Kryvchun/consul-template v0.29.1-0.20220513075316-6f893c26b5ae
-
 require (
-	github.com/hashicorp/consul-template v0.27.1
+	github.com/hashicorp/consul-template v0.29.1-0.20220608003915-c106ebaf91d8
 	github.com/hashicorp/go-gatedio v0.5.0
 	github.com/hashicorp/hcl v1.0.0
 	github.com/mattn/go-shellwords v1.0.5
@@ -51,7 +49,7 @@ require (
 	github.com/hashicorp/vault/api v1.3.0 // indirect
 	github.com/hashicorp/vault/api/auth/kubernetes v0.1.0 // indirect
 	github.com/hashicorp/vault/sdk v0.3.0 // indirect
-	github.com/hashicorp/yamux v0.0.0-20180604194846-3520598351bb // indirect
+	github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d // indirect
 	github.com/huandu/xstrings v1.2.0 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
