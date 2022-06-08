@@ -437,7 +437,7 @@ func TestCLI_ParseFlags(t *testing.T) {
 			&Config{
 				Exec: &config.ExecConfig{
 					Enabled: config.Bool(true),
-					Command: config.String("command"),
+					Command: []string{"command"},
 				},
 			},
 			false,
@@ -1038,7 +1038,7 @@ func TestCLI_ParseFlags(t *testing.T) {
 			&Config{
 				Exec: &config.ExecConfig{
 					Enabled: config.Bool(true),
-					Command: config.String("my command to run"),
+					Command: []string{"my command to run"},
 				},
 			},
 			false,
@@ -1052,7 +1052,7 @@ func TestCLI_ParseFlags(t *testing.T) {
 			&Config{
 				Exec: &config.ExecConfig{
 					Enabled: config.Bool(true),
-					Command: config.String("command 1"),
+					Command: []string{"command 1"},
 				},
 			},
 			false,
