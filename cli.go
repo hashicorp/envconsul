@@ -105,7 +105,7 @@ func (cli *CLI) Run(args []string) int {
 	}
 
 	// Return an error if no command was given
-	if !config.StringPresent(cfg.Exec.Command) {
+	if cfg.Exec.Command.Empty() {
 		return logError(ErrMissingCommand, ExitCodeConfigError)
 	}
 
@@ -326,7 +326,7 @@ func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error)
 
 	flags.Var((funcVar)(func(s string) error {
 		c.Exec.Enabled = config.Bool(true)
-		c.Exec.Command = config.String(s)
+		c.Exec.Command = []string{s}
 		return nil
 	}), "exec", "")
 
@@ -694,7 +694,7 @@ func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error)
 	if c.Exec.Command == nil {
 		if command := strings.Join(flags.Args(), " "); command != "" {
 			c.Exec.Enabled = config.Bool(true)
-			c.Exec.Command = config.String(command)
+			c.Exec.Command = []string{command}
 		}
 	}
 
