@@ -68,7 +68,7 @@ func (cli *CLI) Run(args []string) int {
 	cfg, paths, once, isVersion, err := cli.ParseFlags(args[1:])
 	if err != nil {
 		if err == flag.ErrHelp {
-			fmt.Fprintf(cli.errStream, usage, version.Name)
+			fmt.Fprintf(cli.outStream, usage, version.Name)
 			return 0
 		}
 		fmt.Fprintln(cli.errStream, err.Error())
@@ -100,7 +100,7 @@ func (cli *CLI) Run(args []string) int {
 	// print their version on stderr anyway.
 	if isVersion {
 		log.Printf("[DEBUG] (cli) version flag was given, exiting now")
-		fmt.Fprintf(cli.errStream, "%s\n", version.HumanVersion)
+		fmt.Fprintf(cli.outStream, "%s\n", version.HumanVersion)
 		return ExitCodeOK
 	}
 
