@@ -844,7 +844,7 @@ Options:
 	  Tells Envconsul to not prefix the keys with their parent "folder".
 
   -once
-      Do not run the process as a daemon
+      Do not run as a daemon. Fetch the data, run the process once and exit.
 
   -pid-file=<path>
       Path on disk to write the PID of the process
