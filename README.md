@@ -1,4 +1,6 @@
-# envconsul [![Build Status](https://circleci.com/gh/hashicorp/envconsul.svg?style=svg)](https://circleci.com/gh/hashicorp/envconsul)
+[![Go Reference](https://pkg.go.dev/badge/github.com/hashicorp/envconsul.svg)](https://pkg.go.dev/github.com/hashicorp/envconsul)
+[![build](https://github.com/hashicorp/envconsul/actions/workflows/build.yml/badge.svg)](https://github.com/hashicorp/envconsul/actions/workflows/build.yml)
+[![ci](https://github.com/hashicorp/envconsul/actions/workflows/ci.yml/badge.svg)](https://github.com/hashicorp/envconsul/actions/workflows/ci.yml)
 
 Envconsul provides a convenient way to launch a subprocess with environment
 variables populated from HashiCorp [Consul][consul] and [Vault][vault]. The tool
