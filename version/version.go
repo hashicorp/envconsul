@@ -8,7 +8,7 @@ const (
 )
 
 var (
-	Name      string
+	Name      string = "envconsul"
 	GitCommit string
 
 	HumanVersion = fmt.Sprintf("%s v%s%s (%s)",
