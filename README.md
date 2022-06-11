@@ -750,6 +750,41 @@ secret_passwords_creds_username=foo
 secret_passwords_creds_password=bar
 ```
 
+If you need the same secret to be available under
+different env var name,
+this could be achieved by applying another format
+for the same secret key:
+
+```hcl
+secret {
+  no_prefix = true
+  path   = "secret/passwords"
+  key {
+    name   = "username"
+    format = "readonly_user_{{ key }}"
+  }
+  key {
+    name   = "password"
+    format = "custom_prefix_{{ key }}"
+  }
+  key {
+    name   = "password"
+    format = "legacy_format_password_db"
+  }
+}
+```
+
+```shell
+$ envconsul \
+    -config="./config.hcl" \
+    env
+
+readonly_user_username=foo
+custom_prefix_password=bar
+legacy_format_password_db=bar
+```
+
+
 ## Debugging
 
 Envconsul can print verbose debugging output. To set the log level for

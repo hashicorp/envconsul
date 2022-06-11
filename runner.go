@@ -612,21 +612,21 @@ func (r *Runner) appendSecrets(
 	}
 
 	var applyPerKeyFormat bool
-	var keyFormats map[string]*KeyFormat
+	var keyFormats map[string][]*KeyFormat
 
 	// pre-populate key formats map here so we don't have a potential O(n^2) complexity in the loop later
 	if cp.Keys != nil && !config.StringPresent(cp.Format) {
 		applyPerKeyFormat = true
-		keyFormats = make(map[string]*KeyFormat)
+		keyFormats = make(map[string][]*KeyFormat)
 		for _, v := range *cp.Keys {
-			keyFormats[*v.Name] = v
+			keyFormats[*v.Name] = append(keyFormats[*v.Name], v)
 		}
 	}
 
-	for key, value := range valueMap {
+	for originalKey, value := range valueMap {
 		// Ignore any keys that are empty (not sure if this is even possible in
 		// Vault, but I play defense).
-		if strings.TrimSpace(key) == "" {
+		if strings.TrimSpace(originalKey) == "" {
 			continue
 		}
 
@@ -635,68 +635,81 @@ func (r *Runner) appendSecrets(
 			continue
 		}
 
+		keys := []string{originalKey}
 		// Check for per-key configuration override on a very early stage
 		// before the `key` is updated with prefix or become uppercase
 		if applyPerKeyFormat {
-			keyFormat, ok := keyFormats[key]
+			keyFormat, ok := keyFormats[originalKey]
 			if !ok {
-				log.Printf("[DEBUG] (runner) skipping key '%s' since it is not listed in configuration", key)
+				log.Printf("[DEBUG] (runner) skipping key '%s' since it is not listed in configuration", originalKey)
 				continue
 			}
-			if config.StringPresent(keyFormat.Format) {
-				key, err = applyFormatTemplate(*keyFormat.Format, key)
+			appliedFormats := []string{}
+			for _, format := range keyFormat {
+				if config.StringPresent(format.Format) {
+					key, err := applyFormatTemplate(*format.Format, originalKey)
+					if err != nil {
+						return err
+					}
+					appliedFormats = append(appliedFormats, key)
+				}
+			}
+			// reset keys slice in case of per-key formatting
+			if len(appliedFormats) > 0 {
+				keys = appliedFormats
+			}
+		}
+
+		for i := range keys {
+			key := keys[i]
+			// NoPrefix is nil when not set in config. Default to including prefix for Vault secrets.
+			if cp.NoPrefix == nil || !config.BoolVal(cp.NoPrefix) {
+				// Replace the path slashes with an underscore.
+				pc, ok := r.configPrefixMap[d.String()]
+				if !ok {
+					return fmt.Errorf("missing dependency %s", d)
+				}
+
+				path, err := applyPathTemplate(config.StringVal(pc.Path))
+				if err != nil {
+					return err
+				}
+				path = InvalidRegexp.ReplaceAllString(path, "_")
+
+				// Prefix the key value with the path value.
+				key = fmt.Sprintf("%s_%s", path, key)
+			}
+
+			// If the user specified a custom format for all keys, apply that here.
+			if config.StringPresent(cp.Format) {
+				key, err = applyFormatTemplate(config.StringVal(cp.Format), key)
 				if err != nil {
 					return err
 				}
 			}
-		}
 
-		// NoPrefix is nil when not set in config. Default to including prefix for Vault secrets.
-		if cp.NoPrefix == nil || !config.BoolVal(cp.NoPrefix) {
-			// Replace the path slashes with an underscore.
-			pc, ok := r.configPrefixMap[d.String()]
+			if config.BoolVal(r.config.Sanitize) {
+				key = InvalidRegexp.ReplaceAllString(key, "_")
+			}
+
+			if config.BoolVal(r.config.Upcase) {
+				key = strings.ToUpper(key)
+			}
+
+			val, ok := value.(string)
 			if !ok {
-				return fmt.Errorf("missing dependency %s", d)
+				log.Printf("[WARN] (runner) skipping key '%s', invalid type for value. got %v, not string", key, reflect.TypeOf(value))
+				continue
 			}
 
-			path, err := applyPathTemplate(config.StringVal(pc.Path))
-			if err != nil {
-				return err
+			if _, ok := env[key]; ok {
+				log.Printf("[DEBUG] (runner) overwriting %s from %s", key, d)
+			} else {
+				log.Printf("[DEBUG] (runner) setting %s from %s", key, d)
 			}
-			path = InvalidRegexp.ReplaceAllString(path, "_")
 
-			// Prefix the key value with the path value.
-			key = fmt.Sprintf("%s_%s", path, key)
+			env[key] = val
 		}
-
-		// If the user specified a custom format for all keys, apply that here.
-		if config.StringPresent(cp.Format) {
-			key, err = applyFormatTemplate(config.StringVal(cp.Format), key)
-			if err != nil {
-				return err
-			}
-		}
-
-		if config.BoolVal(r.config.Sanitize) {
-			key = InvalidRegexp.ReplaceAllString(key, "_")
-		}
-
-		if config.BoolVal(r.config.Upcase) {
-			key = strings.ToUpper(key)
-		}
-
-		if _, ok := env[key]; ok {
-			log.Printf("[DEBUG] (runner) overwriting %s from %s", key, d)
-		} else {
-			log.Printf("[DEBUG] (runner) setting %s from %s", key, d)
-		}
-
-		val, ok := value.(string)
-		if !ok {
-			log.Printf("[WARN] (runner) skipping key '%s', invalid type for value. got %v, not string", key, reflect.TypeOf(value))
-			continue
-		}
-		env[key] = val
 	}
 
 	return nil
