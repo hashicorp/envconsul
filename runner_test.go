@@ -411,6 +411,44 @@ func TestRunner_perKeyConfigurationOverride(t *testing.T) {
 			},
 		},
 		{
+			name:     "more than one format for the same key",
+			path:     "stage/app-a/db-credentials",
+			format:   "",
+			noPrefix: true,
+			upCase:   true,
+			data: &dependency.Secret{
+				Data: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"destroyed": bool(false),
+						"version":   "1",
+					},
+					"data": map[string]interface{}{
+						"user":     "db-app-user",
+						"password": "db-app-password",
+					},
+				},
+			},
+			keys: &KeyFormats{
+				&KeyFormat{
+					Name:   config.String("password"),
+					Format: config.String("DB_OVERRIDDEN_PASSWORD"),
+				},
+				&KeyFormat{
+					Name:   config.String("password"),
+					Format: config.String("LEGACY_PASSWORD_VAR"),
+				},
+				&KeyFormat{
+					Name:   config.String("password"),
+					Format: config.String("my_debug_{{ key }}"),
+				},
+			},
+			expectedEnv: map[string]string{
+				"DB_OVERRIDDEN_PASSWORD": "db-app-password",
+				"LEGACY_PASSWORD_VAR":    "db-app-password",
+				"MY_DEBUG_PASSWORD":      "db-app-password",
+			},
+		},
+		{
 			name:     "unknown keys from configuration should not affect the flow",
 			path:     "stage/app-a/db-credentials",
 			format:   "",
@@ -507,7 +545,7 @@ func TestRunner_perKeyConfigurationOverride(t *testing.T) {
 			}
 
 			if !reflect.DeepEqual(tc.expectedEnv, env) {
-				t.Fatalf("\nexp: %#v\nact: %#v", tc.expectedEnv, env)
+				t.Errorf("\nexp: %#v\nact: %#v", tc.expectedEnv, env)
 			}
 		})
 	}
