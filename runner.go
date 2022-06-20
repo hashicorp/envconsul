@@ -20,7 +20,6 @@ import (
 	"github.com/hashicorp/consul-template/config"
 	dep "github.com/hashicorp/consul-template/dependency"
 	"github.com/hashicorp/consul-template/watch"
-	shellwords "github.com/mattn/go-shellwords"
 	"github.com/pkg/errors"
 )
 
@@ -317,12 +316,7 @@ func (r *Runner) Run() (<-chan int, error) {
 		cmdEnv = append(cmdEnv, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	p := shellwords.NewParser()
-	args, err := p.Parse(r.config.Exec.Command[0])
-	if err != nil {
-		return nil, errors.Wrap(err, "failed parsing command")
-	}
-
+	args := r.config.Exec.Command
 	child, err := child.New(&child.NewInput{
 		Stdin:        r.inStream,
 		Stdout:       r.outStream,
@@ -964,7 +958,7 @@ func (r *Runner) applyConfigEnv(env map[string]string) map[string]string {
 	}
 
 	keys := make(map[string]bool, len(env))
-	for k, _ := range env {
+	for k := range env {
 		keys[k] = true
 	}
 
@@ -986,7 +980,7 @@ func (r *Runner) applyConfigEnv(env map[string]string) map[string]string {
 	allowlist := combineLists(r.config.Exec.Env.Allowlist, r.config.Exec.Env.AllowlistDeprecated)
 	if n := len(allowlist); n > 0 {
 		include := make(map[string]bool, n)
-		for k, _ := range keys {
+		for k := range keys {
 			if anyGlobMatch(k, allowlist) {
 				include[k] = true
 			}
@@ -1001,7 +995,7 @@ func (r *Runner) applyConfigEnv(env map[string]string) map[string]string {
 	// finalized first.
 	denylist := combineLists(r.config.Exec.Env.Denylist, r.config.Exec.Env.DenylistDeprecated)
 	if len(denylist) > 0 {
-		for k, _ := range keys {
+		for k := range keys {
 			if anyGlobMatch(k, denylist) {
 				delete(keys, k)
 			}
@@ -1009,7 +1003,7 @@ func (r *Runner) applyConfigEnv(env map[string]string) map[string]string {
 	}
 
 	// Filter env to allowed keys
-	for k, _ := range env {
+	for k := range env {
 		if _, ok := keys[k]; !ok {
 			delete(env, k)
 		}

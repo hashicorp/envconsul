@@ -32,10 +32,8 @@ const (
 	ExitCodeConfigError
 )
 
-var (
-	// ErrMissingCommand is returned when no command is specified.
-	ErrMissingCommand = fmt.Errorf("No command given")
-)
+// ErrMissingCommand is returned when no command is specified.
+var ErrMissingCommand = fmt.Errorf("No command given")
 
 // CLI is the main entry point for envconsul.
 type CLI struct {
@@ -70,7 +68,7 @@ func (cli *CLI) Run(args []string) int {
 	cfg, paths, once, isVersion, err := cli.ParseFlags(args[1:])
 	if err != nil {
 		if err == flag.ErrHelp {
-			fmt.Fprintf(cli.errStream, usage, version.Name)
+			fmt.Fprintf(cli.outStream, usage, version.Name)
 			return 0
 		}
 		fmt.Fprintln(cli.errStream, err.Error())
@@ -102,12 +100,12 @@ func (cli *CLI) Run(args []string) int {
 	// print their version on stderr anyway.
 	if isVersion {
 		log.Printf("[DEBUG] (cli) version flag was given, exiting now")
-		fmt.Fprintf(cli.errStream, "%s\n", version.HumanVersion)
+		fmt.Fprintf(cli.outStream, "%s\n", version.HumanVersion)
 		return ExitCodeOK
 	}
 
 	// Return an error if no command was given
-	if len(cfg.Exec.Command) == 0 || !config.StringPresent(&cfg.Exec.Command[0]) {
+	if cfg.Exec.Command.Empty() {
 		return logError(ErrMissingCommand, ExitCodeConfigError)
 	}
 
@@ -144,7 +142,11 @@ func (cli *CLI) Run(args []string) int {
 				return logError(err, code)
 			}
 		case s := <-cli.signalCh:
-			log.Printf("[DEBUG] (cli) receiving signal %q", s)
+			switch s {
+			case RuntimeSig:
+			default: // filter out RuntimeSig, as it is used by the scheduler and noisy
+				log.Printf("[DEBUG] (cli) receiving signal %q", s)
+			}
 
 			switch s {
 			case *cfg.ReloadSignal:
@@ -212,7 +214,7 @@ func (cli *CLI) stop() {
 func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error) {
 	var once, isVersion bool
 	var no_prefix *bool
-	var c = DefaultConfig()
+	c := DefaultConfig()
 
 	// configPaths stores the list of configuration paths on disk
 	configPaths := make([]string, 0, 6)
@@ -866,7 +868,7 @@ Options:
 	  Tells Envconsul to not prefix the keys with their parent "folder".
 
   -once
-      Do not run the process as a daemon
+      Do not run as a daemon. Fetch the data, run the process once and exit.
 
   -pid-file=<path>
       Path on disk to write the PID of the process
