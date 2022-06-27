@@ -3,7 +3,7 @@ module github.com/hashicorp/envconsul
 go 1.17
 
 require (
-	github.com/hashicorp/consul-template v0.29.0
+	github.com/hashicorp/consul-template v0.29.1
 	github.com/hashicorp/go-gatedio v0.5.0
 	github.com/hashicorp/hcl v1.0.0
 	github.com/mitchellh/mapstructure v1.5.0
@@ -46,6 +46,7 @@ require (
 	github.com/hashicorp/nomad/api v0.0.0-20220608180825-7899fd3faca4 // indirect
 	github.com/hashicorp/serf v0.9.8 // indirect
 	github.com/hashicorp/vault/api v1.7.0 // indirect
+	github.com/hashicorp/vault/api/auth/kubernetes v0.1.0 // indirect
 	github.com/hashicorp/vault/sdk v0.5.0 // indirect
 	github.com/hashicorp/yamux v0.0.0-20211028200310-0bc27b27de87 // indirect
 	github.com/huandu/xstrings v1.3.2 // indirect
@@ -61,7 +62,7 @@ require (
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
-	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e // indirect
+	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d // indirect
 	golang.org/x/net v0.0.0-20220607020251-c690dde0001d // indirect
 	golang.org/x/sys v0.0.0-20220608164250-635b8c9b7f68 // indirect
 	golang.org/x/text v0.3.7 // indirect
