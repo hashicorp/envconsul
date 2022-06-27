@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/signal"
 	"strings"
@@ -17,6 +16,7 @@ import (
 	"github.com/hashicorp/consul-template/manager"
 	"github.com/hashicorp/consul-template/signals"
 	"github.com/hashicorp/envconsul/version"
+	"github.com/hashicorp/go-hclog"
 )
 
 // Exit codes are int values that represent an exit code for a particular error.
@@ -33,7 +33,10 @@ const (
 )
 
 // ErrMissingCommand is returned when no command is specified.
-var ErrMissingCommand = fmt.Errorf("No command given")
+var (
+	ErrMissingCommand = fmt.Errorf("No command given")
+	namedLogger       = hclog.Default().Named("envconsul").Named
+)
 
 // CLI is the main entry point for envconsul.
 type CLI struct {
@@ -64,6 +67,7 @@ func NewCLI(out, err io.Writer) *CLI {
 // Run accepts a slice of arguments and returns an int representing the exit
 // status from the command.
 func (cli *CLI) Run(args []string) int {
+	logger := namedLogger("cli")
 	// Parse the flags and args
 	cfg, paths, once, isVersion, err := cli.ParseFlags(args[1:])
 	if err != nil {
@@ -93,13 +97,13 @@ func (cli *CLI) Run(args []string) int {
 	}
 
 	// Print version information for debugging
-	log.Printf("[INFO] %s", version.HumanVersion)
+	logger.Info(version.HumanVersion)
 
 	// If the version was requested, return an "error" containing the version
 	// information. This might sound weird, but most *nix applications actually
 	// print their version on stderr anyway.
 	if isVersion {
-		log.Printf("[DEBUG] (cli) version flag was given, exiting now")
+		logger.Debug("version flag was given, exiting now")
 		fmt.Fprintf(cli.outStream, "%s\n", version.HumanVersion)
 		return ExitCodeOK
 	}
@@ -132,7 +136,7 @@ func (cli *CLI) Run(args []string) int {
 		case <-runner.DoneCh:
 			return ExitCodeOK
 		case code := <-runner.ExitCh:
-			log.Printf("[INFO] (cli) subprocess exited")
+			logger.Info("subprocess exited")
 			runner.Stop()
 
 			if code == ExitCodeOK {
@@ -145,7 +149,7 @@ func (cli *CLI) Run(args []string) int {
 			switch s {
 			case RuntimeSig:
 			default: // filter out RuntimeSig, as it is used by the scheduler and noisy
-				log.Printf("[DEBUG] (cli) receiving signal %q", s)
+				logger.Debug("receiving signal %q", s)
 			}
 
 			switch s {
@@ -212,6 +216,7 @@ func (cli *CLI) stop() {
 // small, but it also makes writing tests for parsing command line arguments
 // much easier and cleaner.
 func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error) {
+	logger := namedLogger("cli")
 	var once, isVersion bool
 	var no_prefix *bool
 	c := DefaultConfig()
@@ -615,7 +620,7 @@ func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error)
 	// Deprecations
 	// TODO remove in 0.8.0
 	flags.Var((funcVar)(func(s string) error {
-		log.Printf("[WARN] -auth is now -consul-auth")
+		logger.Warn("-auth is now -consul-auth")
 		a, err := config.ParseAuthConfig(s)
 		if err != nil {
 			return err
@@ -624,12 +629,12 @@ func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error)
 		return nil
 	}), "auth", "")
 	flags.Var((funcVar)(func(s string) error {
-		log.Printf("[WARN] -consul is now -consul-addr")
+		logger.Warn("-consul is now -consul-addr")
 		c.Consul.Address = config.String(s)
 		return nil
 	}), "consul", "")
 	flags.Var((funcDurationVar)(func(d time.Duration) error {
-		log.Printf("[WARN] -retry is now -consul-retry-* and -vault-retry-*")
+		logger.Warn("-retry is now -consul-retry-* and -vault-retry-*")
 		c.Consul.Retry.Backoff = config.TimeDuration(d)
 		c.Consul.Retry.MaxBackoff = config.TimeDuration(d)
 		c.Vault.Retry.Backoff = config.TimeDuration(d)
@@ -637,41 +642,41 @@ func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error)
 		return nil
 	}), "retry", "")
 	flags.Var((funcDurationVar)(func(d time.Duration) error {
-		log.Printf("[WARN] -splay is now -exec-splay")
+		logger.Warn("-splay is now -exec-splay")
 		c.Exec.Splay = config.TimeDuration(d)
 		return nil
 	}), "splay", "")
 	flags.Var((funcBoolVar)(func(b bool) error {
-		log.Printf("[WARN] -ssl is now -consul-ssl-* and -vault-ssl-*")
+		logger.Warn("-ssl is now -consul-ssl-* and -vault-ssl-*")
 		c.Consul.SSL.Enabled = config.Bool(b)
 		c.Vault.SSL.Enabled = config.Bool(b)
 		return nil
 	}), "ssl", "")
 	flags.Var((funcBoolVar)(func(b bool) error {
-		log.Printf("[WARN] -ssl-verify is now -consul-ssl-verify and -vault-ssl-verify")
+		logger.Warn("-ssl-verify is now -consul-ssl-verify and -vault-ssl-verify")
 		c.Consul.SSL.Verify = config.Bool(b)
 		c.Vault.SSL.Verify = config.Bool(b)
 		return nil
 	}), "ssl-verify", "")
 	flags.Var((funcVar)(func(s string) error {
-		log.Printf("[WARN] -ssl-ca-cert is now -consul-ssl-ca-cert and -vault-ssl-ca-cert")
+		logger.Warn("-ssl-ca-cert is now -consul-ssl-ca-cert and -vault-ssl-ca-cert")
 		c.Consul.SSL.CaCert = config.String(s)
 		c.Vault.SSL.CaCert = config.String(s)
 		return nil
 	}), "ssl-ca-cert", "")
 	flags.Var((funcVar)(func(s string) error {
-		log.Printf("[WARN] -ssl-cert is now -consul-ssl-cert and -vault-ssl-cert")
+		logger.Warn("-ssl-cert is now -consul-ssl-cert and -vault-ssl-cert")
 		c.Consul.SSL.Cert = config.String(s)
 		c.Vault.SSL.Cert = config.String(s)
 		return nil
 	}), "ssl-cert", "")
 	flags.Var((funcDurationVar)(func(d time.Duration) error {
-		log.Printf("[WARN] -timeout is now -exec-timeout")
+		logger.Warn("-timeout is now -exec-timeout")
 		c.Exec.Timeout = config.TimeDuration(d)
 		return nil
 	}), "timeout", "")
 	flags.Var((funcVar)(func(s string) error {
-		log.Printf("[WARN] -token is now -consul-token")
+		logger.Warn("-token is now -consul-token")
 		c.Consul.Token = config.String(s)
 		return nil
 	}), "token", "")
@@ -728,7 +733,7 @@ func loadConfigs(paths []string, o *Config) (*Config, error) {
 
 // logError logs an error message and then returns the given status.
 func logError(err error, status int) int {
-	log.Printf("[ERR] (cli) %s", err)
+	namedLogger("cli").Error(err.Error())
 	return status
 }
 
