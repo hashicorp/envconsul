@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
         with:
-          go-vesrion-file: 'go.mod'
+          go-version-file: 'go.mod'
       - name: Determine Go version
         id: get-go-version
         # looking for just the number, eg. 1.18.3
