@@ -1,87 +1,4 @@
 make all --print-data-base --no-builtin-variables --no-builtin-rules --question
-go: inconsistent vendoring in /home/hedhyw/Development/worldr/envconsul:
-	github.com/mitchellh/mapstructure@v1.5.0: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	github.com/BurntSushi/toml@v1.1.0: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	github.com/Masterminds/goutils@v1.1.1: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	github.com/armon/go-metrics@v0.4.0: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	github.com/cenkalti/backoff/v3@v3.2.2: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	github.com/google/uuid@v1.3.0: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	github.com/gorilla/websocket@v1.5.0: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	github.com/hashicorp/consul/api@v1.13.0: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	github.com/hashicorp/go-hclog@v1.2.1: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	github.com/hashicorp/go-plugin@v1.4.4: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	github.com/hashicorp/go-retryablehttp@v0.7.1: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	github.com/hashicorp/go-secure-stdlib/mlock@v0.1.2: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	github.com/hashicorp/go-secure-stdlib/parseutil@v0.1.6: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	github.com/hashicorp/go-secure-stdlib/strutil@v0.1.2: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	github.com/hashicorp/go-uuid@v1.0.3: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	github.com/hashicorp/go-version@v1.5.0: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	github.com/hashicorp/nomad/api@v0.0.0-20220608180825-7899fd3faca4: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	github.com/hashicorp/serf@v0.9.8: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	github.com/hashicorp/vault/api@v1.7.0: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	github.com/hashicorp/vault/sdk@v0.5.0: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	github.com/hashicorp/yamux@v0.0.0-20211028200310-0bc27b27de87: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	github.com/huandu/xstrings@v1.3.2: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	github.com/imdario/mergo@v0.3.13: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	github.com/mitchellh/copystructure@v1.2.0: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	github.com/mitchellh/hashstructure@v1.1.0: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	github.com/mitchellh/reflectwalk@v1.0.2: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	github.com/oklog/run@v1.1.0: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	github.com/pierrec/lz4@v2.6.1+incompatible: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	golang.org/x/crypto@v0.0.0-20220525230936-793ad666bf5e: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	golang.org/x/net@v0.0.0-20220607020251-c690dde0001d: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	golang.org/x/sys@v0.0.0-20220608164250-635b8c9b7f68: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	golang.org/x/text@v0.3.7: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	golang.org/x/time@v0.0.0-20220411224347-583f2d630306: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	google.golang.org/genproto@v0.0.0-20220608133413-ed9918b62aac: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	google.golang.org/grpc@v1.47.0: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	google.golang.org/protobuf@v1.28.0: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	gopkg.in/square/go-jose.v2@v2.6.0: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	gopkg.in/yaml.v2@v2.4.0: is explicitly required in go.mod, but not marked as explicit in vendor/modules.txt
-	github.com/BurntSushi/toml@v0.3.1: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	github.com/Masterminds/goutils@v1.1.0: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	github.com/armon/go-metrics@v0.3.9: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	github.com/cenkalti/backoff/v3@v3.0.0: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	github.com/google/uuid@v1.1.2: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	github.com/gorilla/websocket@v1.4.2: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	github.com/hashicorp/consul/api@v1.4.0: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	github.com/hashicorp/go-hclog@v1.0.0: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	github.com/hashicorp/go-plugin@v1.4.3: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	github.com/hashicorp/go-retryablehttp@v0.6.7: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	github.com/hashicorp/go-secure-stdlib/mlock@v0.1.1: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	github.com/hashicorp/go-secure-stdlib/parseutil@v0.1.1: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	github.com/hashicorp/go-secure-stdlib/strutil@v0.1.1: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	github.com/hashicorp/go-uuid@v1.0.2: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	github.com/hashicorp/go-version@v1.2.0: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	github.com/hashicorp/nomad/api@v0.0.0-20220407202126-2eba643965c4: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	github.com/hashicorp/serf@v0.9.4: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	github.com/hashicorp/vault/api@v1.3.0: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	github.com/hashicorp/vault/sdk@v0.3.0: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	github.com/hashicorp/yamux@v0.0.0-20181012175058-2f1d1f20f75d: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	github.com/huandu/xstrings@v1.2.0: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	github.com/imdario/mergo@v0.3.12: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	github.com/mattn/go-shellwords@v1.0.5: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	github.com/mitchellh/copystructure@v1.0.0: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	github.com/mitchellh/hashstructure@v1.0.0: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	github.com/mitchellh/mapstructure@v1.4.3: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	github.com/mitchellh/reflectwalk@v1.0.0: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	github.com/oklog/run@v1.0.0: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	github.com/pierrec/lz4@v2.5.2+incompatible: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	golang.org/x/crypto@v0.0.0-20210817164053-32db794688a5: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	golang.org/x/net@v0.0.0-20210226172049-e18ecbb05110: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	golang.org/x/sys@v0.0.0-20211216021012-1d35b9e2eb4e: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	golang.org/x/text@v0.3.3: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	golang.org/x/time@v0.0.0-20200630173020-3af7569d3a1e: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	google.golang.org/genproto@v0.0.0-20200526211855-cb27e3aa2013: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	google.golang.org/grpc@v1.41.0: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	google.golang.org/protobuf@v1.26.0: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	gopkg.in/square/go-jose.v2@v2.5.1: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-	gopkg.in/yaml.v2@v2.3.0: is marked as explicit in vendor/modules.txt, but not explicitly required in go.mod
-
-	To ignore the vendor directory, use -mod=readonly or -mod=mod.
-	To sync the vendor directory, run:
-		go mod vendor
-
 make: *** No rule to make target 'all'.  Stop.
 
 # GNU Make 4.3
@@ -91,7 +8,7 @@ make: *** No rule to make target 'all'.  Stop.
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Mon Jun 20 11:20:58 2022
+# Make data base, printed on Wed Jun 29 05:39:24 2022
 
 # Variables
 
@@ -100,17 +17,13 @@ GDK_BACKEND = x11
 # environment
 LC_ALL = C
 # environment
-NO_AT_BRIDGE = 1
-# environment
 GTK_RC_FILES = /etc/gtk/gtkrc:/home/hedhyw/.gtkrc:/home/hedhyw/.config/gtkrc
 # environment
 HOMEBREW_PREFIX = /home/linuxbrew/.linuxbrew
 # environment
-VSCODE_IPC_HOOK_EXTHOST = /run/user/1000/vscode-ipc-d7c6becc-0d2f-40eb-afe7-6c48b05d6791.sock
+VSCODE_IPC_HOOK_EXTHOST = /run/user/1000/vscode-ipc-76030708-fdcb-4956-bad2-2e518009311a.sock
 # environment
 MANDATORY_PATH = /usr/share/gconf/plasma.mandatory.path
-# environment
-KONSOLE_DBUS_SERVICE = :1.5109
 # makefile (from 'Makefile', line 17)
 GOOS = $(shell go env GOOS)
 # environment
@@ -118,9 +31,7 @@ LC_NAME = ru_RU.UTF-8
 # environment
 LC_NUMERIC = C
 # environment
-VSCODE_CWD = /home/hedhyw/Development/worldr
-# environment
-WINDOWID = 125829127
+VSCODE_CWD = /home/hedhyw
 # environment
 NVM_DIR = /home/hedhyw/.nvm
 # environment
@@ -130,13 +41,9 @@ MAKE_COMMAND := make
 # environment
 QT_ACCESSIBILITY = 1
 # environment
-VSCODE_GIT_ASKPASS_EXTRA_ARGS = --ms-enable-electron-run-as-node
-# environment
 GOPATH = /home/hedhyw/go
 # automatic
 @D = $(patsubst %/,%,$(dir $@))
-# environment
-KONSOLE_VERSION = 211203
 # environment
 VSCODE_HANDLES_UNCAUGHT_ERRORS = true
 # default
@@ -147,10 +54,6 @@ PWD = /home/hedhyw/Development/worldr/envconsul
 %D = $(patsubst %/,%,$(dir $%))
 # environment
 XDG_DATA_DIRS = /usr/share/plasma:/usr/local/share:/usr/share:/var/lib/snapd/desktop
-# environment
-OLDPWD = /home/hedhyw/Development/worldr/worldr-mst-extension-client
-# environment
-KONSOLE_DBUS_WINDOW = /Windows/1
 # automatic
 ^D = $(patsubst %/,%,$(dir $^))
 # environment
@@ -173,12 +76,10 @@ XAUTHORITY = /home/hedhyw/.Xauthority
 HOMEBREW_REPOSITORY = /home/linuxbrew/.linuxbrew/Homebrew
 # default
 .INCLUDE_DIRS = /usr/local/include /usr/include /usr/include
-# environment
-COLORFGBG = 15;0
 # makefile
 MAKEFLAGS = pqrR
 # makefile (from 'Makefile', line 9)
-PROJECT := 
+PROJECT := github.com/hashicorp/envconsul
 # makefile
 CURDIR := /home/hedhyw/Development/worldr/envconsul
 # environment
@@ -198,7 +99,7 @@ PAM_KWALLET5_LOGIN = /run/user/1000/kwallet5.socket
 # environment
 MFLAGS = -pqrR
 # environment
-SSH_AUTH_SOCK = /tmp/ssh-XXXXXXpIaHRB/agent.1565
+SSH_AUTH_SOCK = /tmp/ssh-XXXXXXljWXo7/agent.1643
 # default
 .SHELLFLAGS := -c
 # environment
@@ -207,8 +108,6 @@ NVM_BIN = /home/hedhyw/.nvm/versions/node/v14.17.1/bin
 XDG_CONFIG_DIRS = /home/hedhyw/.config/kdedefaults:/etc/xdg/xdg-plasma:/etc/xdg:/usr/share/kubuntu-default-settings/kf5-settings
 # automatic
 +D = $(patsubst %/,%,$(dir $+))
-# environment
-GIT_ASKPASS = /usr/share/code/resources/app/extensions/git/dist/askpass.sh
 # environment
 XCURSOR_THEME = breeze_cursors
 # environment
@@ -220,7 +119,7 @@ MAKEFILE_LIST := Makefile
 # environment
 VSCODE_VERBOSE_LOGGING = true
 # environment
-VSCODE_PID = 96569
+VSCODE_PID = 3998
 # environment
 XDG_SESSION_TYPE = x11
 # automatic
@@ -228,11 +127,11 @@ XDG_SESSION_TYPE = x11
 # makefile (from 'Makefile', line 2)
 MKFILE_PATH := Makefile
 # environment
-SESSION_MANAGER = local/hedhyw-HLYL-WXX9:@/tmp/.ICE-unix/1965,unix/hedhyw-HLYL-WXX9:/tmp/.ICE-unix/1965
+SESSION_MANAGER = local/hedhyw-HLYL-WXX9:@/tmp/.ICE-unix/2047,unix/hedhyw-HLYL-WXX9:/tmp/.ICE-unix/2047
 # automatic
 *F = $(notdir $*)
 # environment
-MANPATH = /home/hedhyw/.nvm/versions/node/v14.17.1/share/man:/home/linuxbrew/.linuxbrew/share/man:
+MANPATH = /home/linuxbrew/.linuxbrew/share/man:/home/hedhyw/.nvm/versions/node/v14.17.1/share/man:/home/linuxbrew/.linuxbrew/share/man::
 # environment
 CHROME_DESKTOP = code-url-handler.desktop
 # environment
@@ -244,7 +143,7 @@ VSCODE_NLS_CONFIG = {"locale":"en-us","availableLanguages":{},"_languagePackSupp
 # default
 MAKE_HOST := x86_64-pc-linux-gnu
 # environment
-INFOPATH = /home/linuxbrew/.linuxbrew/share/info:
+INFOPATH = /home/linuxbrew/.linuxbrew/share/info:/home/linuxbrew/.linuxbrew/share/info:
 # makefile
 SHELL = /bin/sh
 # default
@@ -254,19 +153,15 @@ XMODIFIERS = @im=ibus
 # environment
 LD_LIBRARY_PATH = /usr/local/lib
 # environment
-SHLVL = 2
+SHLVL = 0
 # environment
 MAKELEVEL := 0
 # default
 MAKE = $(MAKE_COMMAND)
 # environment
-PATH = /home/hedhyw/.nvm/versions/node/v14.17.1/bin:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/usr/bin:/home/hedhyw/.local/bin:/home/hedhyw/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/home/hedhyw/Android/Sdk/platform-tools/:/opt/android-studio/bin/:/usr/local/go/bin:/home/hedhyw/go/bin:/home/hedhyw/.local/bin/kubectl:/opt/android-studio/jre/bin:/home/hedhyw/bin
+PATH = /home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/usr/bin:/home/hedhyw/.local/bin:/home/hedhyw/bin:/home/hedhyw/.nvm/versions/node/v14.17.1/bin:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/usr/bin:/home/hedhyw/.local/bin:/home/hedhyw/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/home/hedhyw/Android/Sdk/platform-tools/:/opt/android-studio/bin/:/usr/local/go/bin:/home/hedhyw/go/bin:/home/hedhyw/.local/bin/kubectl:/opt/android-studio/jre/bin:/home/hedhyw/bin:/home/hedhyw/Android/Sdk/platform-tools/:/opt/android-studio/bin/:/usr/local/go/bin:/home/hedhyw/go/bin:/home/hedhyw/.local/bin/kubectl:/opt/android-studio/jre/bin:/home/hedhyw/bin
 # default
 MAKEFILES := 
-# environment
-VSCODE_GIT_IPC_HANDLE = /run/user/1000/vscode-git-b094958fb7.sock
-# environment
-VSCODE_GIT_ASKPASS_NODE = /usr/share/code/code
 # environment
 LC_MONETARY = C
 # automatic
@@ -274,13 +169,9 @@ LC_MONETARY = C
 # environment
 LC_TIME = C
 # environment
-VSCODE_GIT_ASKPASS_MAIN = /usr/share/code/resources/app/extensions/git/dist/askpass-main.js
-# environment
 KUBE_EDITOR = nano
 # environment
 VSCODE_LOG_NATIVE = false
-# environment
-TERM_PROGRAM = vscode
 # environment
 DOCKER_HOST = unix:///run/user/1000/docker.sock
 # environment
@@ -292,7 +183,7 @@ LESSCLOSE = /usr/bin/lesspipe %s %s
 # environment
 KDE_APPLICATIONS_AS_SCOPE = 1
 # makefile (from 'Makefile', line 11)
-NAME := 
+NAME := envconsul
 # environment
 XDG_SEAT = seat0
 # environment
@@ -300,7 +191,7 @@ GTK_IM_MODULE = ibus
 # environment
 XDG_CURRENT_DESKTOP = KDE
 # environment
-LS_COLORS = rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:
+LS_COLORS = 
 # automatic
 +F = $(notdir $+)
 # environment
@@ -324,7 +215,7 @@ XDG_VTNR = 1
 # makefile
 .DEFAULT_GOAL := version
 # environment
-SYSTEMD_EXEC_PID = 1516
+SYSTEMD_EXEC_PID = 1594
 # environment
 DISPLAY = :0
 # environment
@@ -339,8 +230,6 @@ MAKE_VERSION := 4.3
 .SHELLSTATUS := 0
 # makefile (from 'Makefile', line 6)
 GOTAGS = 
-# environment
-KONSOLE_DBUS_SESSION = /Sessions/1
 # makefile (from 'Makefile', line 12)
 GIT_COMMIT = $(shell git rev-parse --short HEAD)
 # environment
@@ -348,21 +237,19 @@ HOMEBREW_CELLAR = /home/linuxbrew/.linuxbrew/Cellar
 # environment
 LC_MEASUREMENT = C
 # environment
-SSH_AGENT_PID = 1684
+SSH_AGENT_PID = 1767
 # makefile (from 'Makefile', line 18)
 GOARCH = $(shell go env GOARCH)
 # makefile (from 'Makefile', line 14)
 PRERELEASE := 
 # environment
-_ = /usr/bin/code
+_ = /usr/share/code/code
 # environment
 LC_PAPER = ru_RU.UTF-8
 # environment
 XDG_RUNTIME_DIR = /run/user/1000
 # environment
 GPG_AGENT_INFO = /run/user/1000/gnupg/S.gpg-agent:0:1
-# environment
-COLORTERM = truecolor
 # environment
 NVM_CD_FLAGS = 
 # environment
@@ -371,7 +258,6 @@ GOMODCACHE = /home/hedhyw/go/pkg/mod
 XDG_SESSION_CLASS = user
 # environment
 VSCODE_AMD_ENTRYPOINT = vs/workbench/api/node/extensionHostProcess
- 
 # environment
 GTK2_RC_FILES = /etc/gtk-2.0/gtkrc:/home/hedhyw/.gtkrc-2.0:/home/hedhyw/.config/gtkrc-2.0
 # environment
@@ -382,8 +268,6 @@ QT_IM_MODULE = ibus
 ELECTRON_RUN_AS_NODE = 1
 # environment
 VSCODE_IPC_HOOK = /run/user/1000/vscode-6a7f5abe-1.68.0-main.sock
-# environment
-TERM = xterm-256color
 # environment
 XDG_SESSION_ID = 3
 # environment
@@ -396,16 +280,11 @@ GOPROXY = https://proxy.golang.org,direct
 .RECIPEPREFIX := 
 # automatic
 <F = $(notdir $<)
+ 
 # default
 SUFFIXES := 
 # environment
 QT_AUTO_SCREEN_SCALE_FACTOR = 0
-# environment
-VSCODE_CLI = 1
-# environment
-ELECTRON_NO_ATTACH_CONSOLE = 1
-# environment
-SHELL_SESSION_ID = 373306fba08a4212ae0194f706a8e58a
 # environment
 KDE_SESSION_VERSION = 5
 # default
@@ -414,14 +293,12 @@ KDE_SESSION_VERSION = 5
 OWNER := "hashicorp"
 # environment
 KDE_FULL_SESSION = true
-# environment
-TERM_PROGRAM_VERSION = 1.68.0
 # makefile (from 'Makefile', line 21)
 LD_FLAGS = -s -w -X ${PROJECT}/version.Name=${NAME} -X ${PROJECT}/version.GitCommit=${GIT_COMMIT}
 # environment
 LC_IDENTIFICATION = ru_RU.UTF-8
 # variable set hash-table stats:
-# Load=162/1024=16%, Rehash=0, Collisions=16/213=8%
+# Load=142/1024=14%, Rehash=0, Collisions=12/193=6%
 
 # Pattern-specific Variable Values
 
@@ -461,7 +338,7 @@ docker:
 # Not a target:
 Makefile:
 #  Implicit rule search has been done.
-#  Last modified 2022-06-20 11:12:13.891301648
+#  Last modified 2022-06-29 05:38:31.102106364
 #  File has been updated.
 #  Successfully updated.
 
@@ -545,6 +422,6 @@ test:
 # strcache performance: lookups = 74 / hit rate = 43%
 # hash-table stats:
 # Load=42/8192=1%, Rehash=0, Collisions=0/74=0%
-# Finished Make data base on Mon Jun 20 11:20:58 2022
+# Finished Make data base on Wed Jun 29 05:39:25 2022
 
  
