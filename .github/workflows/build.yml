@@ -22,13 +22,15 @@ jobs:
       go-version: ${{ steps.get-go-version.outputs.go-version }}
     steps:
       - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-vesrion-file: 'go.mod'
       - name: Determine Go version
         id: get-go-version
-        # We use .go-version as our source of truth for current Go
-        # version, because "goenv" can react to it automatically.
+        # looking for just the number, eg. 1.18.3
         run: |
-          echo "Building with Go $(cat .go-version)"
-          echo "::set-output name=go-version::$(cat .go-version)"
+          echo "Building with Go $(go env GOVERSION | tr -d 'go')"
+          echo "::set-output name=go-version::$(go env GOVERSION | tr -d 'go')"
 
   get-product-version:
     runs-on: ubuntu-latest
