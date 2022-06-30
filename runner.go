@@ -219,7 +219,7 @@ func (r *Runner) Stop() {
 func (r *Runner) Receive(d dep.Dependency, data interface{}) {
 	r.dependenciesLock.Lock()
 	defer r.dependenciesLock.Unlock()
-	namedLogger("runner").Debug("receiving dependency %s", d)
+	namedLogger("runner").Debug("receiving dependency", d.String())
 	r.data[d.String()] = data
 }
 
@@ -823,7 +823,7 @@ func (r *Runner) storePid() error {
 		return nil
 	}
 
-	namedLogger("runner").Info("creating pid file at %q", path)
+	namedLogger("runner").Info("creating pid file at", path)
 
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o666)
 	if err != nil {
@@ -846,7 +846,7 @@ func (r *Runner) deletePid() error {
 		return nil
 	}
 
-	namedLogger("runner").Debug("removing pid file at %q", path)
+	namedLogger("runner").Debug("removing pid file at", path)
 
 	stat, err := os.Stat(path)
 	if err != nil {

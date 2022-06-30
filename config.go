@@ -276,9 +276,9 @@ func Parse(s string) (*Config, error) {
 		delete(parsed, "path")
 	}
 	if splay, ok := parsed["splay"]; ok {
-		logger.Warn("splay is now a child stanza for exec instead of a "+
-			"top-level key. Update your configuration files and change "+
-			"splay = \"%s\" to exec { splay = \"%s\" } instead.", splay, splay)
+		logger.Warn(fmt.Sprintf("splay is now a child stanza for exec instead "+
+			"of a top-level key. Update your configuration files and change "+
+			"splay = \"%s\" to exec { splay = \"%s\" } instead.", splay, splay))
 		exec, ok := parsed["exec"].(map[string]interface{})
 		if !ok {
 			exec = map[string]interface{}{}
@@ -341,10 +341,10 @@ func Parse(s string) (*Config, error) {
 		delete(parsed, "ssl")
 	}
 	if timeout, ok := parsed["timeout"]; ok {
-		logger.Warn("timeout is now a child stanza for exec instead of a "+
-			"top-level key. Update your configuration files and change "+
+		logger.Warn(fmt.Sprintf("timeout is now a child stanza for exec instead"+
+			"of a top-level key. Update your configuration files and change "+
 			"timeout = \"%s\" to exec { kill_timeout = \"%s\" } instead.",
-			timeout, timeout)
+			timeout, timeout))
 		exec, ok := parsed["exec"].(map[string]interface{})
 		if !ok {
 			exec = map[string]interface{}{}
