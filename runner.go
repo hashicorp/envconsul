@@ -721,7 +721,7 @@ func (r *Runner) init() error {
 		return err
 	}
 	logger := namedLogger("runner")
-	logger.Debug("final config:", result)
+	logger.Debug("final config:", string(result))
 
 	// Create the clientset
 	clients, err := newClientSet(r.config)
