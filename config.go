@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -225,6 +224,7 @@ func (c *Config) Merge(o *Config) *Config {
 
 // Parse parses the given string contents as a config
 func Parse(s string) (*Config, error) {
+	logger := namedLogger("parse")
 	var shadow interface{}
 	if err := hcl.Decode(&shadow, s); err != nil {
 		return nil, errors.Wrap(err, "error decoding config")
@@ -259,9 +259,9 @@ func Parse(s string) (*Config, error) {
 		"ssl",
 	})
 	if auth, ok := parsed["auth"]; ok {
-		log.Printf("[WARN] auth is now a child stanza inside consul instead of a " +
-			"top-level stanza. Update your configuration files and change auth {} " +
-			"to consul { auth { ... } } instead.")
+		logger.Warn("auth is now a child stanza inside consul instead of a " +
+			"top-level stanza. Update your configuration files and change " +
+			"auth {} to consul { auth { ... } } instead.")
 		consul, ok := parsed["consul"].(map[string]interface{})
 		if !ok {
 			consul = map[string]interface{}{}
@@ -271,14 +271,14 @@ func Parse(s string) (*Config, error) {
 		delete(parsed, "auth")
 	}
 	if _, ok := parsed["path"]; ok {
-		log.Printf("[WARN] path is no longer a key in the configuration. Please " +
+		logger.Warn("path is no longer a key in the configuration. Please " +
 			"remove it and use the CLI option instead.")
 		delete(parsed, "path")
 	}
 	if splay, ok := parsed["splay"]; ok {
-		log.Printf("[WARN] splay is now a child stanza for exec instead of a "+
-			"top-level key. Update your configuration files and change "+
-			"splay = \"%s\" to exec { splay = \"%s\" } instead.", splay, splay)
+		logger.Warn(fmt.Sprintf("splay is now a child stanza for exec instead "+
+			"of a top-level key. Update your configuration files and change "+
+			"splay = \"%s\" to exec { splay = \"%s\" } instead.", splay, splay))
 		exec, ok := parsed["exec"].(map[string]interface{})
 		if !ok {
 			exec = map[string]interface{}{}
@@ -288,10 +288,10 @@ func Parse(s string) (*Config, error) {
 		delete(parsed, "splay")
 	}
 	if retry, ok := parsed["retry"]; ok {
-		log.Printf("[WARN] retry is now a child stanza for both consul and vault " +
-			"instead of a top-level stanza. Update your configuration files and " +
-			"change retry {} to consul { retry { ... } } and vault { retry { ... } } " +
-			"instead.")
+		logger.Warn("retry is now a child stanza for both consul and vault " +
+			"instead of a top-level stanza. Update your configuration files " +
+			"and change retry {} to consul { retry { ... } } and " +
+			"vault { retry { ... } } instead.")
 
 		consul, ok := parsed["consul"].(map[string]interface{})
 		if !ok {
@@ -317,10 +317,10 @@ func Parse(s string) (*Config, error) {
 		delete(parsed, "retry")
 	}
 	if ssl, ok := parsed["ssl"]; ok {
-		log.Printf("[WARN] ssl is now a child stanza for both consul and vault " +
-			"instead of a top-level stanza. Update your configuration files and " +
-			"change ssl {} to consul { ssl { ... } } and vault { ssl { ... } } " +
-			"instead.")
+		logger.Warn("ssl is now a child stanza for both consul and vault " +
+			"instead of a top-level stanza. Update your configuration files " +
+			"and change ssl {} to consul { ssl { ... } } and " +
+			"vault { ssl { ... } } instead.")
 
 		consul, ok := parsed["consul"].(map[string]interface{})
 		if !ok {
@@ -341,10 +341,10 @@ func Parse(s string) (*Config, error) {
 		delete(parsed, "ssl")
 	}
 	if timeout, ok := parsed["timeout"]; ok {
-		log.Printf("[WARN] timeout is now a child stanza for exec instead of a "+
-			"top-level key. Update your configuration files and change "+
+		logger.Warn(fmt.Sprintf("timeout is now a child stanza for exec instead"+
+			"of a top-level key. Update your configuration files and change "+
 			"timeout = \"%s\" to exec { kill_timeout = \"%s\" } instead.",
-			timeout, timeout)
+			timeout, timeout))
 		exec, ok := parsed["exec"].(map[string]interface{})
 		if !ok {
 			exec = map[string]interface{}{}
@@ -354,9 +354,9 @@ func Parse(s string) (*Config, error) {
 		delete(parsed, "timeout")
 	}
 	if token, ok := parsed["token"]; ok {
-		log.Printf("[WARN] token is now a child stanza inside consul instead of a " +
-			"top-level key. Update your configuration files and change token = \"...\" " +
-			"to consul { token = \"...\" } instead.")
+		logger.Warn("token is now a child stanza inside consul instead of a " +
+			"top-level key. Update your configuration files and change " +
+			"token = \"...\" to consul { token = \"...\" } instead.")
 		consul, ok := parsed["consul"].(map[string]interface{})
 		if !ok {
 			consul = map[string]interface{}{}
@@ -385,11 +385,11 @@ func Parse(s string) (*Config, error) {
 		Result:      &c,
 	})
 	if err != nil {
-		log.Printf("%#v", parsed)
+		logger.Debug(fmt.Sprintf("%#v", parsed))
 		return nil, errors.Wrap(err, "mapstructure decoder creation failed")
 	}
 	if err := decoder.Decode(parsed); err != nil {
-		log.Printf("%#v", parsed)
+		logger.Debug(fmt.Sprintf("%#v", parsed))
 		return nil, errors.Wrap(err, "mapstructure decode failed")
 	}
 
@@ -401,7 +401,7 @@ func Parse(s string) (*Config, error) {
 func Must(s string) *Config {
 	c, err := Parse(s)
 	if err != nil {
-		log.Fatal(err)
+		namedLogger("parse").Error(err.Error())
 	}
 	return c
 }
