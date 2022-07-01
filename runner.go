@@ -318,7 +318,10 @@ func (r *Runner) Run() (<-chan int, error) {
 		cmdEnv = append(cmdEnv, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	args := r.config.Exec.Command
+	args, err := child.CommandPrep(r.config.Exec.Command)
+	if err != nil {
+		return nil, errors.Wrap(err, "parsing command")
+	}
 	child, err := child.New(&child.NewInput{
 		Stdin:        r.inStream,
 		Stdout:       r.outStream,
