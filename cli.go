@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/signal"
 	"strings"
@@ -790,6 +791,12 @@ func (cli *CLI) setupLogger(conf *Config) error {
 	})
 
 	hclog.SetDefault(logger)
+	// XXX consul-template still uses 'log' package
+	// XXX this gets 'log' playing mostly nice with hclog
+	// XXX remove after consul-template uses hclog??
+	log.SetFlags(0)                      // only log the message
+	log.SetOutput(logger.StandardWriter( // send message to hclog
+		&hclog.StandardLoggerOptions{InferLevels: true}))
 	return nil
 }
 
