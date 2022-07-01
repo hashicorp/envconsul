@@ -764,11 +764,15 @@ func logError(err error, status int) int {
 
 func (cli *CLI) setupLogger(conf *Config) error {
 	// Validate the log level
+	logLevel := strings.ToUpper(valueFrom(conf.LogLevel))
 	levels := map[string]bool{
-		"TRACE": true, "DEBUG": true, "INFO": true, "WARN": true, "ERR": true,
+		"TRACE": true, "DEBUG": true, "INFO": true, "WARN": true, "ERROR": true,
 	}
-	if !levels[valueFrom(conf.LogLevel)] {
-		return fmt.Errorf("invalid log level: %s", valueFrom(conf.LogLevel))
+	switch {
+	case logLevel == "ERR": // old ERROR notation
+		logLevel = "ERROR"
+	case !levels[logLevel]:
+		return fmt.Errorf("invalid log level: %s", logLevel)
 	}
 
 	var logOutput io.Writer
@@ -785,7 +789,7 @@ func (cli *CLI) setupLogger(conf *Config) error {
 
 	logger := hclog.New(&hclog.LoggerOptions{
 		Name:       "envconsul",
-		Level:      hclog.LevelFromString(valueFrom(conf.LogLevel)),
+		Level:      hclog.LevelFromString(logLevel),
 		Output:     logOutput,
 		TimeFormat: hclog.TimeFormat,
 	})
@@ -900,7 +904,8 @@ Options:
       Signal to listen to gracefully terminate the process
 
   -log-level=<level>
-      Set the logging level - values are "debug", "info", "warn", and "err"
+      Set the logging level - values are "trace", "debug", "info", "warn", 
+      and "error"
 
   -max-stale=<duration>
       Set the maximum staleness and allow stale queries to Consul which will
