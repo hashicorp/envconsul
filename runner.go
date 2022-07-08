@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -90,7 +89,7 @@ type Runner struct {
 
 // NewRunner accepts a config, command, and boolean value for once mode.
 func NewRunner(config *Config, once bool) (*Runner, error) {
-	log.Printf("[INFO] (runner) creating new runner (once: %v)", once)
+	namedLogger("runner").Info("creating new runner", "once:", once)
 
 	runner := &Runner{
 		config: config,
@@ -107,7 +106,8 @@ func NewRunner(config *Config, once bool) (*Runner, error) {
 // Start creates a new runner and begins watching dependencies and quiescence
 // timers. This is the main event loop and will block until finished.
 func (r *Runner) Start() {
-	log.Printf("[INFO] (runner) starting")
+	logger := namedLogger("runner")
+	logger.Info("starting")
 
 	// Create the pid before doing anything.
 	if err := r.storePid(); err != nil {
@@ -140,7 +140,7 @@ func (r *Runner) Start() {
 
 			// If we are waiting for quiescence, setup the timers
 			if config.BoolVal(r.config.Wait.Enabled) {
-				log.Printf("[INFO] (runner) quiescence timers starting")
+				logger.Info("quiescence timers starting")
 				r.minTimer = time.After(config.TimeDurationVal(r.config.Wait.Min))
 				if r.maxTimer == nil {
 					r.maxTimer = time.After(config.TimeDurationVal(r.config.Wait.Max))
@@ -148,10 +148,10 @@ func (r *Runner) Start() {
 				continue
 			}
 		case <-r.minTimer:
-			log.Printf("[INFO] (runner) quiescence minTimer fired")
+			logger.Info("quiescence minTimer fired")
 			r.minTimer, r.maxTimer = nil, nil
 		case <-r.maxTimer:
-			log.Printf("[INFO] (runner) quiescence maxTimer fired")
+			logger.Info("quiescence maxTimer fired")
 			r.minTimer, r.maxTimer = nil, nil
 		case err := <-r.watcher.ErrCh():
 			// Intentionally do not send the error back up to the runner. Eventually,
@@ -161,7 +161,7 @@ func (r *Runner) Start() {
 			// if err.Contains(Something) {
 			//   errCh <- err
 			// }
-			log.Printf("[ERR] (runner) watcher reported error: %s", err)
+			logger.Error("watcher reported error:", err)
 			if r.once {
 				r.ErrCh <- err
 				return
@@ -169,7 +169,7 @@ func (r *Runner) Start() {
 		case code := <-exitCh:
 			r.ExitCh <- code
 		case <-r.DoneCh:
-			log.Printf("[INFO] (runner) received finish")
+			logger.Info("received finish")
 			return
 		}
 
@@ -200,13 +200,14 @@ func (r *Runner) Stop() {
 		return
 	}
 
-	log.Printf("[INFO] (runner) stopping")
+	logger := namedLogger("runner")
+	logger.Info("stopping")
 	r.stopWatcher()
 	r.stopChild()
 
 	if err := r.deletePid(); err != nil {
-		log.Printf("[WARN] (runner) could not remove pid at %#v: %s",
-			r.config.PidFile, err)
+		logger.Warn(fmt.Sprintf("could not remove pid at %#v: %s",
+			r.config.PidFile, err))
 	}
 
 	r.stopped = true
@@ -218,7 +219,7 @@ func (r *Runner) Stop() {
 func (r *Runner) Receive(d dep.Dependency, data interface{}) {
 	r.dependenciesLock.Lock()
 	defer r.dependenciesLock.Unlock()
-	log.Printf("[DEBUG] (runner) receiving dependency %s", d)
+	namedLogger("runner").Debug("receiving dependency", d.String())
 	r.data[d.String()] = data
 }
 
@@ -236,7 +237,8 @@ func (r *Runner) Signal(s os.Signal) error {
 // Run executes and manages the child process with the correct environment. The
 // current environment is also copied into the child process environment.
 func (r *Runner) Run() (<-chan int, error) {
-	log.Printf("[INFO] (runner) running")
+	logger := namedLogger("runner")
+	logger.Info("running")
 
 	env := make(map[string]string)
 
@@ -251,7 +253,7 @@ func (r *Runner) Run() (<-chan int, error) {
 	for _, d := range r.dependencies {
 		data, ok := r.data[d.String()]
 		if !ok {
-			log.Printf("[INFO] (runner) missing data for %s", d)
+			logger.Info("missing data for", d)
 			return nil, nil
 		}
 
@@ -268,16 +270,16 @@ func (r *Runner) Run() (<-chan int, error) {
 	}
 
 	// Print the final environment
-	log.Printf("[TRACE] Environment:")
+	logger.Trace("Environment:")
 	for k, v := range env {
-		log.Printf("[TRACE]   %s=%q", k, v)
+		logger.Trace(fmt.Sprintf("%s=%q", k, v))
 	}
 
 	// If the resulting map is the same, do not do anything. We use a length
 	// check first to get a small performance increase if something has changed
 	// so we don't immediately delegate to reflect which is slow.
 	if len(r.env) == len(env) && reflect.DeepEqual(r.env, env) {
-		log.Printf("[INFO] (runner) environment was the same")
+		logger.Info("environment was the same")
 		return nil, nil
 	}
 
@@ -285,7 +287,7 @@ func (r *Runner) Run() (<-chan int, error) {
 	r.env = env
 
 	if r.child != nil {
-		log.Printf("[INFO] (runner) stopping existing child process")
+		logger.Info("stopping existing child process")
 		r.stopChild()
 	}
 
@@ -316,7 +318,10 @@ func (r *Runner) Run() (<-chan int, error) {
 		cmdEnv = append(cmdEnv, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	args := r.config.Exec.Command
+	args, err := child.CommandPrep(r.config.Exec.Command)
+	if err != nil {
+		return nil, errors.Wrap(err, "parsing command")
+	}
 	child, err := child.New(&child.NewInput{
 		Stdin:        r.inStream,
 		Stdout:       r.outStream,
@@ -491,7 +496,8 @@ func (r *Runner) appendServices(env map[string]string, d *dep.CatalogServiceQuer
 }
 
 func (r *Runner) appendPrefixes(
-	env map[string]string, d *dep.KVListQuery, data interface{}) error {
+	env map[string]string, d *dep.KVListQuery, data interface{},
+) error {
 	var err error
 
 	typed, ok := data.([]*dep.KeyPair)
@@ -543,11 +549,12 @@ func (r *Runner) appendPrefixes(
 			key = strings.ToUpper(key)
 		}
 
+		logger := namedLogger("runner")
 		if current, ok := env[key]; ok {
-			log.Printf("[DEBUG] (runner) overwriting %s=%q (was %q) from %s", key, value, current, d)
+			logger.Debug(fmt.Sprintf("overwriting %s=%q (was %q) from %s", key, value, current, d))
 			env[key] = value
 		} else {
-			log.Printf("[DEBUG] (runner) setting %s=%q from %s", key, value, d)
+			logger.Debug(fmt.Sprintf("setting %s=%q from %s", key, value, d))
 			env[key] = value
 		}
 	}
@@ -567,8 +574,10 @@ func isVaultKv2(data map[string]interface{}) bool {
 }
 
 func (r *Runner) appendSecrets(
-	env map[string]string, d *dep.VaultReadQuery, data interface{}) error {
+	env map[string]string, d *dep.VaultReadQuery, data interface{},
+) error {
 	var err error
+	logger := namedLogger("runner")
 
 	typed, ok := data.(*dep.Secret)
 	if !ok {
@@ -601,10 +610,10 @@ func (r *Runner) appendSecrets(
 		//			...
 		// 		}
 		// }
-		log.Printf("[DEBUG] Found KV2 secret")
+		logger.Debug("Found KV2 secret")
 
 		if valueMap["data"] == nil {
-			log.Printf("[DEBUG] KV2 secret is nil or was deleted")
+			logger.Debug("KV2 secret is nil or was deleted")
 			valueMap = nil
 		} else {
 			valueMap = valueMap["data"].(map[string]interface{})
@@ -641,7 +650,7 @@ func (r *Runner) appendSecrets(
 		if applyPerKeyFormat {
 			keyFormat, ok := keyFormats[originalKey]
 			if !ok {
-				log.Printf("[DEBUG] (runner) skipping key '%s' since it is not listed in configuration", originalKey)
+				logger.Debug(fmt.Sprintf("skipping key '%s' since it is not listed in configuration", originalKey))
 				continue
 			}
 			appliedFormats := []string{}
@@ -698,14 +707,14 @@ func (r *Runner) appendSecrets(
 
 			val, ok := value.(string)
 			if !ok {
-				log.Printf("[WARN] (runner) skipping key '%s', invalid type for value. got %v, not string", key, reflect.TypeOf(value))
+				logger.Warn(fmt.Sprintf("skipping key '%s', invalid type for value. got %v, not string", key, reflect.TypeOf(value)))
 				continue
 			}
 
 			if _, ok := env[key]; ok {
-				log.Printf("[DEBUG] (runner) overwriting %s from %s", key, d)
+				logger.Debug(fmt.Sprintf("overwriting %s from %s", key, d))
 			} else {
-				log.Printf("[DEBUG] (runner) setting %s from %s", key, d)
+				logger.Debug(fmt.Sprintf("setting %s from %s", key, d)
 			}
 
 			env[key] = val
@@ -727,7 +736,8 @@ func (r *Runner) init() error {
 	if err != nil {
 		return err
 	}
-	log.Printf("[DEBUG] (runner) final config: %s", result)
+	logger := namedLogger("runner")
+	logger.Debug("final config:", string(result))
 
 	// Create the clientset
 	clients, err := newClientSet(r.config)
@@ -793,7 +803,7 @@ func (r *Runner) init() error {
 			return err
 		}
 
-		log.Printf("[INFO] looking at vault %s", path)
+		logger.Info("looking at vault", "path", path)
 		d, err := dep.NewVaultReadQuery(path)
 		if err != nil {
 			return err
@@ -807,7 +817,7 @@ func (r *Runner) init() error {
 
 func (r *Runner) stopWatcher() {
 	if r.watcher != nil {
-		log.Printf("[DEBUG] (runner) stopping watcher")
+		namedLogger("runner").Debug("stopping watcher")
 		r.watcher.Stop()
 	}
 }
@@ -817,7 +827,7 @@ func (r *Runner) stopChild() {
 	defer r.childLock.RUnlock()
 
 	if r.child != nil {
-		log.Printf("[DEBUG] (runner) stopping child process")
+		namedLogger("runner").Debug("stopping child process")
 		r.child.Stop()
 	}
 }
@@ -829,9 +839,9 @@ func (r *Runner) storePid() error {
 		return nil
 	}
 
-	log.Printf("[INFO] creating pid file at %q", path)
+	namedLogger("runner").Info("creating pid file at", path)
 
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o666)
 	if err != nil {
 		return fmt.Errorf("runner: could not open pid file: %s", err)
 	}
@@ -852,7 +862,7 @@ func (r *Runner) deletePid() error {
 		return nil
 	}
 
-	log.Printf("[DEBUG] removing pid file at %q", path)
+	namedLogger("runner").Debug("removing pid file at", path)
 
 	stat, err := os.Stat(path)
 	if err != nil {
@@ -916,6 +926,10 @@ func newClientSet(c *Config) (*dep.ClientSet, error) {
 		TransportMaxIdleConns:        config.IntVal(c.Vault.Transport.MaxIdleConns),
 		TransportMaxIdleConnsPerHost: config.IntVal(c.Vault.Transport.MaxIdleConnsPerHost),
 		TransportTLSHandshakeTimeout: config.TimeDurationVal(c.Vault.Transport.TLSHandshakeTimeout),
+		K8SAuthRoleName:              config.StringVal(c.Vault.K8SAuthRoleName),
+		K8SServiceAccountTokenPath:   config.StringVal(c.Vault.K8SServiceAccountTokenPath),
+		K8SServiceAccountToken:       config.StringVal(c.Vault.K8SServiceAccountToken),
+		K8SServiceMountPath:          config.StringVal(c.Vault.K8SServiceMountPath),
 	}); err != nil {
 		return nil, fmt.Errorf("runner: %s", err)
 	}
@@ -925,7 +939,7 @@ func newClientSet(c *Config) (*dep.ClientSet, error) {
 
 // newWatcher creates a new watcher.
 func newWatcher(c *Config, clients *dep.ClientSet, once bool) (*watch.Watcher, error) {
-	log.Printf("[INFO] (runner) creating watcher")
+	namedLogger("runner").Info("creating watcher")
 
 	w, err := watch.NewWatcher(&watch.NewWatcherInput{
 		Clients:             clients,

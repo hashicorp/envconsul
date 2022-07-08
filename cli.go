@@ -13,10 +13,11 @@ import (
 	"time"
 
 	"github.com/hashicorp/consul-template/config"
-	"github.com/hashicorp/consul-template/logging"
 	"github.com/hashicorp/consul-template/manager"
 	"github.com/hashicorp/consul-template/signals"
 	"github.com/hashicorp/envconsul/version"
+	"github.com/hashicorp/go-hclog"
+	gsyslog "github.com/hashicorp/go-syslog"
 )
 
 // Exit codes are int values that represent an exit code for a particular error.
@@ -33,7 +34,14 @@ const (
 )
 
 // ErrMissingCommand is returned when no command is specified.
-var ErrMissingCommand = fmt.Errorf("No command given")
+var (
+	ErrMissingCommand = fmt.Errorf("No command given")
+)
+
+// get a new named logger, should log as 'envconsul.[name]'
+func namedLogger(name string) hclog.Logger {
+	return hclog.Default().Named(name)
+}
 
 // CLI is the main entry point for envconsul.
 type CLI struct {
@@ -87,19 +95,17 @@ func (cli *CLI) Run(args []string) int {
 	cfg.Finalize()
 
 	// Setup the config and logging
-	cfg, err = cli.setup(cfg)
+	err = cli.setupLogger(cfg)
 	if err != nil {
 		return logError(err, ExitCodeConfigError)
 	}
-
-	// Print version information for debugging
-	log.Printf("[INFO] %s", version.HumanVersion)
+	logger := namedLogger("cli")
 
 	// If the version was requested, return an "error" containing the version
 	// information. This might sound weird, but most *nix applications actually
 	// print their version on stderr anyway.
 	if isVersion {
-		log.Printf("[DEBUG] (cli) version flag was given, exiting now")
+		logger.Debug("version flag was given, exiting now")
 		fmt.Fprintf(cli.outStream, "%s\n", version.HumanVersion)
 		return ExitCodeOK
 	}
@@ -108,6 +114,9 @@ func (cli *CLI) Run(args []string) int {
 	if cfg.Exec.Command.Empty() {
 		return logError(ErrMissingCommand, ExitCodeConfigError)
 	}
+
+	// Print version information for debugging
+	logger.Info(version.HumanVersion)
 
 	// Initial runner
 	runner, err := NewRunner(cfg, once)
@@ -132,7 +141,7 @@ func (cli *CLI) Run(args []string) int {
 		case <-runner.DoneCh:
 			return ExitCodeOK
 		case code := <-runner.ExitCh:
-			log.Printf("[INFO] (cli) subprocess exited")
+			logger.Info("subprocess exited")
 			runner.Stop()
 
 			if code == ExitCodeOK {
@@ -145,7 +154,7 @@ func (cli *CLI) Run(args []string) int {
 			switch s {
 			case RuntimeSig:
 			default: // filter out RuntimeSig, as it is used by the scheduler and noisy
-				log.Printf("[DEBUG] (cli) receiving signal %q", s)
+				logger.Debug("receiving signal", s)
 			}
 
 			switch s {
@@ -161,7 +170,7 @@ func (cli *CLI) Run(args []string) int {
 				cfg.Finalize()
 
 				// Load the new configuration from disk
-				cfg, err = cli.setup(cfg)
+				err = cli.setupLogger(cfg)
 				if err != nil {
 					return logError(err, ExitCodeConfigError)
 				}
@@ -212,6 +221,7 @@ func (cli *CLI) stop() {
 // small, but it also makes writing tests for parsing command line arguments
 // much easier and cleaner.
 func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error) {
+	logger := namedLogger("cli")
 	var once, isVersion bool
 	var no_prefix *bool
 	c := DefaultConfig()
@@ -601,6 +611,26 @@ func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error)
 	}), "vault-unwrap-token", "")
 
 	flags.Var((funcVar)(func(s string) error {
+		c.Vault.K8SAuthRoleName = config.String(s)
+		return nil
+	}), "vault-k8s-auth-role-name", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		c.Vault.K8SServiceAccountToken = config.String(s)
+		return nil
+	}), "vault-k8s-service-account-token", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		c.Vault.K8SServiceAccountTokenPath = config.String(s)
+		return nil
+	}), "vault-k8s-service-account-token-path", "")
+
+	flags.Var((funcVar)(func(s string) error {
+		c.Vault.K8SServiceMountPath = config.String(s)
+		return nil
+	}), "vault-k8s-service-mount-path", "")
+
+	flags.Var((funcVar)(func(s string) error {
 		w, err := config.ParseWaitConfig(s)
 		if err != nil {
 			return err
@@ -615,7 +645,7 @@ func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error)
 	// Deprecations
 	// TODO remove in 0.8.0
 	flags.Var((funcVar)(func(s string) error {
-		log.Printf("[WARN] -auth is now -consul-auth")
+		logger.Warn("-auth is now -consul-auth")
 		a, err := config.ParseAuthConfig(s)
 		if err != nil {
 			return err
@@ -624,12 +654,12 @@ func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error)
 		return nil
 	}), "auth", "")
 	flags.Var((funcVar)(func(s string) error {
-		log.Printf("[WARN] -consul is now -consul-addr")
+		logger.Warn("-consul is now -consul-addr")
 		c.Consul.Address = config.String(s)
 		return nil
 	}), "consul", "")
 	flags.Var((funcDurationVar)(func(d time.Duration) error {
-		log.Printf("[WARN] -retry is now -consul-retry-* and -vault-retry-*")
+		logger.Warn("-retry is now -consul-retry-* and -vault-retry-*")
 		c.Consul.Retry.Backoff = config.TimeDuration(d)
 		c.Consul.Retry.MaxBackoff = config.TimeDuration(d)
 		c.Vault.Retry.Backoff = config.TimeDuration(d)
@@ -637,41 +667,41 @@ func (cli *CLI) ParseFlags(args []string) (*Config, []string, bool, bool, error)
 		return nil
 	}), "retry", "")
 	flags.Var((funcDurationVar)(func(d time.Duration) error {
-		log.Printf("[WARN] -splay is now -exec-splay")
+		logger.Warn("-splay is now -exec-splay")
 		c.Exec.Splay = config.TimeDuration(d)
 		return nil
 	}), "splay", "")
 	flags.Var((funcBoolVar)(func(b bool) error {
-		log.Printf("[WARN] -ssl is now -consul-ssl-* and -vault-ssl-*")
+		logger.Warn("-ssl is now -consul-ssl-* and -vault-ssl-*")
 		c.Consul.SSL.Enabled = config.Bool(b)
 		c.Vault.SSL.Enabled = config.Bool(b)
 		return nil
 	}), "ssl", "")
 	flags.Var((funcBoolVar)(func(b bool) error {
-		log.Printf("[WARN] -ssl-verify is now -consul-ssl-verify and -vault-ssl-verify")
+		logger.Warn("-ssl-verify is now -consul-ssl-verify and -vault-ssl-verify")
 		c.Consul.SSL.Verify = config.Bool(b)
 		c.Vault.SSL.Verify = config.Bool(b)
 		return nil
 	}), "ssl-verify", "")
 	flags.Var((funcVar)(func(s string) error {
-		log.Printf("[WARN] -ssl-ca-cert is now -consul-ssl-ca-cert and -vault-ssl-ca-cert")
+		logger.Warn("-ssl-ca-cert is now -consul-ssl-ca-cert and -vault-ssl-ca-cert")
 		c.Consul.SSL.CaCert = config.String(s)
 		c.Vault.SSL.CaCert = config.String(s)
 		return nil
 	}), "ssl-ca-cert", "")
 	flags.Var((funcVar)(func(s string) error {
-		log.Printf("[WARN] -ssl-cert is now -consul-ssl-cert and -vault-ssl-cert")
+		logger.Warn("-ssl-cert is now -consul-ssl-cert and -vault-ssl-cert")
 		c.Consul.SSL.Cert = config.String(s)
 		c.Vault.SSL.Cert = config.String(s)
 		return nil
 	}), "ssl-cert", "")
 	flags.Var((funcDurationVar)(func(d time.Duration) error {
-		log.Printf("[WARN] -timeout is now -exec-timeout")
+		logger.Warn("-timeout is now -exec-timeout")
 		c.Exec.Timeout = config.TimeDuration(d)
 		return nil
 	}), "timeout", "")
 	flags.Var((funcVar)(func(s string) error {
-		log.Printf("[WARN] -token is now -consul-token")
+		logger.Warn("-token is now -consul-token")
 		c.Consul.Token = config.String(s)
 		return nil
 	}), "token", "")
@@ -728,22 +758,58 @@ func loadConfigs(paths []string, o *Config) (*Config, error) {
 
 // logError logs an error message and then returns the given status.
 func logError(err error, status int) int {
-	log.Printf("[ERR] (cli) %s", err)
+	hclog.Default().Error(err.Error())
 	return status
 }
 
-func (cli *CLI) setup(conf *Config) (*Config, error) {
-	if err := logging.Setup(&logging.Config{
-		SyslogName:     version.Name,
-		Level:          config.StringVal(conf.LogLevel),
-		Syslog:         config.BoolVal(conf.Syslog.Enabled),
-		SyslogFacility: config.StringVal(conf.Syslog.Facility),
-		Writer:         cli.errStream,
-	}); err != nil {
-		return nil, err
+func (cli *CLI) setupLogger(conf *Config) error {
+	// Validate the log level
+	logLevel := strings.ToUpper(valueFrom(conf.LogLevel))
+	levels := map[string]bool{
+		"TRACE": true, "DEBUG": true, "INFO": true, "WARN": true, "ERROR": true,
+	}
+	switch {
+	case logLevel == "ERR": // old ERROR notation
+		logLevel = "ERROR"
+	case !levels[logLevel]:
+		return fmt.Errorf("invalid log level: %s", logLevel)
 	}
 
-	return conf, nil
+	var logOutput io.Writer
+	if valueFrom(conf.Syslog.Enabled) {
+		syslog, err := gsyslog.NewLogger(
+			gsyslog.LOG_NOTICE, valueFrom(conf.Syslog.Facility), version.Name)
+		if err != nil {
+			return fmt.Errorf("error setting up syslog logger: %s", err)
+		}
+		logOutput = io.MultiWriter(cli.errStream, syslog)
+	} else {
+		logOutput = cli.errStream
+	}
+
+	logger := hclog.New(&hclog.LoggerOptions{
+		Name:       "envconsul",
+		Level:      hclog.LevelFromString(logLevel),
+		Output:     logOutput,
+		TimeFormat: hclog.TimeFormat,
+	})
+
+	hclog.SetDefault(logger)
+	// XXX consul-template still uses 'log' package
+	// XXX this gets 'log' playing mostly nice with hclog
+	// XXX remove after consul-template uses hclog??
+	log.SetFlags(0)                      // only log the message
+	log.SetOutput(logger.StandardWriter( // send message to hclog
+		&hclog.StandardLoggerOptions{InferLevels: true}))
+	return nil
+}
+
+// use generics (woo!) simplify getting values from pointers
+func valueFrom[T any](p *T) T {
+	if p == nil {
+		return *new(T) // zero value of type T
+	}
+	return *p
 }
 
 const usage = `Usage: %s [options] <command>
@@ -838,7 +904,8 @@ Options:
       Signal to listen to gracefully terminate the process
 
   -log-level=<level>
-      Set the logging level - values are "debug", "info", "warn", and "err"
+      Set the logging level - values are "trace", "debug", "info", "warn", 
+      and "error"
 
   -max-stale=<duration>
       Set the maximum staleness and allow stale queries to Consul which will
@@ -976,6 +1043,18 @@ Options:
   -vault-unwrap-token
       Unwrap the provided Vault API token (see Vault documentation for more
       information on this feature)
+
+  -vault-k8s-auth-role-name
+      Enable k8s auth method and use this role name
+
+  -vault-k8s-service-account-token
+      Use this service token for the k8s auth method
+
+  -vault-k8s-service-account-token-path
+      Use the service token from the file for the k8s auth method
+
+  -vault-k8s-service-mount-path
+      Use this login mount path for the k8s auth method
 
   -wait=<duration>
       Sets the 'min(:max)' amount of time to wait before writing a template (and
