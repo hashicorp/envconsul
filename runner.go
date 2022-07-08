@@ -714,7 +714,7 @@ func (r *Runner) appendSecrets(
 			if _, ok := env[key]; ok {
 				logger.Debug(fmt.Sprintf("overwriting %s from %s", key, d))
 			} else {
-				logger.Debug(fmt.Sprintf("setting %s from %s", key, d)
+				logger.Debug(fmt.Sprintf("setting %s from %s", key, d))
 			}
 
 			env[key] = val
