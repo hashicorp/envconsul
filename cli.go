@@ -154,7 +154,7 @@ func (cli *CLI) Run(args []string) int {
 			switch s {
 			case RuntimeSig:
 			default: // filter out RuntimeSig, as it is used by the scheduler and noisy
-				logger.Debug("receiving signal", s)
+				logger.Debug("receiving signal", "signal", s)
 			}
 
 			switch s {
