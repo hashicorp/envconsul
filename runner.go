@@ -318,7 +318,7 @@ func (r *Runner) Run() (<-chan int, error) {
 		cmdEnv = append(cmdEnv, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	args, err := child.CommandPrep(r.config.Exec.Command)
+	args, subshell, err := child.CommandPrep(r.config.Exec.Command)
 	if err != nil {
 		return nil, errors.Wrap(err, "parsing command")
 	}
@@ -334,6 +334,7 @@ func (r *Runner) Run() (<-chan int, error) {
 		KillSignal:   config.SignalVal(r.config.Exec.KillSignal),
 		KillTimeout:  config.TimeDurationVal(r.config.Exec.KillTimeout),
 		Splay:        config.TimeDurationVal(r.config.Exec.Splay),
+		Setpgid:      subshell, // only setpgid for 'sh -c' subshell calls
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "spawning child")
