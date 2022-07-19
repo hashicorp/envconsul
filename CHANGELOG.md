@@ -1,5 +1,19 @@
 ## envconsul CHANGELOG
 
+## v0.13.0 (Jul 19, 2022)
+
+BUG FIXES:
+* Fix using an interactive shell as the command [[GH-306](https://github.com/hashicorp/envconsul/pull/306), [GH-305](https://github.com/hashicorp/envconsul/issues/305)]
+* Fix command argument parsing [GH-304](https://github.com/hashicorp/envconsul/pull/304), [GH-297](https://github.com/hashicorp/envconsul/issues/297)]
+* Version and help output to STDOUT [[GH-289](https://github.com/hashicorp/envconsul/pull/289), [GH-279](https://github.com/hashicorp/envconsul/issues/279)]
+
+IMPROVEMENTS:
+* Support Vault K8s authorization [[GH-281](https://github.com/hashicorp/envconsul/pull/281), [GH-274](https://github.com/hashicorp/envconsul/issues/274)]
+* Allow multiple secrets with same name [[GH-296](https://github.com/hashicorp/envconsul/pull/296)]
+* Don't log  Go scheduler signals [[GH-288](https://github.com/hashicorp/envconsul/pull/288), [GH-285](https://github.com/hashicorp/envconsul/issues/285)]
+* Build darwin-arm64 binaries [[GH-276](https://github.com/hashicorp/envconsul/issues/276)]
+
+
 ## v0.12.1 (Nov 17, 2021)
 
 BUG FIXES:
