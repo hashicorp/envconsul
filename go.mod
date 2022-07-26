@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/hashicorp/consul-template v0.29.2-0.20220718221612-5944affb5034
 	github.com/hashicorp/go-gatedio v0.5.0
-	github.com/hashicorp/go-hclog v1.2.1
+	github.com/hashicorp/go-hclog v1.2.2
 	github.com/hashicorp/go-syslog v1.0.0
 	github.com/hashicorp/hcl v1.0.0
 	github.com/mitchellh/mapstructure v1.5.0
