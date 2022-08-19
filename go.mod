@@ -1,4 +1,4 @@
-module github.com/hashicorp/envconsul
+module github.com/Eitol/envconsul
 
 go 1.12
 
