@@ -85,6 +85,8 @@ type Runner struct {
 
 	// watcher is the watcher this runner is using.
 	watcher *watch.Watcher
+	// dedicated token watcher
+	vaultTokenWatcher *watch.Watcher
 }
 
 // NewRunner accepts a config, command, and boolean value for once mode.
@@ -92,11 +94,33 @@ func NewRunner(config *Config, once bool) (*Runner, error) {
 	namedLogger("runner").Info("creating new runner", "once:", once)
 
 	runner := &Runner{
-		config: config,
-		once:   once,
+		config:           config,
+		once:             once,
+		data:             make(map[string]interface{}),
+		configPrefixMap:  make(map[string]*PrefixConfig),
+		configServiceMap: make(map[string]*ServiceConfig),
+		inStream:         os.Stdin,
+		outStream:        os.Stdout,
+		errStream:        os.Stderr,
+		ErrCh:            make(chan error),
+		DoneCh:           make(chan struct{}),
+		ExitCh:           make(chan int, 1),
 	}
 
-	if err := runner.init(); err != nil {
+	// Create the clientset
+	clients, err := newClientSet(config)
+	if err != nil {
+		return nil, fmt.Errorf("runner: %w", err)
+	}
+
+	// needs to be run early to do initial token handling
+	runner.vaultTokenWatcher, err = watch.VaultTokenWatcher(
+		clients, config.Vault, runner.DoneCh)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := runner.init(clients); err != nil {
 		return nil, err
 	}
 
@@ -154,14 +178,21 @@ func (r *Runner) Start() {
 			logger.Info("quiescence maxTimer fired")
 			r.minTimer, r.maxTimer = nil, nil
 		case err := <-r.watcher.ErrCh():
-			// Intentionally do not send the error back up to the runner. Eventually,
-			// once Consul API implements errwrap and multierror, we can check the
-			// "type" of error and conditionally alert back.
+			// Intentionally do not send the error back up to the runner.
+			// Eventually, once Consul API implements errwrap and multierror,
+			// we can check the "type" of error and conditionally alert back.
 			//
 			// if err.Contains(Something) {
 			//   errCh <- err
 			// }
 			logger.Error("watcher reported error:", err)
+			if r.once {
+				r.ErrCh <- err
+				return
+			}
+		case err := <-r.vaultTokenWatcher.ErrCh():
+			// follow same pattern as primary watcher
+			logger.Error("vault watcher reported error:", err)
 			if r.once {
 				r.ErrCh <- err
 				return
@@ -202,7 +233,7 @@ func (r *Runner) Stop() {
 
 	logger := namedLogger("runner")
 	logger.Info("stopping")
-	r.stopWatcher()
+	r.stopWatchers()
 	r.stopChild()
 
 	if err := r.deletePid(); err != nil {
@@ -727,7 +758,7 @@ func (r *Runner) appendSecrets(
 
 // init creates the Runner's underlying data structures and returns an error if
 // any problems occur.
-func (r *Runner) init() error {
+func (r *Runner) init(clients *dep.ClientSet) error {
 	// Ensure default configuration values
 	r.config = DefaultConfig().Merge(r.config)
 	r.config.Finalize()
@@ -740,35 +771,13 @@ func (r *Runner) init() error {
 	logger := namedLogger("runner")
 	logger.Debug("final config:", string(result))
 
-	// Create the clientset
-	clients, err := newClientSet(r.config)
-	if err != nil {
-		return fmt.Errorf("runner: %s", err)
-	}
-
 	// Set's consul-template's default vault lease duration and renewal thresh
 	// these will go away with hashicat as it will eliminate the setting
 	dep.SetVaultDefaultLeaseDuration(config.TimeDurationVal(r.config.Vault.DefaultLeaseDuration))
 	dep.SetVaultLeaseRenewalThreshold(valueFrom(r.config.Vault.LeaseRenewalThreshold))
 
 	// Create the watcher
-	watcher, err := newWatcher(r.config, clients, r.once)
-	if err != nil {
-		return fmt.Errorf("runner: %s", err)
-	}
-	r.watcher = watcher
-
-	r.data = make(map[string]interface{})
-	r.configPrefixMap = make(map[string]*PrefixConfig)
-	r.configServiceMap = make(map[string]*ServiceConfig)
-
-	r.inStream = os.Stdin
-	r.outStream = os.Stdout
-	r.errStream = os.Stderr
-
-	r.ErrCh = make(chan error)
-	r.DoneCh = make(chan struct{})
-	r.ExitCh = make(chan int, 1)
+	r.watcher = newWatcher(r.config, clients, r.once)
 
 	// Parse and add consul dependencies
 	for _, p := range *r.config.Prefixes {
@@ -817,10 +826,14 @@ func (r *Runner) init() error {
 	return nil
 }
 
-func (r *Runner) stopWatcher() {
+func (r *Runner) stopWatchers() {
 	if r.watcher != nil {
 		namedLogger("runner").Debug("stopping watcher")
 		r.watcher.Stop()
+	}
+	if r.vaultTokenWatcher != nil {
+		namedLogger("runner").Debug("stopping vault token watcher")
+		r.vaultTokenWatcher.Stop()
 	}
 }
 
@@ -940,10 +953,10 @@ func newClientSet(c *Config) (*dep.ClientSet, error) {
 }
 
 // newWatcher creates a new watcher.
-func newWatcher(c *Config, clients *dep.ClientSet, once bool) (*watch.Watcher, error) {
+func newWatcher(c *Config, clients *dep.ClientSet, once bool) *watch.Watcher {
 	namedLogger("runner").Info("creating watcher")
 
-	w, err := watch.NewWatcher(&watch.NewWatcherInput{
+	return watch.NewWatcher(&watch.NewWatcherInput{
 		Clients:             clients,
 		MaxStale:            config.TimeDurationVal(c.MaxStale),
 		Once:                once,
@@ -956,10 +969,6 @@ func newWatcher(c *Config, clients *dep.ClientSet, once bool) (*watch.Watcher, e
 		RetryFuncVault:   watch.RetryFunc(c.Vault.Retry.RetryFunc()),
 		VaultToken:       clients.Vault().Token(),
 	})
-	if err != nil {
-		return nil, errors.Wrap(err, "runner")
-	}
-	return w, nil
 }
 
 // applyConfigEnv applies custom env variables and allowlist/denylist rules from config
