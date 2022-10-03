@@ -1,5 +1,12 @@
 ## envconsul CHANGELOG
 
+## v0.13.1 (Oct 03, 2022)
+
+BUG FIXES:
+* Fix not passing through configuration setting properly to underlying consul-template config [[GH-312](https://github.com/hashicorp/envconsul/pull/312), [GH-310](https://github.com/hashicorp/envconsul/issues/310)]
+* Fix issue with vault agent token file reading [[GH-314](https://github.com/hashicorp/envconsul/pull/314), [GH-275](https://github.com/hashicorp/envconsul/issues/275)]
+
+
 ## v0.13.0 (Jul 19, 2022)
 
 BUG FIXES:
