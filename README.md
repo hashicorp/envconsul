@@ -1,3 +1,4 @@
+[![Project unmaintained](https://img.shields.io/badge/project-unmaintained-red.svg)](https://github.com/hashicorp/envconsul/issues/320)
 [![Go Reference](https://pkg.go.dev/badge/github.com/hashicorp/envconsul.svg)](https://pkg.go.dev/github.com/hashicorp/envconsul)
 [![build](https://github.com/hashicorp/envconsul/actions/workflows/build.yml/badge.svg)](https://github.com/hashicorp/envconsul/actions/workflows/build.yml)
 [![ci](https://github.com/hashicorp/envconsul/actions/workflows/ci.yml/badge.svg)](https://github.com/hashicorp/envconsul/actions/workflows/ci.yml)
