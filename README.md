@@ -105,7 +105,7 @@ This short example assumes Consul is installed locally.
     port=80
     ```
 
-For more examples and use cases, please see the [examples](##Examples) in
+For more examples and use cases, please see the [examples](#Examples) in
 this README.
 
 ## Usage
