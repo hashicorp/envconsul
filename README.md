@@ -105,8 +105,8 @@ This short example assumes Consul is installed locally.
     port=80
     ```
 
-For more examples and use cases, please see the [examples folder][examples] in
-this repository.
+For more examples and use cases, please see the [examples](##Examples) in
+this README.
 
 ## Usage
 
@@ -249,7 +249,7 @@ consul {
   }
 }
 
-# This block defines the configuration the the child process to execute and
+# This block defines the configuration of the child process to execute and
 # manage.
 exec {
   # This is the command to execute as a child process. There can be only one
