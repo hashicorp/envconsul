@@ -1,5 +1,10 @@
 ## envconsul CHANGELOG
 
+## v0.13.2 (May 22, 2023)
+
+SECURITY:
+* Update dependencies to address CVE-2022-41723.
+
 ## v0.13.1 (Oct 03, 2022)
 
 BUG FIXES:
