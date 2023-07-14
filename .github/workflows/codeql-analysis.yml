@@ -26,10 +26,10 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
 
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@v2
+      uses: github/codeql-action/init@46a6823b81f2d7c67ddf123851eea88365bc8a67 # codeql-bundle-v2.13.5
       with:
         languages: ${{ matrix.language }}
         # If you wish to specify custom queries, you can do so here or in
@@ -43,7 +43,7 @@ jobs:
 
     # compile?
     - name: Autobuild
-      uses: github/codeql-action/autobuild@v2
+      uses: github/codeql-action/autobuild@46a6823b81f2d7c67ddf123851eea88365bc8a67 # codeql-bundle-v2.13.5
 
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v2
+      uses: github/codeql-action/analyze@46a6823b81f2d7c67ddf123851eea88365bc8a67 # codeql-bundle-v2.13.5
