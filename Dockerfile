@@ -26,7 +26,12 @@ LABEL revision=$PRODUCT_REVISION
 ARG UID=100
 ARG GID=1000
 # Create a non-root user to run the software.
-RUN addgroup -g ${GID} ${BIN_NAME} \
+# Install security updates not included in alpine:3.18.4.
+# libcrypto3, libssl3: CVE-2023-5363 CVE-2023-5678
+RUN apk --no-cache upgrade \
+    libcrypto3 \
+    libssl3 \
+    && addgroup -g ${GID} ${BIN_NAME} \
     && adduser -u ${UID} -S -G ${BIN_NAME} ${BIN_NAME}
 
 # where the build system stores the builds
