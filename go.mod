@@ -1,6 +1,6 @@
 module github.com/hashicorp/envconsul
 
-go 1.20
+go 1.22.4
 
 require (
 	github.com/hashicorp/consul-template v0.33.0
