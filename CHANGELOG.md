@@ -1,5 +1,14 @@
 ## envconsul CHANGELOG
 
+## v0.13.3 (Jan 17, 2025)
+
+SECURITY:
+* Critical Golang vulnerability in v0.13.2 [[GH-366](https://github.com/hashicorp/envconsul/pull/366)
+
+BUG FIXES:
+* Add LICENSE file to compiled linux distribution and docker image [[GH-365](https://github.com/hashicorp/envconsul/pull/365)
+
+
 ## v0.13.2 (May 22, 2023)
 
 SECURITY:
