@@ -3,7 +3,7 @@ module github.com/hashicorp/envconsul
 go 1.24
 
 require (
-	github.com/hashicorp/consul-template v0.39.1
+	github.com/hashicorp/consul-template v0.40.0
 	github.com/hashicorp/go-gatedio v0.5.0
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/hashicorp/go-syslog v1.0.0
