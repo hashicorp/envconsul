@@ -14,7 +14,7 @@ populated from Consul or Vault, but the application is unaware; applications
 just read environment variables. This enables extreme flexibility and
 portability for applications across systems.
 
-**The documentation in this README corresponds to the master branch of envconsul. It may contain unreleased features or different APIs than the most recently released version. Please see the Git tag that corresponds to your version of envconsul for the proper documentation.**
+**The documentation in this README corresponds to the `main` branch of envconsul. It may contain unreleased features or different APIs than the most recently released version. Please see the Git tag that corresponds to your version of envconsul for the proper documentation.**
 
 ## Community Support
 
