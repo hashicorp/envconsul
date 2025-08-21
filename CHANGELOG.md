@@ -1,6 +1,6 @@
 ## envconsul CHANGELOG
 
-## v0.13.4 (Jan 17, 2025)
+## v0.13.4 (Aug 21, 2025)
 
 SECURITY:
 * Critical Golang vulnerability in v0.13.3 [[GH-380](https://github.com/hashicorp/envconsul/pull/380)]
