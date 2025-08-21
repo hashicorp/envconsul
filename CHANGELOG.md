@@ -1,5 +1,13 @@
 ## envconsul CHANGELOG
 
+## v0.13.4 (Aug 21, 2025)
+
+SECURITY:
+* Critical Golang vulnerabilities (CVE-2025-22869, CVE-2025-22871) in v0.13.3 [[GH-380](https://github.com/hashicorp/envconsul/pull/380)]
+
+IMPROVEMENTS:
+* Update Golang from 1.22 to 1.25 [[GH-381](https://github.com/hashicorp/envconsul/pull/381)]
+
 ## v0.13.3 (Jan 17, 2025)
 
 SECURITY:
