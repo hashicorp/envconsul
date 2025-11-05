@@ -1,9 +1,9 @@
 module github.com/hashicorp/envconsul
 
-go 1.25.0
+go 1.25.3
 
 require (
-	github.com/hashicorp/consul-template v0.41.1
+	github.com/hashicorp/consul-template v0.41.3
 	github.com/hashicorp/go-gatedio v0.5.0
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/hashicorp/go-syslog v1.0.0
