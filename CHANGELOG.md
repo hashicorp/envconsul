@@ -1,5 +1,10 @@
 ## envconsul CHANGELOG
 
+## UNRELEASED
+
+DEPENDENCIES:
+* Upgrade `github.com/hashicorp/cronexpr` to `v1.1.3` [[GH-408](https://github.com/hashicorp/envconsul/pull/408)]
+
 ## v0.13.4 (Aug 21, 2025)
 
 SECURITY:
