@@ -21,4 +21,11 @@ binary {
 	osv          = true
 	oss_index    = false
 	nvd          = false
+	triage {
+		suppress {
+			vulnerabilites = [
+				"GO-2026-5932",	# fix unavailable at time of writing
+			]
+		}
+	}
 }
