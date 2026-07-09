@@ -1,9 +1,10 @@
 ## envconsul CHANGELOG
 
-## UNRELEASED
+## v0.14.0 (Jul 09, 2026)
 
-DEPENDENCIES:
-* Upgrade `github.com/hashicorp/cronexpr` to `v1.1.3` [[GH-408](https://github.com/hashicorp/envconsul/pull/408)]
+SECURITY:
+* Upgrade github.com/hashicorp/cronexpr to v1.1.3 [[GH-408](https://github.com/hashicorp/envconsul/pull/408)]
+* Update consul-temple to 0.42.1, go to 1.26.4 ([#410](https://github.com/hashicorp/envconsul/pull/410))
 
 ## v0.13.4 (Aug 21, 2025)
 
