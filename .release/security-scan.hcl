@@ -13,4 +13,11 @@ binary {
 	osv          = true
 	oss_index    = false
 	nvd          = false
+	triage {
+		suppress {
+			vulnerabilites = [
+				"GO-2026-5932",	# golang.org/x/crypto/openpgp is unmaintained but not imported by envconsul
+			]
+		}
+	}
 }

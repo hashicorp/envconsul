@@ -1,5 +1,14 @@
 ## envconsul CHANGELOG
 
+## v0.14.1 (Oct 22, 2026)
+
+SECURITY:
+* Bump Go toolchain from 1.26.4 to 1.26.10 to address GO-2026-5856 and HTTP/2 vulnerabilities (GO-2026-6603, GO-2026-6610, GO-2026-6611, GO-2026-6612, GO-2026-6617) [[GH-412](https://github.com/hashicorp/envconsul/pull/412)]
+* Bump consul-template from 0.42.1 to 0.43.1, lifting golang.org/x/net to v0.60.0 and golang.org/x/crypto to v0.57.0, clearing all x/net and x/crypto vulnerability alerts [[GH-413](https://github.com/hashicorp/envconsul/pull/413)]
+
+DEPENDENCIES:
+* Bump github.com/hashicorp/go-syslog from 1.0.0 to 1.0.1 [[GH-420](https://github.com/hashicorp/envconsul/pull/420)]
+
 ## v0.14.0 (Jul 09, 2026)
 
 SECURITY:
