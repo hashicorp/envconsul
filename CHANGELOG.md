@@ -1,5 +1,14 @@
 ## envconsul CHANGELOG
 
+## v0.14.1 (Oct 22, 2026)
+
+SECURITY:
+* Bump Go toolchain from 1.26.4 to 1.26.8 to address GO-2026-5856 (crypto/tls ECH privacy fix) [[GH-412](https://github.com/hashicorp/envconsul/pull/412)]
+* Bump consul-template from 0.42.1 to 0.43.0, clearing x/crypto and x/text vulnerability alerts [[GH-413](https://github.com/hashicorp/envconsul/pull/413)]
+
+DEPENDENCIES:
+* Bump github.com/hashicorp/go-syslog from 1.0.0 to 1.0.1 [[GH-420](https://github.com/hashicorp/envconsul/pull/420)]
+
 ## v0.14.0 (Jul 09, 2026)
 
 SECURITY:
