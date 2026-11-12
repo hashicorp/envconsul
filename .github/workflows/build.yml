@@ -209,7 +209,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Docker Build (Action)
-        uses: hashicorp/actions-docker-build@200254326a30d7b747745592f8f4d226bbe4abe4 # v2.2.0
+        uses: hashicorp/actions-docker-build@595f29357108da6d4767b6a48e5f01f25de0c131 # v2.3.0
         with:
           # Add smoke test here. Below is a sample smoke test that runs the built image
           # and validates the version.
